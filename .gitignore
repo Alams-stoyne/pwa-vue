@@ -3,3 +3,5 @@ mok
 server
 dist
 dev-dist
+.env.production
+.env.development
