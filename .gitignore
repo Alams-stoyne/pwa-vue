@@ -3,5 +3,6 @@ mock/
 server/
 dist/
 dev-dist/
-.env.production
-.env.development
+/.env.development
+/.env.production
+/.gitignore
