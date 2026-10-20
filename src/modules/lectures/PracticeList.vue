@@ -1,11 +1,8 @@
 <template>
   <div class="practice-list">
-    <header class="practice-head">
-      <p class="muted head-label">Задания на сегодня</p>
-      <h2 class="practice-title">{{ theme.currentTheme?.name || '—' }}</h2>
-      <p class="muted meta-line">
-        {{ today }} · выполнено {{ tasks.progress.done }} из {{ tasks.progress.total || '—' }}
-      </p>
+    <header class="practice-head d-grid g8">
+      <div class="practice-label">Задания на сегодня</div>
+      <div class="practice-title"> Для направления Энергия{{ theme.currentTheme?.name || '—' }}</div>
     </header>
 
     <div v-if="tasks.loading" class="list">
@@ -88,14 +85,27 @@ watch(() => theme.selected, (n, o) => {
 </script>
 
 <style scoped>
-.practice-head { margin-bottom: 14px; }
-.head-label {
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: .08em;
-  margin: 0 0 4px;
+.practice-head { 
+  position: relative;
+  font-family: var(--font-family);
+  text-transform: lowercase;
+  color: var(--black);
+  margin-bottom: 16px;
 }
-.practice-title { font-size: 20px; margin: 0 0 4px; letter-spacing: -0.01em; }
+
+.practice-label {
+  font-weight: 700;
+  font-size: 28px;
+  line-height: 87%;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+.practice-title { 
+  font-weight: 400;
+  font-size: 14px;
+  line-height: 120%;
+}
+
 .meta-line { margin: 0; font-size: 13px; }
 
 .list { display: grid; gap: 12px; }

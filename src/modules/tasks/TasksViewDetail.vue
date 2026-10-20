@@ -1,100 +1,118 @@
-<template>
-  <div class="page tasks-page">
-
-    <div class="tabs" role="tablist">
-      <button class="tab" :class="{ active: tab === 'reflection' }" role="tab"
-              :aria-selected="tab === 'reflection'" @click="tab = 'reflection'">рефлексия</button>
-
-      <button class="tab" :class="{ active: tab === 'steps' }" role="tab"
-              :aria-selected="tab === 'steps'" @click="tab = 'steps'">шагомер</button>
-      <span class="tab-indicator"
-            :style="{ transform: `translateX(${tab === 'reflection' ? 0 : 100}%)` }" />
-    </div>
-
-    <section v-show="tab === 'reflection'" class="pane">
-        <ReflectionView />
-    </section>
-    <section v-show="tab === 'steps'" class="pane">
-      <StepsView />
-    </section>
-
-    <!-- <header class="head">
-      <div>
-        <p class="muted head-label">Задания на сегодня</p>
-        <h1>{{ theme.currentTheme?.name || '—' }}</h1>
-      </div>
-      <HelpIcon>
-        Задания обновляются ежедневно и зависят от выбранной темы.
-        Выполнить задание можно один раз и только в день, когда оно выдано.
-      </HelpIcon>
-      <button
-        class="ghost icon-btn"
-        :disabled="loading || !store.online"
-        @click="refresh"
-      ><span :class="{ spin: loading }">↻</span></button>
-    </header>
-
-    <p class="muted meta-line">
-      {{ today }} ·
-      выполнено {{ store.progress.done }} из {{ store.progress.total || '—' }}
-    </p>
-
-    <div v-if="loading" class="list">
-      <div v-for="n in 3" :key="n" class="card skeleton pulse">
-        <div class="sk-line sk-line--title" />
-        <div class="sk-line sk-line--text" />
-      </div>
-    </div>
-
-    <div v-else-if="!store.list.length" class="empty">
-      <span class="empty-emoji">🎯</span>
-      <h3>Пока нет заданий</h3>
-      <p class="muted">На сегодня для темы «{{ theme.currentTheme?.name }}» заданий нет.</p>
-    </div>
-
-    <div v-else class="list">
-      <article
-        v-for="(t, i) in store.list"
-        :key="t.ID_TASK"
-        class="card task rise"
-        :class="{ done: store.isDone(t.ID_TASK) }"
-        :style="{ animationDelay: i * 60 + 'ms' }"
-      >
-        <header class="task-head">
-          <span class="task-index">#{{ i + 1 }}</span>
-          <h3 class="task-title">{{ t.TITLE }}</h3>
-          <transition name="fade">
-            <span v-if="store.isDone(t.ID_TASK)" class="task-badge">✓ Выполнено</span>
-          </transition>
-        </header>
-        <p class="task-text muted">{{ t.TEXT }}</p>
-        <div class="task-footer">
-          <transition name="fade" mode="out-in">
-            <span v-if="store.isDone(t.ID_TASK)" key="d" class="task-done-note muted">
-              Задание выполнено
-            </span>
-            <button v-else key="b" @click="complete(t)">Отметить выполненным</button>
-          </transition>
-        </div>
-      </article>
-    </div> -->
-  </div>
-</template>
-
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import ReflectionView from '../reflection/ReflectionView.vue'
-import StepsView from '../steps/StepsHomeView.vue'
-import { useAppBackground } from '../core/composables/useAppBackground'
-const { setBackground, clearBackground } = useAppBackground()
+import { useRoute } from 'vue-router'
+import { useTasksStore } from './store'
+import { useConsentStore } from '../consent/store'
+import { fetchTasksByThemeDate } from './api'
 
-const tab = ref('reflection')
+const route = useRoute()
+const tasksStore = useTasksStore()
+const consent = useConsentStore()
 
-onMounted(() => {
-  setBackground({ url: 'backgrounds/bg_frame.jpg' })
+const task = ref(null)
+const loading = ref(false)
+const marking = ref(false)
+const error = ref('')
+
+const taskId = String(route.params.id)
+
+// ID в JSON имеет вид "{theme}-{date}", например "5-2026-10-20".
+function parseId(id) {
+  const i = id.indexOf('-')
+  if (i === -1) return { theme: '', date: '' }
+  return { theme: id.slice(0, i), date: id.slice(i + 1) }
+}
+
+const taskDate = computed(() => task.value?.DATE || parseId(taskId).date)
+
+const isDone = computed(() => {
+  if (!task.value) return false
+  return tasksStore.isDone(task.value.ID, taskDate.value)
 })
+
+const hasConsent = computed(() => consent.isGranted)
+
+async function loadTask() {
+  const found = tasksStore.list.find(t => String(t.ID) === taskId)
+  if (found) { task.value = found; return }
+
+  const { theme, date } = parseId(taskId)
+  if (!theme || !date) { error.value = 'Некорректная ссылка на практику'; return }
+
+  loading.value = true
+  try {
+    const list = await fetchTasksByThemeDate(theme, date)
+    task.value = list.find(t => String(t.ID) === taskId) || null
+    if (!task.value) error.value = 'Практика не найдена'
+  } catch {
+    error.value = 'Не удалось загрузить практику'
+  } finally {
+    loading.value = false
+  }
+}
+
+async function markDone() {
+  if (!task.value || !hasConsent.value || isDone.value) return
+  marking.value = true
+  error.value = ''
+  try {
+    await tasksStore.complete(task.value)
+  } catch (e) {
+    error.value = e?.message === 'CONSENT_REQUIRED'
+      ? 'Необходимо согласие на обработку персональных данных'
+      : 'Не удалось отметить практику'
+  } finally {
+    marking.value = false
+  }
+}
+
+onMounted(loadTask)
 </script>
 
-<style scoped>
+<template>
+  <div class="page practice-detail">
+    <div v-if="loading" class="state">Загрузка…</div>
+    <div v-else-if="!task && error" class="state error">{{ error }}</div>
 
-</style>
+    <template v-else-if="task">
+      <header class="detail-head">
+        <h1>{{ task.TITLE }}</h1>
+        <p v-if="task.DESCRIPTION" class="detail-desc">{{ task.DESCRIPTION }}</p>
+        <img v-if="task.COVER" :src="task.COVER" :alt="task.TITLE" class="detail-cover" />
+      </header>
+
+      <div v-if="task.TEXT" class="detail-content" v-html="task.TEXT" />
+
+      <a
+        v-if="task.VIDEO_LINK"
+        :href="task.VIDEO_LINK"
+        target="_blank"
+        rel="noopener"
+        class="detail-video"
+      >
+        Смотреть видео
+      </a>
+
+      <div class="detail-actions">
+        <span v-if="isDone" class="badge-done">✓ Практика выполнена</span>
+
+        <p v-else-if="!hasConsent" class="consent-warning">
+          Чтобы отметить практику выполненной, необходимо
+          <router-link to="/onboarding/consent">согласие на обработку персональных данных</router-link>.
+        </p>
+
+        <button
+          v-else
+          class="btn btn-primary"
+          type="button"
+          :disabled="marking"
+          @click="markDone"
+        >
+          {{ marking ? 'Отправка…' : 'Отметить выполненным' }}
+        </button>
+
+        <p v-if="error" class="error-text">{{ error }}</p>
+      </div>
+    </template>
+  </div>
+</template>

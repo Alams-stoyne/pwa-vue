@@ -123,6 +123,19 @@ const routes = [
         : { path: '/training' },
     } },
 
+    {
+      path: '/training/practices/:id',
+      name: 'PracticeDetail',
+      component: () => import('../modules/tasks/TasksViewDetail.vue'),
+      meta: {
+        auth: true,
+        title: 'Практика',
+        viewBackTitle: true,
+        back: true,
+        backTo: { path: '/training', query: { tab: 'practices' } },
+      },
+    },
+
   { path: '/training/storage', component: LectureStorageView,
     meta: { auth: true, title: 'Материалы прошлых дней', viewBackTitle: true, back: true, backTo: { path: '/training' } } },
 

@@ -1,25 +1,9 @@
 <template>
   <div class="page training-page">
-    <!-- <header class="head">
-      <h1>Обучение</h1>
-      <button class="ghost icon-btn" :disabled="lectures.loading || !lectures.online" @click="lectures.loadAll({ force: true })">
-        <span :class="{ spin: lectures.refreshing }">↻</span>
-      </button>
-      <div class="head-actions">
-        <HelpIcon label="О разделах">
-          «Лекции» — материалы по направлениям и зарядка.
-          «Практики» — ежедневные задания для вашего направления.
-        </HelpIcon>
-      </div>
-    </header> -->
-
     <div class="tabs" role="tablist">
-      <button class="tab" :class="{ active: tab === 'lectures' }" role="tab"
-              :aria-selected="tab === 'lectures'" @click="tab = 'lectures'">Лекции</button>
-      <button class="tab" :class="{ active: tab === 'practice' }" role="tab"
-              :aria-selected="tab === 'practice'" @click="tab = 'practice'">Практики</button>
-      <span class="tab-indicator"
-            :style="{ transform: `translateX(${tab === 'lectures' ? 0 : 100}%)` }" />
+        <button class="tab" :class="{ active: tab === 'lectures' }" role="tab" :aria-selected="tab === 'lectures'" @click="tab = 'lectures'">Лекции</button>
+        <button class="tab" :class="{ active: tab === 'practice' }" role="tab" :aria-selected="tab === 'practice'" @click="tab = 'practice'">Практики</button>
+        <span class="tab-indicator" :style="{ transform: `translateX(${tab === 'lectures' ? 0 : 100}%)` }" />
     </div>
 
     <section v-show="tab === 'lectures'" class="pane">
@@ -64,7 +48,8 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import HelpIcon from '../../components/HelpIcon.vue'
 import LectureSlider from './LectureSlider.vue'
 import PracticeList from './PracticeList.vue'
@@ -78,8 +63,24 @@ const { setBackground, clearBackground } = useAppBackground()
 const lectures = useLecturesStore()
 const theme = useThemeStore()
 const toast = useToast()
+const route = useRoute()
+const router = useRouter()
 
-const tab = ref('lectures')
+// Возврат из детального просмотра практики (meta.backTo) приходит с
+// ?tab=practice. На случай старых ссылок (?tab=practices) — принимаем оба.
+const initialTab = (route.query.tab === 'practice' || route.query.tab === 'practices')
+  ? 'practice'
+  : 'lectures'
+const tab = ref(initialTab)
+
+// Синхронизируем выбранный таб с query — чтобы «Назад» из детального
+// просмотра возвращал именно на нужную вкладку, и ссылку можно было шарить.
+watch(tab, (v) => {
+  const query = { ...route.query }
+  if (v === 'practice') query.tab = 'practice'
+  else delete query.tab
+  router.replace({ query })
+})
 
 const themeName = computed(() => theme.currentTheme?.name || '—')
 const themeEmoji = computed(() => theme.currentTheme?.emoji || '')

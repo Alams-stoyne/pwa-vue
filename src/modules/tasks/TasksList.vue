@@ -1,111 +1,42 @@
+<script setup>
+import { useRouter } from 'vue-router'
+import { useTasksStore } from './store'
+
+const router = useRouter()
+const store = useTasksStore()
+
+function openDetail(task) {
+  router.push({ name: 'PracticeDetail', params: { id: task.ID } })
+}
+</script>
+
 <template>
-  <div class="page tasks-page">
-    <header class="head">
-      <div>
-        <p class="muted head-label">Задания на сегодня</p>
-        <h1>{{ theme.currentTheme?.name || '—' }}</h1>
-      </div>
-      <HelpIcon>
-        Задания обновляются ежедневно и зависят от выбранной темы.
-        Выполнить задание можно один раз и только в день, когда оно выдано.
-      </HelpIcon>
-      <button
-        class="ghost icon-btn"
-        :disabled="loading || !store.online"
-        @click="refresh"
-      ><span :class="{ spin: loading }">↻</span></button>
-    </header>
-
-    <p class="muted meta-line">
-      {{ today }} ·
-      выполнено {{ store.progress.done }} из {{ store.progress.total || '—' }}
-    </p>
-
-    <div v-if="loading" class="list">
-      <div v-for="n in 3" :key="n" class="card skeleton pulse">
-        <div class="sk-line sk-line--title" />
-        <div class="sk-line sk-line--text" />
-      </div>
+  <div class="tasks-list">
+    <div v-if="store.loading" class="tasks-state">Загрузка…</div>
+    <div v-else-if="!store.list.length" class="tasks-state">
+      Практик на сегодня нет
     </div>
 
-    <div v-else-if="!store.list.length" class="empty">
-      <span class="empty-emoji">🎯</span>
-      <h3>Пока нет заданий</h3>
-      <p class="muted">На сегодня для темы «{{ theme.currentTheme?.name }}» заданий нет.</p>
-    </div>
-
-    <div v-else class="list">
+    <template v-else>
       <article
-        v-for="(t, i) in store.list"
-        :key="t.ID_TASK"
-        class="card task rise"
-        :class="{ done: store.isDone(t.ID_TASK) }"
-        :style="{ animationDelay: i * 60 + 'ms' }"
+        v-for="t in store.list"
+        :key="t.ID"
+        class="task-card"
+        role="button"
+        tabindex="0"
+        @click="openDetail(t)"
+        @keydown.enter="openDetail(t)"
       >
-        <header class="task-head">
-          <span class="task-index">#{{ i + 1 }}</span>
+        <img v-if="t.COVER" :src="t.COVER" :alt="t.TITLE" class="task-cover" loading="lazy" />
+        <div class="task-body">
           <h3 class="task-title">{{ t.TITLE }}</h3>
-          <transition name="fade">
-            <span v-if="store.isDone(t.ID_TASK)" class="task-badge">✓ Выполнено</span>
-          </transition>
-        </header>
-        <p class="task-text muted">{{ t.TEXT }}</p>
-        <div class="task-footer">
-          <transition name="fade" mode="out-in">
-            <span v-if="store.isDone(t.ID_TASK)" key="d" class="task-done-note muted">
-              Задание выполнено
-            </span>
-            <button v-else key="b" @click="complete(t)">Отметить выполненным</button>
-          </transition>
+          <p v-if="t.DESCRIPTION" class="task-desc">{{ t.DESCRIPTION }}</p>
         </div>
+        <span v-if="store.isDone(t.ID)" class="task-done">✓ Выполнено</span>
       </article>
-    </div>
+    </template>
   </div>
 </template>
-
-<script setup>
-import { computed, onMounted, watch } from 'vue'
-import HelpIcon from '../../components/HelpIcon.vue'
-import { useTasksStore } from './store'
-import { useThemeStore } from '../theme/store'
-import { useToast } from '../core/composables/useToast'
-
-const store = useTasksStore()
-const theme = useThemeStore()
-const toast = useToast()
-
-const today = computed(() => {
-  const d = new Date()
-  const months = ['янв','фев','мар','апр','мая','июн','июл','авг','сен','окт','ноя','дек']
-  return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`
-})
-
-const loading = computed(() => store.loading)
-
-function refresh() {
-  if (!store.online) return
-  store.load({ force: true })
-}
-
-function complete(task) {
-  const ok = store.complete(task)
-  if (ok) toast.success('Задание выполнено')
-}
-
-watch(() => store.error, (v) => {
-  if (!v || v === 'OFFLINE_EMPTY') return
-  toast.error(v)
-})
-
-onMounted(() => {
-  theme.load()
-  store.initNetworkWatcher()
-  store.flushQueue()
-  store.load()
-})
-
-watch(() => theme.selected, (n, o) => { if (n && n !== o) store.load({ force: true }) })
-</script>
 
 <style scoped>
 .head { display: flex; align-items: center; gap: 8px; }

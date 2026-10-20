@@ -8,6 +8,7 @@ import { useAuthStore } from '../auth/store'
 import { useThemeStore } from '../theme/store'
 import { useStatsStore } from '../stats/store'
 import { useHomeStore } from '../home/store'
+import { useConsentStore } from '../consent/store'
 import { isOffline, OfflineError } from '../core/utils/network'
 
 const LS_DONE = 'tasks.doneKeys'
@@ -38,11 +39,16 @@ export const useTasksStore = defineStore('tasks', {
   }),
 
   getters: {
-    isDone: (s) => (taskId) => s.doneKeys.includes(`${s.loadedDate}:${taskId}`),
+    // Второй аргумент — явная дата (для детального просмотра прошлых дней).
+    // Без него используется loadedDate (для списка «сегодня»).
+    isDone: (s) => (taskId, date = s.loadedDate) => {
+      if (!taskId || !date) return false
+      return s.doneKeys.includes(`${date}:${taskId}`)
+    },
     progress: (s) => {
       if (!s.list.length) return { done: 0, total: 0 }
       const key = (id) => `${s.loadedDate}:${id}`
-      const done = s.list.filter((t) => s.doneKeys.includes(key(t.ID_TASK))).length
+      const done = s.list.filter((t) => s.doneKeys.includes(key(t.ID))).length
       return { done, total: s.list.length }
     },
   },
@@ -106,9 +112,15 @@ export const useTasksStore = defineStore('tasks', {
     },
 
     async complete(task) {
-      const today = localDate()
-      if (this.loadedDate !== today) return false
-      const key = `${today}:${task.ID_TASK}`
+      // Без согласия на обработку ПД отметка недоступна —
+      // проверяем на уровне действия, чтобы нельзя было обойти через UI.
+      const consent = useConsentStore()
+      if (!consent.isGranted) {
+        throw new Error('CONSENT_REQUIRED')
+      }
+
+      const date = task.DATE || localDate()
+      const key = `${date}:${task.ID}`
       if (this.doneKeys.includes(key)) return false
 
       this.doneKeys.push(key)
@@ -127,7 +139,6 @@ export const useTasksStore = defineStore('tasks', {
       if (isOffline()) {
         const q = queueFromLS(); q.push(payload)
         localStorage.setItem(LS_QUEUE, JSON.stringify(q))
-        // Виджет «Сегодня» мог измениться — обновим
         try { useHomeStore().refreshToday() } catch { /* ignore */ }
         return true
       }
@@ -184,7 +195,6 @@ export const useTasksStore = defineStore('tasks', {
 
         const added = this.doneKeys.length - before
 
-        // Если что-то добавилось с сервера — виджет «Сегодня» мог измениться
         if (added > 0) {
           try { useHomeStore().refreshToday() } catch { /* ignore */ }
         }
