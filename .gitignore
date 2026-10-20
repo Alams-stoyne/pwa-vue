@@ -1,7 +1,7 @@
-node_modules
-mok
-server
-dist
-dev-dist
+node_modules/
+mock/
+server/
+dist/
+dev-dist/
 .env.production
 .env.development
