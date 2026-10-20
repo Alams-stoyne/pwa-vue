@@ -2,7 +2,7 @@
   <div class="practice-list">
     <header class="practice-head d-grid g8">
       <div class="practice-label">Задания на сегодня</div>
-      <div class="practice-title"> Для направления Энергия{{ theme.currentTheme?.name || '—' }}</div>
+      <div class="practice-title">Для направления {{ theme.currentTheme?.name || '—' }}</div>
     </header>
 
     <div v-if="tasks.loading" class="list">
@@ -23,24 +23,26 @@
         v-for="(t, i) in tasks.list"
         :key="t.ID_TASK"
         class="card task rise"
-        :class="{ done: tasks.isDone(t.ID_TASK) }"
+        :class="{ done: tasks.isDone(t.ID, t.DATE) }"
         :style="{ animationDelay: i * 60 + 'ms' }"
+        role="button"
+        tabindex="0"
+        @click="openDetail(t)"
+        @keydown.enter="openDetail(t)"
       >
         <header class="task-head">
           <span class="task-index">#{{ i + 1 }}</span>
           <h3 class="task-title">{{ t.TITLE }}</h3>
           <transition name="fade">
-            <span v-if="tasks.isDone(t.ID_TASK)" class="task-badge">✓ Выполнено</span>
+            <span v-if="tasks.isDone(t.ID, t.DATE)" class="task-badge">✓ Выполнено</span>
           </transition>
         </header>
         <p class="task-text muted">{{ t.TEXT }}</p>
         <div class="task-footer">
-          <transition name="fade" mode="out-in">
-            <span v-if="tasks.isDone(t.ID_TASK)" key="d" class="task-done-note muted">
-              Задание выполнено
-            </span>
-            <button v-else key="b" @click="complete(t)">Отметить выполненным</button>
-          </transition>
+          <span v-if="tasks.isDone(t.ID, t.DATE)" class="task-done-note muted">
+            Задание выполнено
+          </span>
+          <span v-else class="task-open muted">Подробнее →</span>
         </div>
       </article>
     </div>
@@ -48,23 +50,19 @@
 </template>
 
 <script setup>
-import { computed, onMounted, watch } from 'vue'
+import { onMounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { useTasksStore } from '../tasks/store'
 import { useThemeStore } from '../theme/store'
 import { useToast } from '../core/composables/useToast'
 
+const router = useRouter()
 const tasks = useTasksStore()
 const theme = useThemeStore()
 const toast = useToast()
 
-const today = computed(() => {
-  const d = new Date()
-  const months = ['янв','фев','мар','апр','мая','июн','июл','авг','сен','окт','ноя','дек']
-  return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`
-})
-
-function complete(task) {
-  if (tasks.complete(task)) toast.success('Задание выполнено')
+function openDetail(task) {
+  router.push({ name: 'PracticeDetail', params: { id: task.ID_TASK } })
 }
 
 watch(() => tasks.error, (v) => {
@@ -109,7 +107,13 @@ watch(() => theme.selected, (n, o) => {
 .meta-line { margin: 0; font-size: 13px; }
 
 .list { display: grid; gap: 12px; }
-.task { padding: 16px; }
+.task {
+  padding: 16px;
+  cursor: pointer;
+  transition: transform var(--t-base), box-shadow var(--t-base);
+}
+.task:hover { transform: translateY(-1px); }
+.task:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .task.done { opacity: .75; }
 .task-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
 .task-index {
@@ -124,7 +128,7 @@ watch(() => theme.selected, (n, o) => {
 .task-text { margin: 0 0 14px; font-size: 14px; line-height: 1.5; }
 .task-footer { display: flex; justify-content: flex-end; }
 .task-done-note { font-size: 13px; }
-.task-footer button { padding: 10px 16px; }
+.task-open { font-size: 13px; }
 
 .empty {
   text-align: center;

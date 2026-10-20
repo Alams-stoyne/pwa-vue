@@ -27,13 +27,13 @@ const taskDate = computed(() => task.value?.DATE || parseId(taskId).date)
 
 const isDone = computed(() => {
   if (!task.value) return false
-  return tasksStore.isDone(task.value.ID, taskDate.value)
+  return tasksStore.isDone(task.value.ID_TASK, taskDate.value)
 })
 
 const hasConsent = computed(() => consent.isGranted)
 
 async function loadTask() {
-  const found = tasksStore.list.find(t => String(t.ID) === taskId)
+  const found = tasksStore.list.find(t => String(t.ID_TASK) === taskId)
   if (found) { task.value = found; return }
 
   const { theme, date } = parseId(taskId)
@@ -101,18 +101,22 @@ onMounted(loadTask)
           <router-link to="/onboarding/consent">согласие на обработку персональных данных</router-link>.
         </p>
 
+        <p v-if="error" class="error-text">{{ error }}</p>
+
+      </div>
+
+      <div class="bottom-action">
         <button
-          v-else
-          class="btn btn-primary"
+          v-if="!isDone && hasConsent"
+          class="btn btn-primary btn-center"
           type="button"
           :disabled="marking"
           @click="markDone"
         >
-          {{ marking ? 'Отправка…' : 'Отметить выполненным' }}
-        </button>
-
-        <p v-if="error" class="error-text">{{ error }}</p>
+          {{ marking ? 'Отправка…' : 'готово' }}
+        </button>  
       </div>
+
     </template>
   </div>
 </template>
