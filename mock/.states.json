@@ -1,0 +1,24 @@
+{
+  "cfe91ddba2fd5c50f2a323ee25218fad2bbb2d51": {
+    "PROFILE": {
+      "FIO": "",
+      "NICKNAME": "21",
+      "WORKPLACE": "x5-hr"
+    },
+    "QUIZ": {
+      "DONE": true,
+      "RECOMMENDED": "energy",
+      "ANSWERS": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "THEME": {
+      "SELECTED": "energy"
+    }
+  }
+}

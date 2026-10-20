@@ -1,0 +1,16 @@
+{
+    "name": "X5 - День здоровья",
+    "short_name": "X5 - День здоровья",
+    "start_url": "/",
+    "scope": "/",
+    "display": "standalone",
+    "display_override": ["standalone", "minimal-ui", "fullscreen"],
+    "background_color": "#FFFFFF",
+    "theme_color": "#0F5A05",
+    "description": "X5 - День здоровья",
+    "lang": "ru-RU",
+    "icons": [
+        { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+        { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+    ]
+}

@@ -1,0 +1,24 @@
+server/
+├── .htaccess
+├── index.php            # роутер + все хендлеры
+├── config.php           # конфиг (VAPID, habits, rate, CORS)
+├── storage.php          # JSON-хранилище
+├── data.php             # контент (лекции, статьи, задания)
+├── push.php             # web-push обёртка
+├── scheduler.php        # cron-задача напоминаний
+├── composer.json        # для web-push
+├── storage/             # данные
+│   ├── .htaccess        # deny all
+│   ├── bindings.json
+│   ├── states.json
+│   ├── reads.json
+│   ├── tasks.json
+│   ├── habits.json
+│   ├── subscriptions.json
+│   ├── notifications_log.json
+│   ├── push_history.json
+│   └── rate_buckets.json
+└── vendor/              # после composer install
+
+
+https://v12.x5hd.ru/?uid=1976e3a0aea80151ce4a2590edf400172da01d0e
