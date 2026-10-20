@@ -166,8 +166,6 @@ const routes = [
     meta: { auth: true, title: 'Правила шагомера', viewBackTitle: true, back: true, hideNav: true,
       backTo: { path: '/dayTask', query: { tab: 'steps' } } } },
 
-  { path: '/archive', redirect: '/training/storage' },
-
   { path: '/:pathMatch(.*)*', component: HomeView,
     meta: { auth: true, title: 'Главная', back: false } },
 ]
