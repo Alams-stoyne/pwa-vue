@@ -1,8 +1,0 @@
-node_modules/
-mock/
-server/
-dist/
-dev-dist/
-/.env.development
-/.env.production
-/.gitignore
