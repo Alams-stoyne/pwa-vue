@@ -2,7 +2,7 @@
   <div v-if="!store.isGranted && store.isAnswered" class="consent-banner">
     <div class="cb-text">
       <strong>Режим просмотра.</strong>
-      Действия недоступны без согласия на обработку данных.
+      {{ resolvedText }}
     </div>
     <router-link to="/onboarding/consent" class="cb-btn">
       Дать согласие
@@ -11,8 +11,25 @@
 </template>
 
 <script setup>
+import { computed } from 'vue'
 import { useConsentStore } from './store'
+
+const DEFAULT_TEXT = 'Действия недоступны без согласия на обработку данных.'
+
+const props = defineProps({
+  /**
+   * Текст-пояснение после «Режим просмотра.».
+   * Если не передан или пустой — используется текст по умолчанию.
+   */
+  text: {
+    type: String,
+    default: '',
+  },
+})
+
 const store = useConsentStore()
+
+const resolvedText = computed(() => props.text || DEFAULT_TEXT)
 </script>
 
 <style scoped>
@@ -32,6 +49,10 @@ const store = useConsentStore()
   border-radius: var(--radius);
   font-size: 13px;
   color: #21271f;
+}
+.consent-banner.relative{
+  position: relative;
+  margin: 0;
 }
 .cb-text { line-height: 1.4; }
 .cb-btn {

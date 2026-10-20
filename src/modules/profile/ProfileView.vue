@@ -1,5 +1,9 @@
 <template>
   <div class="page profile-page">
+    <!-- <router-link to="/themes?change=1" class="btn btn-primary btn-center">
+      Смена направления
+    </router-link>     -->
+    
     <Mascot ref="mascot" 
       :body-src="`/maskot/body_sport.png`" 
       bubble-text="Привет! Я Зефирчик. Рад тебя видеть на Неделе здоровья и безопасности Х5!"
@@ -12,13 +16,11 @@
     </div>
 
     <router-link to="/support" class="btn btn-secondary">
-      Тех. поддержка
+      Написать администратору
     </router-link>
 
     <div class="bottom-action d-grid">
-      <!-- <router-link to="/themes?change=1" class="btn btn-primary btn-center">
-        Смена направления
-      </router-link> -->
+
       <router-link
         v-if="consent.isGranted"
         to="/profile/edit"
@@ -27,11 +29,8 @@
         Редактировать профиль
       </router-link>
 
-      <div v-else class="consent-warning">
-        Редактирование профиля доступно только после согласия
-        на обработку персональных данных.
-        <router-link to="/onboarding/consent">Дать согласие</router-link>
-      </div>
+      <ConsentBanner v-else :class="'relative'" text="Редактирование профиля доступно только после согласия на обработку персональных данных." />
+
     </div>
   </div>
 </template>
@@ -43,6 +42,7 @@ import { useThemeStore } from '../theme/store'
 import { useConsentStore } from '../consent/store'
 import Mascot from '../../components/Mascot.vue'
 import { useAppBackground } from '../core/composables/useAppBackground'
+import ConsentBanner from '../consent/ConsentBanner.vue'
 
 
 const store = useProfileStore()
@@ -73,4 +73,5 @@ onMounted(() => {
   line-height: 96%;
   text-align: center;
 }
+
 </style>

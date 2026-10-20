@@ -31,7 +31,6 @@ import LectureStorageView from '../modules/lectures/LectureStorageView.vue'
 
 import StatsView from '../modules/stats/StatsView.vue'
 import DayTaskView from '../modules/dayTask/DayTaskView.vue'
-import StepsView from '../modules/steps/StepsView.vue'
 import StepsRulesView from '../modules/steps/StepsRulesView.vue'
 
 import SupportView from '../modules/support/SupportView.vue'
@@ -151,6 +150,7 @@ const routes = [
       title: (r) => r.query.tab === 'steps' ? 'Шагомер' : 'Рефлексия',
       viewBackTitle: true,
       back: true,
+      hideNav: true,
       backTo: { path: '/home' },
     } },
 
@@ -162,12 +162,8 @@ const routes = [
     path: '/dayTask', query: { ...to.query, tab: 'steps' },
   }) },
 
-  { path: '/steps/add', component: StepsView,
-    meta: { auth: true, title: 'Добавить шаги', back: true,
-      backTo: { path: '/dayTask', query: { tab: 'steps' } } } },
-
   { path: '/steps/rules', component: StepsRulesView,
-    meta: { auth: true, title: 'Правила шагомера', back: true,
+    meta: { auth: true, title: 'Правила шагомера', viewBackTitle: true, back: true, hideNav: true,
       backTo: { path: '/dayTask', query: { tab: 'steps' } } } },
 
   { path: '/archive', redirect: '/training/storage' },

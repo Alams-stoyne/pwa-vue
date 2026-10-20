@@ -1,25 +1,5 @@
 <template>
-  <div class="page storage-page">
-
-    <div class="actions">
-      <button
-        type="button"
-        class="btn-secondary sync-btn"
-        :disabled="busy || !store.online"
-        @click="syncAllThemes"
-      >
-        <span v-if="busy" class="sync-spin" aria-hidden="true">↻</span>
-        <span v-else class="sync-arrow" aria-hidden="true">↻</span>
-        {{ busy ? 'Синхронизация…' : 'Синхронизировать 7 дней (все темы)' }}
-      </button>
-
-      <p class="muted sync-hint">
-        <template v-if="lastSyncText">
-          Последняя синхронизация: {{ lastSyncText }}
-        </template>
-        <template v-else>Синхронизация ещё не выполнялась</template>
-      </p>
-    </div>
+  <div class="page storage-page page--bottom-action">
 
     <!-- Чипы-фильтры по темам/разделам — только те, что реально есть в IDB -->
     <div v-if="chips.length > 1" class="chips" role="tablist">
@@ -38,7 +18,7 @@
     </div>
 
     <p class="muted meta-line">
-      Материалов: {{ filteredItems.length }} из {{ items.length }}
+      Материалов: {{ filteredItems.length }} из {{ pastItems.length }}
     </p>
 
     <div v-if="loading" class="list">
@@ -61,7 +41,7 @@
       <span class="empty-emoji">📦</span>
       <h3>Хранилище пусто</h3>
       <p class="muted">
-        Нажмите «Синхронизировать 7 дней (все темы)» — подтянем материалы за последнюю неделю.
+        Нажмите «Синхронизировать 7 дней» — подтянем материалы за последнюю неделю.
       </p>
     </div>
 
@@ -80,14 +60,33 @@
               <span v-if="store.isRead(l.dbKey)" class="read-badge">✓</span>
             </div>
             <p class="lecture-row-desc muted">{{ l.description }}</p>
-            <span class="chip chip--bucket" :style="bucketStyle(l.bucket)">
-              {{ bucketLabel(l.bucket) }}
-            </span>
+            <span class="chip">{{ bucketLabel(l.bucket) }}</span>
           </div>
           <span class="chevron" aria-hidden="true">›</span>
         </router-link>
       </div>
     </section>
+
+    <div class="bottom-action d-grid g10">
+      <button
+        type="button"
+        class="btn btn-secondary btn-center"
+        :disabled="busy || !store.online"
+        @click="syncAllThemes"
+      >
+        <span v-if="busy" class="sync-spin" aria-hidden="true">↻</span>
+        <span v-else class="sync-arrow" aria-hidden="true">↻</span>
+        {{ busy ? 'Синхронизация…' : 'Синхронизировать 7 дней' }}
+      </button>
+
+      <p class="muted sync-hint">
+        <template v-if="lastSyncText">
+          Последняя синхронизация: {{ lastSyncText }}
+        </template>
+        <template v-else>Синхронизация ещё не выполнялась</template>
+      </p>
+    </div>
+
   </div>
 </template>
 
@@ -115,22 +114,64 @@ const busy = computed(() =>
   store.syncing || store.syncingReads || store.syncingPhotos
 )
 
-/** Уникальные bucket'ы, представленные в IDB, с количеством */
+/**
+ * Материалы без сегодняшних.
+ * Всё, что относится к «хранилищу» (счётчики, чипы, группы), должно
+ * считаться именно по этой коллекции — сегодняшние материалы доступны
+ * через раздел «Обучение» и в хранилище не входят.
+ */
+const pastItems = computed(() => {
+  const today = localDate()
+  return items.value.filter((l) => l.publishedDate && l.publishedDate !== today)
+})
+
+/** Индекс темы в themesComputed — для вторичной сортировки «всех остальных» */
+const themeOrder = computed(() => {
+  const map = new Map()
+  themesComputed.value.forEach((t, i) => map.set(t.id, i))
+  return map
+})
+
+/**
+ * Ключ сортировки bucket'ов:
+ *   0 — Общие
+ *   1 — Зарядка
+ *   2 — Выбранное направление
+ *   3 — все остальные направления (по порядку в themesComputed)
+ */
+function bucketSortKey(bucket) {
+  if (bucket === 'lecture-general') return [0, 0]
+  if (bucket === 'lecture-charging') return [1, 0]
+  const id = String(bucket || '').replace(/^lecture-/, '')
+  if (id && id === theme.selected) return [2, 0]
+  return [3, themeOrder.value.get(id) ?? 999]
+}
+
+function compareBuckets(a, b) {
+  const [pa, sa] = bucketSortKey(a)
+  const [pb, sb] = bucketSortKey(b)
+  return pa - pb || sa - sb
+}
+
+/** Уникальные bucket'ы, представленные среди прошлых материалов, с количеством */
 const availableBuckets = computed(() => {
   const map = new Map()
-  for (const l of items.value) {
+  for (const l of pastItems.value) {
     const key = l.bucket || 'unknown'
     map.set(key, (map.get(key) || 0) + 1)
   }
   return map
 })
 
-/** Чипы фильтра: Все + те, что реально есть */
+/** Чипы фильтра: Все + те, что реально есть среди прошлых материалов, в заданном порядке */
 const chips = computed(() => {
+  const buckets = [...availableBuckets.value.entries()]
+    .sort(([a], [b]) => compareBuckets(a, b))
+
   const list = [
-    { key: '', label: 'Все', emoji: '', count: items.value.length },
+    { key: '', label: 'Все', emoji: '', count: pastItems.value.length },
   ]
-  for (const [key, count] of availableBuckets.value.entries()) {
+  for (const [key, count] of buckets) {
     list.push({
       key,
       label: bucketLabel(key),
@@ -142,10 +183,7 @@ const chips = computed(() => {
 })
 
 const filteredItems = computed(() => {
-  const today = localDate()
-  return items.value
-    .filter((l) => l.publishedDate && l.publishedDate !== today)
-    .filter((l) => !filter.value || l.bucket === filter.value)
+  return pastItems.value.filter((l) => !filter.value || l.bucket === filter.value)
 })
 
 const hasTodayOnly = computed(() => {
@@ -162,7 +200,12 @@ const groups = computed(() => {
   }
   return [...map.entries()]
     .sort((a, b) => b[0].localeCompare(a[0]))
-    .map(([date, list]) => ({ date, items: list }))
+    .map(([date, list]) => ({
+      date,
+      // Внутри дня — тот же порядок, что и в чипах:
+      // Общие → Зарядка → выбранное направление → остальные направления
+      items: [...list].sort((a, b) => compareBuckets(a.bucket, b.bucket)),
+    }))
 })
 
 const lastSyncText = computed(() => {
@@ -186,23 +229,6 @@ function bucketEmoji(bucket) {
   if (bucket === 'lecture-charging') return '⚡'
   const id = bucket.replace(/^lecture-/, '')
   return getTheme(id)?.emoji || '📖'
-}
-
-function bucketStyle(bucket) {
-  // Лёгкий цветовой оттенок по теме
-  const palette = {
-    'lecture-general': '#ED5C03',
-    'lecture-charging': '#FFD232',
-  }
-  const id = bucket.replace(/^lecture-/, '')
-  const themeObj = themesComputed.value.find((t) => t.id === id)
-
-  const color = palette[bucket] || (themeObj ? '#015F01' : '#666')
-  return {
-    borderColor: color,
-    color,
-    background: `${color}11`,
-  }
 }
 
 function formatDate(iso) {
@@ -295,20 +321,24 @@ onMounted(async () => {
 .sync-spin { animation: spin 800ms linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-.sync-hint { font-size: 12px; text-align: center; margin: 0; }
+.sync-hint { 
+  font-size: 12px; 
+  text-align: center; 
+  margin: 0; 
+}
 
 /* Чипы фильтра */
 .chips {
+  position: relative;
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
-  overflow-x: auto;
   padding: 4px 2px 10px;
   margin: 0 -18px;
   padding-left: 18px;
   padding-right: 18px;
-  scrollbar-width: none;
 }
-.chips::-webkit-scrollbar { display: none; }
+
 
 .chip {
   flex: 0 0 auto;

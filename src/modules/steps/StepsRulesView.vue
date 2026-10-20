@@ -1,9 +1,5 @@
 <template>
   <div class="page rules-page">
-    <header class="head">
-      <h1>{{ rules.TITLE || 'Правила шагомера' }}</h1>
-    </header>
-
     <p v-if="rules.INTRO" class="intro">{{ rules.INTRO }}</p>
 
     <section class="sections">

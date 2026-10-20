@@ -4,6 +4,12 @@
       Загружаем прогресс…
     </p>
 
+    <div class="rating-text">
+      <p>Каждый день загружай шаги за предыдущий день. Укажи количество и приложи скриншот из приложения-шагомера в разделе рефлексии. </p>
+      <p>Период учёта: утверждённые даты. </p>
+      <p>Приём до дата, время и часовой пояс.</p>
+    </div>
+
     <!-- Прогресс-арка -->
     <section class="arc-block">
       <div class="arc-wrap">
@@ -11,6 +17,10 @@
           <path
             d="M 14 145 A 130.5 130.5 0 0 1 275 145"
             fill="none" stroke="#D0E8FC" stroke-width="14" stroke-linecap="round"
+          />
+          <path
+            d="M 14 145 A 130.5 130.5 0 0 1 275 145"
+            fill="none" stroke="#FFFFFF" stroke-width="14" stroke-linecap="round"
           />
           <path
             d="M 14 145 A 130.5 130.5 0 0 1 275 145"
@@ -26,57 +36,139 @@
           <div v-if="goal" class="arc-goal">из {{ formattedGoal }}</div>
           <div class="arc-label">шагов</div>
         </div>
-      </div>
-
-      <p v-if="!hasSummary && !loadingSummary" class="muted arc-hint">
-        Отправьте первые шаги — прогресс появится здесь.
-      </p>
-    </section>
-
-    <!-- Рейтинг -->
-    <section class="rating-card">
-      <div class="rating-main">
-        <div class="rating-num">
-          <template v-if="rank > 0">#{{ rank }}</template>
-          <template v-else>—</template>
-        </div>
-        <div class="rating-desc">
-          <div class="rating-title">
-            <template v-if="totalUsers > 0">
-              из {{ totalUsers }} участников
-            </template>
-            <template v-else>
-              Пока нет данных о рейтинге
-            </template>
-          </div>
-          <div v-if="todaySteps > 0" class="rating-meta muted">
-            Сегодня зачтено {{ formattedToday }} {{ plural(todaySteps, ['шаг', 'шага', 'шагов']) }}
-          </div>
+        <div class="rating">
+          <div class="rating-num" v-if="rank > 0">#{{ rank }}</div>
+          <div class="rating-num" v-if="totalUsers > 0">из {{ totalUsers }}</div>          
         </div>
       </div>
-
-      <div v-if="topPercent > 0" class="rating-badge">
-        Вы в топ-{{ topPercent }}%
-      </div>
     </section>
-
-    <!-- Действия -->
-    <div class="bottom-action d-grid g12">
-      <router-link to="/steps/add" class="btn btn-primary action-btn">
-        Добавить шаги
-      </router-link>
-      <router-link to="/steps/rules" class="btn btn-secondary action-btn">
-        Правила
-      </router-link>
+    <div class="rating-text">
+      <template v-if="totalUsers > 0">
+        Здесь результаты участников и твоё место среди всех пользователей. Рейтинг обновляется раз в сутки и остаётся предварительным до проверки подтверждений. Итоги: [дата и ссылка]
+      </template>
+      <template v-else>
+        Пока результатов нет. Добавь шаги за вчера и скриншот из шагомера. Рейтинг обновляется раз в сутки, твоё место появится после обновления
+      </template>
     </div>
+
+    <!-- Блок отправки шагов (показывается, если еще не отправляли сегодня) -->
+    <div v-if="!store.isSubmittedToday " class="steps-form d-grid g12">
+      
+      <!-- Поле ввода с превью картинки -->
+      <div class="input-wrapper" v-if="canSubmitWithConsent">
+        <input
+          v-model.number="steps"
+          type="number"
+          inputmode="numeric"
+          :min="0"
+          :max="MAX_STEPS"
+          step="1"
+          placeholder="укажите количество шагов"
+          class="steps-input"
+        />
+        
+        <!-- Превью загруженного изображения -->
+        <div v-if="imagePreview" class="image-preview">
+          <img :src="imagePreview" alt="Скриншот" />
+          <button type="button" class="remove-img" @click="removeImage">✕</button>
+        </div>
+      </div>
+
+      <label class="consent" v-if="canSubmitWithConsent">
+        <input type="checkbox" v-model="localConsent" />
+        <span>согласен на обработку персональных данных</span>
+      </label>
+
+      <!-- Скрытый инпут для выбора файла -->
+      <input 
+        v-if="canSubmitWithConsent"
+        type="file" 
+        ref="fileInput" 
+        accept="image/*" 
+        class="hidden-input" 
+        @change="onFileChange" 
+      />
+
+      <div class="bottom-action d-grid g12">
+        <ConsentBanner v-if="!canSubmitWithConsent" :class="'relative'" text="Для отправки шагов нужно согласие на обработку персональных данных." />
+        
+        <router-link to="/steps/rules" class="btn btn-secondary btn-center">правила</router-link>
+        
+        <!-- Кнопка загрузки / отправки -->
+        <button 
+          v-if="!imagePreview && canSubmitWithConsent" 
+          type="button" 
+          class="btn btn-primary btn-center upload-btn" 
+          :disabled="!canSubmitWithConsent"
+          @click="triggerFileInput"
+        >
+          загрузить изображение
+        </button>
+        
+        <button 
+          v-else-if="canSubmitWithConsent" 
+          type="button" 
+          class="btn btn-primary btn-center" 
+          :disabled="!canSubmit || store.sending || !canSubmitWithConsent"
+          @click="submit"
+        >
+          {{ store.sending ? 'Отправка…' : 'отправить' }}
+        </button>
+      </div>
+    </div>
+
+    <!-- Данные уже отправлены сегодня -->
+    <div v-else class="success-card mt-16">
+      <div class="success-emoji">✓</div>
+      <h2>Шаги отправлены</h2>
+      <p class="muted">Спасибо, данные отправлены на проверку.</p>
+      <p class="timer-text">
+        Следующая отправка через: <strong>{{ timeLeft }}</strong>
+      </p>
+    </div>
+
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
+
 import { useStepsStore } from './store'
+import { useConsentStore } from '../consent/store'
+import ConsentBanner from '../consent/ConsentBanner.vue'
+import { useToast } from '../core/composables/useToast'
+import { useAppBackground } from '../core/composables/useAppBackground'
+const { setBackground, clearBackground } = useAppBackground()
 
 const store = useStepsStore()
+const consentStore = useConsentStore()
+const toast = useToast()
+
+const MAX_STEPS = 99999
+
+// Состояние формы
+const steps = ref(null)
+const localConsent = ref(false)
+const fileInput = ref(null)
+const imagePreview = ref(null)
+const selectedFile = ref(null)
+
+// Состояние таймера
+const timeLeft = ref('')
+let timerInterval = null
+
+const canSubmitWithConsent = computed(() => consentStore.isGranted)
+
+const canSubmit = computed(() => {
+  const n = Number(steps.value)
+  return (
+    Number.isFinite(n) &&
+    n > 0 &&
+    n <= MAX_STEPS &&
+    localConsent.value &&
+    selectedFile.value !== null
+  )
+})
 
 const progressPercent = computed(() => {
   const p = store.progressPercent
@@ -100,21 +192,91 @@ function formatNumber(n) {
   return v.toLocaleString('ru-RU')
 }
 
-function plural(n, forms) {
-  const mod10 = n % 10
-  const mod100 = n % 100
-  if (mod10 === 1 && mod100 !== 11) return forms[0]
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return forms[1]
-  return forms[2]
+// ─── Таймер до следующего дня ───
+function updateTimer() {
+  const now = new Date()
+  // Вычисляем время до следующей полуночи
+  const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
+  const diffMs = tomorrow - now
+
+  if (diffMs <= 0) {
+    timeLeft.value = '00:00:00'
+    return
+  }
+
+  const hours = Math.floor(diffMs / (1000 * 60 * 60))
+  const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60))
+  const seconds = Math.floor((diffMs % (1000 * 60)) / 1000)
+
+  const pad = (n) => String(n).padStart(2, '0')
+  timeLeft.value = `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`
+}
+
+// ─── Логика загрузки файла ───
+function triggerFileInput() {
+  if (!canSubmitWithConsent.value) return
+  fileInput.value?.click()
+}
+
+function onFileChange(event) {
+  const file = event.target.files?.[0]
+  if (!file) return
+
+  // Базовая валидация размера (например, до 5 МБ)
+  if (file.size > 5 * 1024 * 1024) {
+    toast.error('Файл слишком большой (макс. 5МБ)')
+    return
+  }
+
+  selectedFile.value = file
+  imagePreview.value = URL.createObjectURL(file)
+  
+  // Сбрасываем input, чтобы можно было выбрать тот же файл снова
+  event.target.value = ''
+}
+
+function removeImage() {
+  selectedFile.value = null
+  if (imagePreview.value) {
+    URL.revokeObjectURL(imagePreview.value)
+    imagePreview.value = null
+  }
+}
+
+// ─── Отправка ───
+async function submit() {
+  if (!canSubmit.value || store.sending) return
+  if (!canSubmitWithConsent.value) return
+
+  const ok = await store.send({
+    steps: Math.round(Number(steps.value)),
+    images: [selectedFile.value],
+    consent: localConsent.value,
+  })
+  
+  if (ok) {
+    store.loadSummary() // Обновляем арку после отправки
+    // UI переключится автоматически, так как store.isSubmittedToday станет true
+  } else if (store.error) {
+    toast.error(store.error)
+  }
 }
 
 onMounted(() => {
+  setBackground({ url: 'backgrounds/bg_frame.jpg' })
   store.loadSummary()
+  updateTimer()
+  timerInterval = setInterval(updateTimer, 1000)
+})
+
+onUnmounted(() => {
+  if (timerInterval) clearInterval(timerInterval)
+  removeImage()
 })
 </script>
 
 <style scoped>
-.steps-home-panel { padding-bottom: 16px; }
+.steps-home-panel { padding-bottom: 74px; }
 
 .loading { padding: 16px 0; text-align: center; font-size: 14px; }
 
@@ -174,29 +336,7 @@ onMounted(() => {
   text-transform: lowercase;
 }
 
-.arc-hint {
-  margin: 8px 0 0;
-  font-size: 13px;
-  text-align: center;
-}
-
 /* ─── Рейтинг ─── */
-.rating-card {
-  display: grid;
-  gap: 12px;
-  padding: 18px;
-  margin-bottom: 20px;
-  background: #FFFFFF;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-}
-
-.rating-main {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
 .rating-num {
   font-size: 28px;
   font-weight: 800;
@@ -206,51 +346,142 @@ onMounted(() => {
   min-width: 60px;
 }
 
-.rating-desc {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-.rating-title {
+.rating-text {
+  font-family: var(--font-family);
+  font-weight: 400;
   font-size: 14px;
-  font-weight: 600;
+  line-height: 120%;
+  text-transform: lowercase;
+  color: var(--black);
+}
+.rating-text p{
+  margin-bottom: 8px;
+}
+
+/* ─── Форма ─── */
+.steps-form {
+  margin-top: 24px;
+}
+
+.input-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.steps-input {
+  width: 100%;
+  box-sizing: border-box;
+  border-radius: 12px;
+  padding: 20px 24px;
+  outline: none;
+  font-family: var(--font-family);
+  font-weight: 400;
+  font-size: 20px;
+  line-height: 120%;
+  letter-spacing: -0.01em;
+  text-transform: lowercase;
+  color: var(--black);
+  text-align: center;
+}
+.steps-input::placeholder {
+  color: #a3a69a;
+  text-align: left;
+}
+/* Убираем стрелки у number */
+.steps-input::-webkit-outer-spin-button,
+.steps-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.steps-input { -moz-appearance: textfield; }
+
+.image-preview {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 42px;
+  height: 42px;
+}
+
+.image-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.remove-img {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #FFF;
+  color: #000;
+  border: 1px solid #000;
+  font-size: 10px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  padding: 0;
+}
+
+.consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.4;
+  cursor: pointer;
+  margin-bottom: 8px;
+}
+.consent input { 
+  margin-top: 2px; 
+  accent-color: var(--accent);
+  width: 16px;
+  height: 16px;
+}
+
+.hidden-input {
+  display: none;
+}
+
+/* Успех и таймер */
+.success-card {
+  display: grid;
+  gap: 12px;
+  padding: 32px 24px;
+  text-align: center;
+  background: #E6F4EA;
+  border-radius: var(--radius);
+  border: 1px solid #AFE6DD;
+  margin-top: 24px;
+}
+.success-emoji {
+  width: 56px; height: 56px;
+  margin: 0 auto;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 28px;
+  display: grid;
+  place-items: center;
+}
+.success-card h2 { margin: 0; font-size: 20px; }
+.success-card p { margin: 0 0 8px; font-size: 14px; }
+
+.timer-text {
+  font-size: 14px;
+  margin-top: 8px;
   color: #21271f;
 }
-.rating-meta {
-  font-size: 12.5px;
-}
 
-.rating-badge {
-  align-self: flex-start;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: #E6F4EA;
-  color: #0F5A05;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-/* ─── Действия ─── */
-.actions {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.action-btn {
-  width: 100%;
-  max-width: 358px;
-  margin: 0 auto;
-  text-align: center;
-  text-decoration: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 48px;
-}
-
-@media (max-width: 420px) {
-  .arc-value { font-size: 28px; }
-  .rating-num { font-size: 24px; }
+.timer-text strong {
+  font-family: ui-monospace, monospace;
+  font-size: 16px;
+  color: #015f01;
 }
 </style>

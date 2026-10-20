@@ -42,6 +42,15 @@
         </button>
       </form>
     </transition>
+    
+    <Mascot ref="mascot" 
+      :body-src="`/maskot/body_relax.png`" 
+      bubble-text="Привет! Я Зефирчик. Рад тебя видеть на Неделе здоровья и безопасности Х5!"
+      :typewriter-speed="40"
+      emotion="blush"
+      @bubble-complete="onBubbleDone"
+    />  
+
   </div>
 </template>
 
@@ -49,6 +58,9 @@
 import { computed, onMounted } from 'vue'
 import { useReflectionStore } from './store'
 import AppIcon from '../../components/AppIcon.vue'
+import Mascot from '../../components/Mascot.vue'
+import { useAppBackground } from '../core/composables/useAppBackground'
+const { setBackground, clearBackground } = useAppBackground()
 
 const MAX_TEXT = 750
 
@@ -67,6 +79,7 @@ async function submit() {
 }
 
 onMounted(() => {
+  setBackground({ url: 'backgrounds/bg_frame.jpg' })
   if (typeof store.loadStatus === 'function') store.loadStatus()
   if (typeof store.loadTitles === 'function') store.loadTitles()
 })

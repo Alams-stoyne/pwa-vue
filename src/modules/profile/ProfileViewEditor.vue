@@ -10,16 +10,6 @@
       </transition>
     </header>
 
-    <!--
-      Без согласия ПД редактирование запрещено.
-      Показываем предупреждение и блокируем форму.
-    -->
-    <div v-if="!canEdit" class="consent-warning">
-      Редактирование профиля доступно только после согласия
-      на обработку персональных данных.
-      <router-link to="/onboarding/consent">Дать согласие</router-link>
-    </div>
-
     <form @submit.prevent="onSave" :class="{ 'is-disabled': !canEdit }">
       <label>Никнейм
         <input
@@ -42,8 +32,15 @@
         </select>
       </label>
 
-      <div class="actions">
-        <button type="submit" :disabled="store.isSyncing || !canEdit">
+      <Mascot ref="mascot" 
+        :body-src="`/maskot/body_sport.png`" 
+        bubble-text="Привет! Я Зефирчик. Рад тебя видеть на Неделе здоровья и безопасности Х5!"
+        :typewriter-speed="40"
+        @bubble-complete="onBubbleDone"
+      />  
+
+      <div class="bottom-action">
+        <button type="submit" :disabled="store.isSyncing || !canEdit" class="btn btn-primary btn-center">
           {{ store.isSyncing ? 'Отправка…' : 'Сохранить' }}
         </button>
         <button
@@ -67,6 +64,9 @@ import { WORKPLACES } from './workplaces.js'
 import { useConsentStore } from '../consent/store.js'
 import { useToast } from '../core/composables/useToast.js'
 import { useAppBackground } from '../core/composables/useAppBackground.js'
+
+import Mascot from '../../components/Mascot.vue'
+
 
 const store = useProfileStore()
 const consent = useConsentStore()
@@ -142,24 +142,6 @@ async function onSave() {
 .is-syncing .status-dot { animation: pulse 1s ease-in-out infinite; }
 .is-pending { color: #8a6d00; background: rgba(255,193,7,.14); }
 .is-error   { color: var(--danger); background: rgba(178,27,0,.10); }
-
-/* Предупреждение о согласии */
-.consent-warning {
-  margin: 12px 0 16px;
-  padding: 12px 14px;
-  border-radius: 10px;
-  background: #FFF8EC;
-  border: 1px solid #FBE5C6;
-  font-size: 13px;
-  line-height: 1.5;
-  color: #21271f;
-}
-.consent-warning a {
-  color: var(--accent);
-  font-weight: 600;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
 
 form {
   display: grid;
