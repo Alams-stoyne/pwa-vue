@@ -48,7 +48,8 @@ export const useTasksStore = defineStore('tasks', {
     progress: (s) => {
       if (!s.list.length) return { done: 0, total: 0 }
       const key = (id) => `${s.loadedDate}:${id}`
-      const done = s.list.filter((t) => s.doneKeys.includes(key(t.ID))).length
+      // ▼ ИСПРАВЛЕНО: t.ID → t.ID_TASK
+      const done = s.list.filter((t) => s.doneKeys.includes(key(t.ID_TASK))).length
       return { done, total: s.list.length }
     },
   },
@@ -120,7 +121,8 @@ export const useTasksStore = defineStore('tasks', {
       }
 
       const date = task.DATE || localDate()
-      const key = `${date}:${task.ID}`
+      // ▼ ИСПРАВЛЕНО: task.ID → task.ID_TASK
+      const key = `${date}:${task.ID_TASK}`
       if (this.doneKeys.includes(key)) return false
 
       this.doneKeys.push(key)
