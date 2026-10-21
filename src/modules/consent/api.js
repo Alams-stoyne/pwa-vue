@@ -1,6 +1,6 @@
 import { fetchWithTimeout, isOffline, OfflineError } from '../core/utils/network'
 
-const API = import.meta.env.VITE_API_URL
+const API = import.meta.env.VITE_API_URL 
 
 export async function fetchConsentStatus({ ID_USER }) {
   if (isOffline()) throw new OfflineError()
@@ -20,7 +20,7 @@ export async function fetchConsentStatus({ ID_USER }) {
 export async function saveConsent({ ID_USER, GRANTED, LOCAL_DATETIME }) {
   if (isOffline()) throw new OfflineError()
 
-  const res = await fetchWithTimeout(`${API}/consent`, {
+  const res = await fetchWithTimeout(`${API}/consent/send`, {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
