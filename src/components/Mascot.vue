@@ -35,29 +35,49 @@
       @click="onFaceClick"
       aria-hidden="true"
     >
-      <!-- LEFT EYE -->
-      <g class="eye eye-left">
-        <path d="M229.287 270.075C227.635 269.641 224.796 268.446 223.426 266.39" stroke="#512B35" stroke-width="1.90244" stroke-linecap="round"/>
-        <path d="M225.024 272.622C223.333 272.375 220.379 271.503 218.788 269.612" stroke="#512B35" stroke-width="1.90244" stroke-linecap="round"/>
-        <path d="M222.267 276.623C220.559 276.588 217.519 276.09 215.705 274.412" stroke="#512B35" stroke-width="1.90244" stroke-linecap="round"/>
-        <circle cx="231.297" cy="281.071" r="13.7715" fill="white"/>
-        <circle cx="231.296" cy="281.072" r="11.5205" fill="#240007"/>
-        <ellipse cx="228.288" cy="276.669" rx="3.55825" ry="2.66886" fill="white"/>
-        <path d="M238.278 290.237C236.341 291.715 233.921 292.592 231.297 292.592C228.672 292.592 226.253 291.715 224.316 290.237C225.812 288.629 228.38 287.569 231.297 287.569C234.214 287.569 236.782 288.629 238.278 290.237Z" fill="#512B35"/>
-        <circle cx="225.289" cy="284.754" r="1.42683" fill="#512B35"/>
-      </g>
+      <!-- ─── ГЛАЗА: открытые ─── -->
+      <template v-if="activeEmotion !== 'laughing'">
+        <!-- LEFT EYE -->
+        <g class="eye eye-left">
+          <path d="M229.287 270.075C227.635 269.641 224.796 268.446 223.426 266.39" stroke="#512B35" stroke-width="1.90244" stroke-linecap="round"/>
+          <path d="M225.024 272.622C223.333 272.375 220.379 271.503 218.788 269.612" stroke="#512B35" stroke-width="1.90244" stroke-linecap="round"/>
+          <path d="M222.267 276.623C220.559 276.588 217.519 276.09 215.705 274.412" stroke="#512B35" stroke-width="1.90244" stroke-linecap="round"/>
+          <circle cx="231.297" cy="281.071" r="13.7715" fill="white"/>
+          <circle cx="231.296" cy="281.072" r="11.5205" fill="#240007"/>
+          <ellipse cx="228.288" cy="276.669" rx="3.55825" ry="2.66886" fill="white"/>
+          <path d="M238.278 290.237C236.341 291.715 233.921 292.592 231.297 292.592C228.672 292.592 226.253 291.715 224.316 290.237C225.812 288.629 228.38 287.569 231.297 287.569C234.214 287.569 236.782 288.629 238.278 290.237Z" fill="#512B35"/>
+          <circle cx="225.289" cy="284.754" r="1.42683" fill="#512B35"/>
+        </g>
 
-      <!-- RIGHT EYE -->
-      <g class="eye eye-right">
-        <path d="M290.715 270.075C292.368 269.641 295.206 268.446 296.577 266.39" stroke="#512B35" stroke-width="1.90244" stroke-linecap="round"/>
-        <path d="M294.978 272.622C296.668 272.375 299.623 271.503 301.213 269.612" stroke="#512B35" stroke-width="1.90244" stroke-linecap="round"/>
-        <path d="M297.735 276.623C299.443 276.588 302.483 276.09 304.297 274.412" stroke="#512B35" stroke-width="1.90244" stroke-linecap="round"/>
-        <circle cx="288.704" cy="281.071" r="13.7715" fill="white"/>
-        <circle cx="288.704" cy="281.072" r="11.5205" fill="#240007"/>
-        <ellipse cx="285.696" cy="276.668" rx="3.55825" ry="2.66886" fill="white"/>
-        <path d="M295.684 290.237C293.747 291.714 291.328 292.592 288.703 292.592C286.079 292.592 283.659 291.714 281.722 290.237C283.218 288.629 285.786 287.568 288.703 287.568C291.62 287.568 294.189 288.629 295.684 290.237Z" fill="#512B35"/>
-        <circle cx="282.695" cy="284.752" r="1.42683" fill="#512B35"/>
-      </g>
+        <!-- RIGHT EYE -->
+        <g class="eye eye-right">
+          <path d="M290.715 270.075C292.368 269.641 295.206 268.446 296.577 266.39" stroke="#512B35" stroke-width="1.90244" stroke-linecap="round"/>
+          <path d="M294.978 272.622C296.668 272.375 299.623 271.503 301.213 269.612" stroke="#512B35" stroke-width="1.90244" stroke-linecap="round"/>
+          <path d="M297.735 276.623C299.443 276.588 302.483 276.09 304.297 274.412" stroke="#512B35" stroke-width="1.90244" stroke-linecap="round"/>
+          <circle cx="288.704" cy="281.071" r="13.7715" fill="white"/>
+          <circle cx="288.704" cy="281.072" r="11.5205" fill="#240007"/>
+          <ellipse cx="285.696" cy="276.668" rx="3.55825" ry="2.66886" fill="white"/>
+          <path d="M295.684 290.237C293.747 291.714 291.328 292.592 288.703 292.592C286.079 292.592 283.659 291.714 281.722 290.237C283.218 288.629 285.786 287.568 288.703 287.568C291.62 287.568 294.189 288.629 295.684 290.237Z" fill="#512B35"/>
+          <circle cx="282.695" cy="284.752" r="1.42683" fill="#512B35"/>
+        </g>
+      </template>
+
+      <!-- ─── ГЛАЗА: закрытые (дуги) ─── -->
+      <template v-else>
+        <!-- LEFT EYE -->
+        <path 
+          class="eye eye-left" 
+          d="M215.101 277.103C218.929 288.402 235.483 288.442 238.975 277.103" 
+          stroke-width="4.45725" stroke-linecap="round" stroke="#1B0303" 
+        />
+
+        <!-- RIGHT EYE -->
+        <path 
+          class="eye eye-right" 
+          d="M279.391 277.103C283.219 288.402 299.773 288.442 303.265 277.103" 
+          stroke-width="4.45725" stroke-linecap="round" stroke="#1B0303" 
+        />
+      </template>
 
       <!-- CHEEKS -->
       <g class="cheek cheek-left">
@@ -265,10 +285,11 @@ const faceClasses = computed(() => ({
   sad: activeEmotion.value === 'sad',
   surprised: activeEmotion.value === 'surprised',
   blush: activeEmotion.value === 'blush',
+  laughing: activeEmotion.value === 'laughing', 
 }))
 
 async function blink() {
-  if (winkActive.value) return
+  if (winkActive.value || activeEmotion.value === 'laughing') return
   blinkActive.value = false
   await nextTick()
   blinkActive.value = true
@@ -276,6 +297,7 @@ async function blink() {
 }
 
 async function wink() {
+  if (activeEmotion.value === 'laughing') return
   winkActive.value = false
   await nextTick()
   winkActive.value = true
@@ -298,7 +320,7 @@ function scheduleBlink() {
   if (!props.autoBlink) return
   const delay = 2200 + Math.random() * 3800
   blinkTimer = setTimeout(() => {
-    if (!winkActive.value && activeEmotion.value !== 'surprised') blink()
+    if (!winkActive.value && activeEmotion.value !== 'surprised' && activeEmotion.value !== 'laughing') blink()
     scheduleBlink()
   }, delay)
 }
@@ -485,7 +507,6 @@ defineExpose({
 }
 
 .maskot__arrows .arrow {
-  /* Чтобы transform-origin считался по границам каждого arrow */
   transform-box: fill-box;
   transform-origin: center;
   will-change: transform, opacity;

@@ -51,8 +51,8 @@
       </template>
     </div>
 
-    <!-- Блок отправки шагов (показывается, если еще не отправляли сегодня) -->
-    <div v-if="!store.isSubmittedToday " class="steps-form d-grid g12">
+    <!-- 1. Блок отправки шагов (показывается, если еще не отправляли сегодня) -->
+    <div v-if="!store.isSubmittedToday" class="steps-form d-grid g12">
       
       <!-- Поле ввода с превью картинки -->
       <div class="input-wrapper" v-if="canSubmitWithConsent">
@@ -117,11 +117,24 @@
       </div>
     </div>
 
-    <!-- Данные уже отправлены сегодня -->
+    <!-- 2. Данные отправлены, но ЕЩЁ НЕ ПОДТВЕРЖДЕНЫ -->
+    <div v-else-if="!store.isConfirmedToday" class="success-card mt-16 pending-card">
+      <div class="success-emoji pending-emoji">⏳</div>
+      <h2>Данные на проверке</h2>
+      <p class="muted">Шаги отправлены и ожидают подтверждения модератором.</p>
+      <p class="timer-text">
+        Следующая отправка через: <strong>{{ timeLeft }}</strong>
+      </p>
+      <button type="button" class="btn btn-secondary btn-center" @click="store.loadSummary">
+        Обновить статус
+      </button>
+    </div>
+
+    <!-- 3. Данные ПОДТВЕРЖДЕНЫ -->
     <div v-else class="success-card mt-16">
       <div class="success-emoji">✓</div>
-      <h2>Шаги отправлены</h2>
-      <p class="muted">Спасибо, данные отправлены на проверку.</p>
+      <h2>Шаги подтверждены</h2>
+      <p class="muted">Спасибо, данные подтверждены сервером.</p>
       <p class="timer-text">
         Следующая отправка через: <strong>{{ timeLeft }}</strong>
       </p>
@@ -156,6 +169,7 @@ const selectedFile = ref(null)
 // Состояние таймера
 const timeLeft = ref('')
 let timerInterval = null
+let summaryInterval = null // <-- Таймер для опроса сервера
 
 const canSubmitWithConsent = computed(() => consentStore.isGranted)
 
@@ -255,8 +269,7 @@ async function submit() {
   })
   
   if (ok) {
-    store.loadSummary() // Обновляем арку после отправки
-    // UI переключится автоматически, так как store.isSubmittedToday станет true
+    // store.send() сам вызовет loadSummary() для проверки подтверждения
   } else if (store.error) {
     toast.error(store.error)
   }
@@ -264,13 +277,26 @@ async function submit() {
 
 onMounted(() => {
   setBackground({ url: 'backgrounds/bg_frame.jpg' })
+  
+  // 1. Первичная загрузка
   store.loadSummary()
+  
+  // 2. Таймер до конца дня
   updateTimer()
   timerInterval = setInterval(updateTimer, 1000)
+  
+  // 3. Опрос сервера каждые 60 секунд (чтобы узнать о подтверждении)
+  summaryInterval = setInterval(() => {
+    // Опрашиваем только если уже что-то отправлено (незачем спамить сервер, если формы нет)
+    if (store.isSubmittedToday) {
+      store.loadSummary()
+    }
+  }, 60000)
 })
 
 onUnmounted(() => {
   if (timerInterval) clearInterval(timerInterval)
+  if (summaryInterval) clearInterval(summaryInterval)
   removeImage()
 })
 </script>
@@ -449,7 +475,7 @@ onUnmounted(() => {
   display: none;
 }
 
-/* Успех и таймер */
+/* Успех, таймер и статусы */
 .success-card {
   display: grid;
   gap: 12px;
@@ -483,5 +509,14 @@ onUnmounted(() => {
   font-family: ui-monospace, monospace;
   font-size: 16px;
   color: #015f01;
+}
+
+/* Карточка на проверке */
+.pending-card {
+  background: #FFF8EC;
+  border-color: #FBE5C6;
+}
+.pending-emoji {
+  background: #F5A623;
 }
 </style>

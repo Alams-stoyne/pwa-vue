@@ -3,10 +3,10 @@ import { fetchWithTimeout, isOffline, OfflineError } from '../core/utils/network
 const API = import.meta.env.VITE_API_URL
 const CDN = import.meta.env.VITE_CDN_URL
 
-export async function sendSteps({ ID_USER, STEPS, IMAGES, CONSENT, LOCAL_DATETIME }) {
+export async function sendSteps({ ID_USER, STEPS, IMAGES, CONSENT, LOCAL_DATETIME }) { 
   if (isOffline()) throw new OfflineError()
 
-  const res = await fetchWithTimeout(`${API}/steps`, {
+  const res = await fetchWithTimeout(`${API}/steps/send`, {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },

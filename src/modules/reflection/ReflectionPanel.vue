@@ -5,6 +5,7 @@
     </div>
 
     <transition name="fade" appear>
+    <div class="reflection-body">      
       <div v-if="!store.checking && store.sentToday" class="already-card">
         <div class="already-emoji">✓</div>
         <h2>Рефлексия уже отправлена</h2>
@@ -13,41 +14,44 @@
         </p>
         <p v-if="lastSentText" class="muted small">Отправлено: {{ lastSentText }}</p>
       </div>
-
       <form
         v-else-if="!store.checking"
         class="form"
         @submit.prevent="submit"
       >
         <label class="field">
-          <span class="field-label">{{ store.todayTitle || 'Ваши мысли' }}</span>
+          <span class="field-label">{{ store.todayDescription || 'Ваши мысли' }}</span>
           <textarea
             v-model="store.text"
             :maxlength="MAX_TEXT"
             rows="10"
-            placeholder="Поделитесь своими мыслями…"
+            :placeholder="store.todayDescription || 'Поделитесь своими мыслями…'"
           />
           <span class="field-counter muted">{{ store.text.length }} / {{ MAX_TEXT }}</span>
         </label>
 
         <p v-if="store.error" class="error">{{ store.error }}</p>
+        <div class="bottom-action d-grid g12">
+          <ConsentBanner v-if="!canSubmitWithConsent" :class="'relative'" text="Для отправки шагов нужно согласие на обработку персональных данных." />
 
-        <button
-          type="submit"
-          class="btn btn-primary btn-center"
-          :disabled="!store.canSubmit"
-        >
-          <span class="text">{{ store.sending ? 'Отправка…' : 'Отправить' }}</span>
-          <span class="badge">+5 <AppIcon name="apple" :size="21" /></span>
-        </button>
+          <button
+            type="submit"
+            class="btn btn-primary btn-center"
+            :disabled="!store.canSubmit || !canSubmitWithConsent"
+          >
+            <span class="text">{{ store.sending ? 'Отправка…' : 'Отправить' }}</span>
+            <span class="badge">+5 <AppIcon name="apple" :size="21" /></span>
+          </button>  
+        </div>
       </form>
+    </div>
     </transition>
     
     <Mascot ref="mascot" 
       :body-src="`/maskot/body_relax.png`" 
       bubble-text="Привет! Я Зефирчик. Рад тебя видеть на Неделе здоровья и безопасности Х5!"
       :typewriter-speed="40"
-      emotion="blush"
+      emotion="laughing"
       @bubble-complete="onBubbleDone"
     />  
 
@@ -55,16 +59,23 @@
 </template>
 
 <script setup>
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, onUnmounted } from 'vue'
 import { useReflectionStore } from './store'
 import AppIcon from '../../components/AppIcon.vue'
+import { useConsentStore } from '../consent/store'
+import ConsentBanner from '../consent/ConsentBanner.vue'
 import Mascot from '../../components/Mascot.vue'
 import { useAppBackground } from '../core/composables/useAppBackground'
 const { setBackground, clearBackground } = useAppBackground()
+const consentStore = useConsentStore()
+const canSubmitWithConsent = computed(() => consentStore.isGranted)
 
 const MAX_TEXT = 750
 
 const store = useReflectionStore()
+
+// Переменная для хранения ID таймера обновления заголовков
+let titlesTimer = null
 
 const lastSentText = computed(() => {
   if (!store.lastSentAt) return ''
@@ -75,6 +86,7 @@ const lastSentText = computed(() => {
 })
 
 async function submit() {
+  if (!canSubmitWithConsent.value) return
   await store.send()
 }
 
@@ -82,11 +94,35 @@ onMounted(() => {
   setBackground({ url: 'backgrounds/bg_frame.jpg' })
   if (typeof store.loadStatus === 'function') store.loadStatus()
   if (typeof store.loadTitles === 'function') store.loadTitles()
+
+  // Каждые 15 минут проверяем, не изменился ли файл с заголовками на CDN
+  titlesTimer = setInterval(() => {
+    if (typeof store.loadTitles === 'function') {
+      store.loadTitles({ force: true }).catch(() => {})
+    }
+  }, 15 * 60 * 1000)
+})
+
+onUnmounted(() => {
+  if (titlesTimer) clearInterval(titlesTimer)
 })
 </script>
 
 <style scoped>
-.reflection-panel { padding-bottom: 16px; }
+
+.reflection-panel { 
+  position: relative;
+}
+.reflection-body{
+  position: relative;
+  z-index: 1;
+}
+.reflection-panel .maskot{
+  position: fixed;
+  left: 0;
+  bottom: 0;
+  z-index: 0;
+}
 
 .loading { padding: 24px 0; text-align: center; font-size: 14px; }
 
@@ -100,6 +136,14 @@ onMounted(() => {
   color: #015f01;
   letter-spacing: -0.01em;
   line-height: 1.3;
+}
+
+/* Новый стиль для описания */
+.field-description {
+  font-size: 13px;
+  line-height: 1.4;
+  color: #6b7268;
+  margin: 0 0 4px;
 }
 
 .field textarea {
@@ -116,6 +160,7 @@ onMounted(() => {
   resize: vertical;
   min-height: 200px;
   transition: border-color .15s;
+  resize: none;
 }
 .field textarea:focus { border-color: var(--accent); }
 

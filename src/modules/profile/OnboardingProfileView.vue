@@ -54,6 +54,7 @@ import { useProfileStore } from './store'
 import { useQuizStore } from '../quiz/store'
 import { WORKPLACES } from './workplaces'
 import { useToast } from '../core/composables/useToast'
+import { resolveNextOnboardingRoute } from '../onboarding/navigation'
 
 const store = useProfileStore()
 const quiz = useQuizStore()
@@ -70,7 +71,7 @@ watch(() => store.error, (v) => { if (v) toast.error(v) })
 async function onContinue() {
   if (!canContinue.value) return
   await store.save()
-  toast.success('Профиль сохранён')
+  // toast.success('Профиль сохранён')
   const next = await resolveNextOnboardingRoute()
   router.replace(next)
 }

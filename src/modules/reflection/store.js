@@ -42,20 +42,27 @@ export const useReflectionStore = defineStore('reflection', {
 
   getters: {
     canSubmit: (s) =>
-      s.text.trim().length > 50 &&
+      s.text.trim().length > 15 &&
       s.text.length <= 750 &&
       !s.sentToday &&
       !s.sending,
 
     /**
      * Заголовок поля для сегодняшней даты.
-     * Ищется в titlesList по локальной дате YYYY-MM-DD.
-     * Если на сегодня записи нет — «Ваши мысли».
      */
     todayTitle: (s) => {
       const today = localDate()
       const entry = (s.titlesList || []).find((t) => t && t.date === today)
       return entry?.title || 'Ваши мысли'
+    },
+
+    /**
+     * Описание для сегодняшней даты.
+     */
+    todayDescription: (s) => {
+      const today = localDate()
+      const entry = (s.titlesList || []).find((t) => t && t.date === today)
+      return entry?.description || ' Ваши мысли'
     },
   },
 
