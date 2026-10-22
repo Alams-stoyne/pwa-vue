@@ -1,21 +1,20 @@
 <template>
   <div class="page support-page">
     <transition name="fade" appear>
-      <!-- <div v-if="sent" class="success-card">
-        <div class="success-emoji">✓</div>
-        <h2>Обращение отправлено</h2>
-        <p class="muted">Мы получили ваше сообщение и скоро ответим.</p>
-        <button type="button" class="btn-secondary" @click="goBack">
-          Вернуться
-        </button>
-      </div> -->
-
       <form v-if="!sent" class="form" @submit.prevent="submit">
+        
+        <!-- Ссылка на историю обращений (только для авторизованных) -->
+        <div class="tickets-link-wrapper" v-if="isAuthed">
+          <router-link to="/support/tickets" class="tickets-link">
+            Мои обращения
+          </router-link>
+        </div>
+
         <label class="field">
           <textarea
             v-model="text"
             :maxlength="MAX_TEXT"
-            rows="8"
+            rows="12"
             placeholder="Опишите проблему подробнее…"
           />
           <span class="field-counter muted">{{ text.length }} / {{ MAX_TEXT }}</span>
@@ -23,7 +22,6 @@
 
         <ImageUploader v-model="images" :max="MAX_IMAGES" />
 
-        <!-- Согласие — в стиле карточки выбора направления / привычки -->
         <div
           class="consent-card"
           :class="{ selected: consent }"
@@ -80,26 +78,30 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import Mascot from '../../components/Mascot.vue'
 import AppIcon from '../../components/AppIcon.vue'
 import ImageUploader from '../../components/ImageUploader.vue'
 import { useSupportStore } from './store'
+import { useAuthStore } from '../auth/store'
 import { useAppBackground } from '../core/composables/useAppBackground'
 
 const { setBackground } = useAppBackground()
 
-const MAX_TEXT = 250
+const MAX_TEXT = 1000
 const MAX_IMAGES = 5
 
 const store = useSupportStore()
+const auth = useAuthStore()
 const router = useRouter()
+const route = useRoute()
+
+const isAuthed = computed(() => auth.isAuthed)
 
 const text = ref('')
 const images = ref([])
 const consent = ref(false)
 const sent = ref(false)
-// const sent = ref(true)
 
 const canSubmit = computed(() =>
   text.value.trim().length > 0 && consent.value
@@ -112,12 +114,26 @@ function toggleConsent() {
 async function submit() {
   if (!canSubmit.value || store.sending) return
   mascot.value?.showBubble('');
-  mascot.value.showArrows()   
-  const ok = await store.send({
-    text: text.value,
-    images: images.value,
-    consent: consent.value,
-  })
+  mascot.value.showArrows()
+  
+  let ok = false
+
+  if (isAuthed.value) {
+    ok = await store.send({
+      text: text.value,
+      subject: 'Обращение в поддержку',
+      images: images.value,
+      consent: consent.value,
+    })
+  } else {
+    ok = await store.createGuestTicket({
+      text: text.value,
+      images: images.value,
+      uid: route.query.uid ? String(route.query.uid) : undefined,
+      authError: route.query.auth_error ? String(route.query.auth_error) : undefined,
+    })
+  }
+
   if (ok) {
     sent.value = true
     text.value = ''
@@ -139,16 +155,20 @@ function onBubbleDone() {
   }
 }
 
-
 const mascot = ref(null)
 
 onMounted(() => {
   setBackground({ url: '/backgrounds/bg_frame.jpg' })
   store.reset()
+  
+  if (route.query.text) {
+    text.value = String(route.query.text)
+  }
 })
 </script>
 
 <style scoped>
+/* Ваши стили остаются без изменений */
 .support-page {
   position: relative;
 }
@@ -170,6 +190,22 @@ onMounted(() => {
   gap: 18px;
   position: relative;
   z-index: 5;
+}
+
+.tickets-link-wrapper {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: -8px;
+}
+.tickets-link {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent);
+  text-decoration: none;
+  transition: opacity 0.2s;
+}
+.tickets-link:hover {
+  opacity: 0.7;
 }
 
 .field {
@@ -207,7 +243,6 @@ onMounted(() => {
   right: 6px;
 }
 
-/* ─── Карточка согласия (в стиле theme-card / habit-card) ─── */
 .consent-card {
   display: flex;
   align-items: center;
@@ -220,11 +255,7 @@ onMounted(() => {
   -webkit-tap-highlight-color: transparent;
   user-select: none;
   outline: none;
-  transition:
-    transform var(--t-fast),
-    border-color var(--t-fast),
-    box-shadow var(--t-fast),
-    background var(--t-fast);
+  transition: transform var(--t-fast), border-color var(--t-fast), box-shadow var(--t-fast), background var(--t-fast);
 }
 .consent-card:hover {
   transform: translateY(-1px);
@@ -274,37 +305,6 @@ onMounted(() => {
   padding: 8px 12px;
   background: #FDECEA;
   border-radius: 8px;
-}
-
-/* ─── Успех ─── */
-.success-card {
-  display: grid;
-  gap: 14px;
-  padding: 32px 24px;
-  text-align: center;
-  background: #E6F4EA;
-  border-radius: var(--radius);
-  border: 1px solid #AFE6DD;
-  position: relative;
-  z-index: 5;
-}
-.success-emoji {
-  width: 56px;
-  height: 56px;
-  margin: 0 auto;
-  border-radius: 50%;
-  background: var(--accent);
-  color: #fff;
-  font-size: 28px;
-  display: grid;
-  place-items: center;
-}
-.success-card h2 { margin: 0; font-size: 20px; }
-.success-card p { margin: 0; font-size: 14px; }
-.success-card .btn-secondary {
-  justify-self: center;
-  margin-top: 8px;
-  max-width: 240px;
 }
 
 @media (max-width: 420px) {

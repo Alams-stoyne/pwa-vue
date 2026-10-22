@@ -224,36 +224,20 @@ export const useAuthStore = defineStore('auth', {
       } catch {}
 
       const userKeys = [
-        // Онбординг / тест
         'quiz.done', 'quiz.recommended', 'quiz.answers',
         'quiz.questionsCache', 'quiz.questionsCacheAt',
-
-        // Обучение (tutorial)
         'tutorial.done', 'tutorial.cache', 'tutorial.cacheAt',
-
-        // Профиль
         'profile', 'profile.pending', 'profile.syncedAt',
-
-        // Лекции
         'lectures.readKeys', 'lectures.readQueue',
         'lectures.lastSyncAt', 'lectures.lastArchiveSyncAt',
         'lectures.lastReadsSyncAt',
-
-        // Практики (задания)
         'tasks.doneKeys', 'tasks.queue', 'tasks.lastSyncAt',
-
-        // Привычки
         'habits.state', 'habits.queue', 'habits.lastSyncAt',
         'habits.cache', 'habits.cacheAt', 'habits.cacheTheme',
-
-        // Статистика
+        'habits.selectedHabitId', 'habits.selectedHabitData', 
         'stats.local', 'stats.server', 'stats.global', 'stats.times',
-
-        // Главная
         'home.lastSendDate', 'home.lastSyncAt', 'home.queue',
         'home.today', 'home.todayAt',
-
-        // Тема
         'theme.selected', 'theme.themesCache', 'theme.themesCacheAt',
       ]
       for (const k of userKeys) localStorage.removeItem(k)

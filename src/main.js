@@ -69,12 +69,16 @@ const theme = useThemeStore()
 theme.load()
 theme.loadThemes().catch(() => {})
 
-// Привычка — один раз синхронизируем выбор с сервером.
-// Дальше состояние берётся только из localStorage, сеть не нужна.
+// Привычка — не меняется, восстанавливается через STATE.HABIT_SELECTED
+// при POST /auth. Если она уже в LS — loadSelection() с guard'ом
+// вернётся мгновенно, без сетевого запроса. Запрос уйдёт только
+// как fallback, если LS частично потерян, но пользователь авторизован.
 if (auth.idUser) {
   const habits = useHabitsStore()
   habits.reload()
-  habits.loadSelection().catch(() => {})
+  if (!habits.selectedHabitId) {
+    habits.loadSelection().catch(() => {})
+  }
 }
 
 installPwaGuard().catch((e) => {
@@ -84,18 +88,28 @@ installPwaGuard().catch((e) => {
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('message', (event) => {
     const msg = event.data
-    if (!msg || msg.type !== 'notification-navigate' || !msg.url) return
-    console.log('[push] navigate from SW message:', msg.url)
-    try {
-      const target = String(msg.url).split('?')[0]
-      if (router.currentRoute.value.path === target) return
-      router.push(msg.url).catch((e) => {
-        console.warn('[push] router.push failed:', e)
-        router.push('/home')
-      })
-    } catch (e) {
-      console.warn('[push] message handler error:', e)
+    if (!msg || msg.type !== 'notification-navigate') return
+
+    let targetUrl = msg.url
+    if (!targetUrl && msg.ticketId) {
+      targetUrl = `/support/tickets/${msg.ticketId}`
     }
+    if (!targetUrl) return
+
+    console.log('[push] navigate from SW message:', targetUrl)
+
+    router.isReady().then(() => {
+      try {
+        const targetPath = String(targetUrl).split('?')[0]
+        if (router.currentRoute.value.path === targetPath) return
+        router.push(targetUrl).catch((e) => {
+          console.warn('[push] router.push failed:', e)
+          router.push('/home')
+        })
+      } catch (e) {
+        console.warn('[push] message handler error:', e)
+      }
+    })
   })
 }
 
@@ -121,6 +135,7 @@ async function applyPendingNavigation() {
   const url = await readPendingNavigation()
   if (!url) return
   console.log('[push] pending navigation from SW:', url)
+  await router.isReady()
   try {
     const target = String(url).split('?')[0]
     if (router.currentRoute.value.path === target) return

@@ -145,6 +145,11 @@ self.addEventListener('push', function (event) {
     try {
       const parsed = event.data.json()
       data = { ...data, ...parsed }
+      
+      // Если сервер прислал ticketId вместо url — собираем url для поддержки
+      if (parsed.ticketId && !parsed.url) {
+        data.url = `/support/tickets/${parsed.ticketId}`
+      }
     } catch {
       data.body = event.data.text()
     }
@@ -167,7 +172,13 @@ self.addEventListener('notificationclick', function (event) {
   console.log('[SW] notification click', event.notification.data)
   event.notification.close()
 
-  const target = (event.notification.data && event.notification.data.url) || '/'
+  // Берем url из данных уведомления. Если его нет, пробуем собрать из ticketId
+  let target = (event.notification.data && event.notification.data.url) || '/'
+  
+  if (event.notification.data?.ticketId && target === '/') {
+    target = `/support/tickets/${event.notification.data.ticketId}`
+  }
+
   const absoluteUrl = new URL(target, self.location.origin).href
 
   event.waitUntil((async () => {

@@ -31,12 +31,23 @@ export function collectState() {
     THEME: {
       SELECTED: readLS('theme.selected') || null,
     },
+    TUTORIAL: {
+      DONE: readLS('tutorial.done') === '1',
+    },
+    WELCOME_SEEN: readLS('onboarding.welcomeSeen') === '1',
+    // ▼ ИСПРАВЛЕНО: правильный ключ, который использует habits/store.js
+    HABIT_SELECTED: readLS('habits.selectedHabitId') || null,
+    CONSENT: {
+      ANSWERED: readLS('consent.answered') === '1',
+      GRANTED: readLS('consent.granted') === '1',
+      AT: readLS('consent.at') ? Number(readLS('consent.at')) : null,
+    },
   }
 }
 
 export function applyState(state) {
   if (!state) return
-  const { PROFILE, QUIZ, THEME } = state
+  const { PROFILE, QUIZ, THEME, TUTORIAL, WELCOME_SEEN, HABIT_SELECTED, CONSENT } = state
 
   if (PROFILE) {
     const p = {
@@ -62,7 +73,26 @@ export function applyState(state) {
   }
 
   if (THEME?.SELECTED) localStorage.setItem('theme.selected', THEME.SELECTED)
-  else localStorage.removeItem('theme.selected')
+  else if (THEME) localStorage.removeItem('theme.selected')
+
+  if (TUTORIAL?.DONE === true) localStorage.setItem('tutorial.done', '1')
+  if (WELCOME_SEEN === true) localStorage.setItem('onboarding.welcomeSeen', '1')
+
+  // ▼ ИСПРАВЛЕНО: пишем туда, откуда реально читает habits/store.js
+  if (HABIT_SELECTED) {
+    try {
+      localStorage.setItem('habits.selectedHabitId', HABIT_SELECTED)
+    } catch {}
+  }
+
+  if (CONSENT?.ANSWERED) {
+    localStorage.setItem('consent.answered', '1')
+    localStorage.setItem('consent.granted', CONSENT.GRANTED ? '1' : '0')
+    if (CONSENT.AT) {
+      const ts = typeof CONSENT.AT === 'number' ? CONSENT.AT : new Date(CONSENT.AT).getTime()
+      if (Number.isFinite(ts)) localStorage.setItem('consent.at', String(ts))
+    }
+  }
 }
 
 export function applyReads(reads) {
@@ -79,11 +109,6 @@ export function applyTasks(tasks) {
   } catch {}
 }
 
-/**
- * Применить привычки с сервера.
- * Формат: { habitId: [ISO, ISO, ...] }
- * Оставляем только сегодняшние времена.
- */
 export function applyHabits(habits) {
   if (!habits || typeof habits !== 'object') return
 

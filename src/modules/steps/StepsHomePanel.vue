@@ -33,18 +33,15 @@
 
         <div class="arc-center">
           <div class="arc-value">{{ formattedTotal }}</div>
-          <div v-if="goal" class="arc-goal">из {{ formattedGoal }}</div>
-          <div class="arc-label">шагов</div>
         </div>
-        <div class="rating">
-          <div class="rating-num" v-if="rank > 0">#{{ rank }}</div>
-          <div class="rating-num" v-if="totalUsers > 0">из {{ totalUsers }}</div>          
-        </div>
+        <div class="rating color-text-stroke" v-if="rank > 0">{{ rank }}</div>
       </div>
     </section>
     <div class="rating-text">
       <template v-if="totalUsers > 0">
-        Здесь результаты участников и твоё место среди всех пользователей. Рейтинг обновляется раз в сутки и остаётся предварительным до проверки подтверждений. Итоги: [дата и ссылка]
+        <div class="rating-title">твой путь в шагах</div>        
+        <p>Здесь результаты участников и твоё место среди всех пользователей. Рейтинг обновляется раз в сутки и остаётся предварительным до проверки подтверждений. Итоги: <a href="http://" target="_blank" rel="noopener noreferrer">[дата и ссылка]    </a>      
+        </p>        
       </template>
       <template v-else>
         Пока результатов нет. Добавь шаги за вчера и скриншот из шагомера. Рейтинг обновляется раз в сутки, твоё место появится после обновления
@@ -363,13 +360,15 @@ onUnmounted(() => {
 }
 
 /* ─── Рейтинг ─── */
-.rating-num {
-  font-size: 28px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  color: #015f01;
-  font-variant-numeric: tabular-nums;
-  min-width: 60px;
+.rating {
+  position: absolute;
+  bottom: 0;
+  text-align: center;
+  width: 100%;
+  font-size: 18px;
+  line-height: 150%;
+  text-transform: lowercase;
+  text-wrap: balance;
 }
 
 .rating-text {
@@ -383,7 +382,16 @@ onUnmounted(() => {
 .rating-text p{
   margin-bottom: 8px;
 }
-
+.rating-title {
+  font-family: var(--font-family);
+  font-weight: 700;
+  font-size: 20px;
+  line-height: 87%;
+  text-align: center;
+  text-transform: lowercase;
+  text-wrap: balance;
+  color: var(--txt-black-dark-green);
+}
 /* ─── Форма ─── */
 .steps-form {
   margin-top: 24px;

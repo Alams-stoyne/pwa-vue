@@ -1,95 +1,79 @@
 <template>
   <div class="page registering-page">
     <div class="registering-card">
-      <!-- ── UID_LOCKED: устройство привязано к другому uid ── -->
       <template v-if="auth.error === 'UID_LOCKED'">
         <div class="gate-icon" aria-hidden="true">🔒</div>
         <h1>UID не совпадает</h1>
-        <p class="muted">
-          Это устройство уже активировано под другим UID. Сменить UID нельзя.
-        </p>
-        <button type="button" class="btn-primary action" @click="goAccessError">
+        <p class="muted">Это устройство уже активировано под другим UID. Сменить UID нельзя.</p>
+        <button type="button" class="btn btn-primary btn-center mt-12" @click="goToSupport('UID_LOCKED')">
+          Написать администратору
+        </button>
+        <button type="button" class="btn btn-secondary btn-center mt-8" @click="goAccessError">
           Понятно
         </button>
       </template>
 
-      <!-- ── UID_TAKEN: uid уже используется на другом устройстве ── -->
       <template v-else-if="auth.error === 'UID_TAKEN'">
         <div class="gate-icon" aria-hidden="true">📱</div>
         <h1>UID уже используется</h1>
-        <p class="muted">
-          Этот код доступа уже активирован на другом устройстве.
-          Один UID — одно устройство.
-        </p>
-        <button type="button" class="btn-primary action" @click="goAccessError">
+        <p class="muted">Этот код доступа уже активирован на другом устройстве. Один UID — одно устройство.</p>
+        <button type="button" class="btn btn-primary btn-center mt-12" @click="goToSupport('UID_TAKEN')">
+          Написать администратору
+        </button>
+        <button type="button" class="btn btn-secondary btn-center mt-8" @click="goAccessError">
           Понятно
         </button>
       </template>
 
-      <!-- ── DEVICE_ROTATED: uid занят, deviceId только что пересоздан ── -->
       <template v-else-if="auth.error === 'DEVICE_ROTATED'">
         <div class="gate-icon" aria-hidden="true">🔄</div>
         <h1>Устройство переустановлено</h1>
         <p class="muted">
           Этот код доступа уже привязан к другому устройству.
-          Если вы сменили телефон — обратитесь к администратору,
-          чтобы перенести доступ.
+          Если вы сменили телефон — обратитесь к администратору, чтобы перенести доступ.
         </p>
-        <button type="button" class="btn-primary action" @click="goAccessError">
+        <button type="button" class="btn btn-primary btn-center mt-12" @click="goToSupport('DEVICE_ROTATED')">
+          Написать администратору
+        </button>
+        <button type="button" class="btn btn-secondary btn-center mt-8" @click="goAccessError">
           Понятно
         </button>
       </template>
 
-      <!-- ── UID_NOT_FOUND: сервер не знает такой uid ── -->
       <template v-else-if="auth.error === 'UID_NOT_FOUND'">
         <div class="gate-icon" aria-hidden="true">❓</div>
         <h1>Код не распознан</h1>
-        <p class="muted">
-          Код доступа не найден на сервере. Откройте персональную ссылку
-          из корпоративного канала Х5.
-        </p>
-        <button type="button" class="btn-primary action" @click="goAccessError">
+        <p class="muted">Код доступа не найден на сервере. Откройте персональную ссылку из корпоративного канала Х5.</p>
+        <button type="button" class="btn btn-primary btn-center mt-12" @click="goToSupport('UID_NOT_FOUND')">
+          Написать администратору
+        </button>
+        <button type="button" class="btn btn-secondary btn-center mt-8" @click="goAccessError">
           Понятно
         </button>
       </template>
 
-      <!-- ── RATE_LIMITED: слишком много попыток ── -->
       <template v-else-if="auth.error === 'RATE_LIMITED'">
         <div class="gate-icon" aria-hidden="true">⏳</div>
         <h1>Слишком много попыток</h1>
         <p class="muted">{{ auth.error }}</p>
-        <button
-          type="button"
-          class="btn-primary action"
-          :disabled="auth.registering"
-          @click="retry"
-        >
+        <button type="button" class="btn btn-primary btn-center mt-12" :disabled="auth.registering" @click="retry">
           {{ auth.registering ? 'Пробуем снова…' : 'Повторить' }}
         </button>
       </template>
 
-      <!-- ── Прочие ошибки (сеть, отклонение сервером) ── -->
       <template v-else-if="auth.error">
         <div class="gate-icon" aria-hidden="true">⚠️</div>
         <h1>Не удалось подключиться</h1>
         <p class="muted">{{ auth.error }}</p>
-        <button
-          type="button"
-          class="btn-primary action"
-          :disabled="auth.registering"
-          @click="retry"
-        >
+        <button type="button" class="btn btn-primary btn-center mt-12" :disabled="auth.registering" @click="retry">
           {{ auth.registering ? 'Пробуем снова…' : 'Повторить' }}
         </button>
       </template>
 
-      <!-- ── Успех ── -->
       <template v-else-if="success">
         <div class="check-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" width="34" height="34" fill="none">
-            <path d="M4 12.5l5 5L20 6"
-                  stroke="currentColor" stroke-width="2.4"
-                  stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M4 12.5l5 5L20 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
         </div>
         <h1>Готово!</h1>
@@ -100,7 +84,6 @@
         </button>
       </template>
 
-      <!-- ── Спиннер ── -->
       <template v-else>
         <div class="spinner" aria-hidden="true" />
         <h1>Подключаемся…</h1>
@@ -120,9 +103,11 @@ import { useThemeStore } from '../theme/store'
 import { useLecturesStore } from '../lectures/store'
 import { useTasksStore } from '../tasks/store'
 import { useHabitsStore } from '../habits/store'
+import { useConsentStore } from '../consent/store'
 import { useAppBackground } from '../core/composables/useAppBackground'
+import { readUid, readDeviceId } from '../install/useAccess'
 
-const { setBackground, clearBackground } = useAppBackground()
+const { setBackground } = useAppBackground()
 
 const auth = useAuthStore()
 const profile = useProfileStore()
@@ -131,46 +116,76 @@ const theme = useThemeStore()
 const lectures = useLecturesStore()
 const tasks = useTasksStore()
 const habits = useHabitsStore()
+const consent = useConsentStore()
 const router = useRouter()
 
 const success = ref(false)
 
-/** Подтянуть локальное состояние после успешной регистрации. */
-function reloadUserState() {
+/** Обёртка с таймаутом, чтобы регистрация не висела при сетевых проблемах. */
+function withTimeout(promise, ms = 3000) {
+  return Promise.race([
+    promise,
+    new Promise((resolve) => setTimeout(resolve, ms)),
+  ])
+}
+
+/** Перечитать локальные сторы (после applyState в registerWithUid). */
+function reloadLocalState() {
   profile.load()
   quiz.load()
   theme.load()
   lectures.reloadReadKeys()
   tasks.reloadDoneKeys()
   habits.reload()
+  consent.reload()
 }
 
+/**
+ * Догрузить с сервера то, что не пришло в STATE.
+ * На переустановленном приложении main.js уже не вызовет loadSelection,
+ * потому что auth.idUser был null. Поэтому делаем это здесь, явно.
+ */
+  async function hydrateFromServer() {
+    if (!auth.idUser) return
+
+    // Согласие
+    if (!consent.isAnswered) {
+      try { await withTimeout(consent.loadStatus(), 3000) } catch (e) {
+        console.warn('[register] consent fetch failed:', e)
+      }
+    }
+
+    // Выбранная привычка
+    if (!habits.selectedHabitId) {
+      try { await withTimeout(habits.loadSelection(), 3000) } catch (e) {
+        console.warn('[register] habit selection fetch failed:', e)
+      }
+    }
+
+    console.log('[register] hydration result', {
+      consentAnswered: consent.isAnswered,
+      consentGranted: consent.isGranted,
+      selectedHabitId: habits.selectedHabitId,
+      localStorageHabit: localStorage.getItem('habits.selectedHabitId'),
+    })
+  }
+
 async function run() {
-  // Перед показом «Готово!» сбрасываем флаг подтверждения.
-  // Иначе возможна ситуация, когда пользователь ранее уже нажимал
-  // «Продолжить», потом снова попал на /registering — и кнопка
-  // «Продолжить» перестаёт реагировать, потому что экран считается
-  // уже подтверждённым. Свежая регистрация — свежий экран.
   try { localStorage.removeItem('auth.confirmed') } catch {}
 
   auth.error = null
   const ok = await auth.registerWithUid()
   if (!ok) {
     if (auth.error === 'UID_LOCKED') router.replace('/access-error')
-    // UID_TAKEN и DEVICE_ROTATED — тоже доступ закрыт.
-    // Редиректить сразу не надо: пользователь должен увидеть
-    // объяснение и нажать «Понятно» сам.
     return
   }
 
-  reloadUserState()
+  reloadLocalState()
+  await hydrateFromServer()
+
   success.value = true
 }
 
-/**
- * Пользователь увидел «Готово!» и нажал «Продолжить».
- * Только здесь ставится флаг isConfirmed.
- */
 function proceed() {
   auth.confirmRegistration()
   router.replace('/')
@@ -185,25 +200,63 @@ function goAccessError() {
   router.replace('/access-error')
 }
 
-onMounted(() => {
+function goToSupport(errorType) {
+  const deviceId = readDeviceId() || 'неизвестно'
+  const newUid = readUid() || 'неизвестно'
+  const currentUid = auth.boundUid || 'неизвестно'
+
+  let errorText = ''
+
+  if (errorType === 'UID_LOCKED') {
+    errorText = `Проблема: Это устройство уже активировано под другим UID.
+ID-устройства: ${deviceId}
+Новый UID: ${newUid}
+Текущий UID: ${currentUid}
+===
+Уважаемый пользователь просим вас ниже описать причину попытки авторизации по другой ссылке с измененным UID:`
+  } else if (errorType === 'UID_TAKEN') {
+    errorText = `Проблема: UID уже активирован на другом устройстве.
+ID-устройства: ${deviceId}
+Текущий UID: ${currentUid}
+===
+Уважаемый пользователь просим вас ниже описать причину попытки авторизации на другом устройстве:`
+  } else if (errorType === 'DEVICE_ROTATED') {
+    errorText = `Проблема: Устройство переустановлено.
+ID-устройства: ${deviceId}
+Текущий UID: ${currentUid}
+===
+Уважаемый пользователь просим вас ниже описать причину смены устройства:`
+  } else if (errorType === 'UID_NOT_FOUND') {
+    errorText = `Проблема: Код доступа (UID) не найден на сервере.
+ID-устройства: ${deviceId}
+Текущий UID: ${newUid}
+===
+Уважаемый пользователь просим вас ниже описать, откуда вы взяли ссылку/UID:`
+  }
+
+  router.push({
+    path: '/support',
+    query: { text: errorText, auth_error: errorType, uid: newUid },
+  })
+}
+
+onMounted(async () => {
   setBackground({ url: '/backgrounds/bg_start.jpg' })
   auth.load()
 
-  // Пользователь уже подтверждал экран «Готово!» — не задерживаем.
   if (auth.isConfirmed) {
     router.replace('/')
     return
   }
 
-  // Регистрация уже пройдена (isRegistered), но «Готово!» ещё
-  // не подтверждали — показываем экран подтверждения.
   if (auth.isAuthed && auth.isRegistered) {
-    reloadUserState()
+    // Возврат на экран уже после успешной регистрации
+    reloadLocalState()
+    await hydrateFromServer()
     success.value = true
     return
   }
 
-  // Регистрации не было — запускаем.
   run()
 })
 </script>
@@ -252,11 +305,8 @@ onMounted(() => {
 .gate-icon { font-size: 46px; line-height: 1; margin-bottom: 14px; }
 .registering-card h1 { font-size: 20px; margin: 0 0 6px; }
 .registering-card p { margin: 0; font-size: 14px; line-height: 1.5; }
-.action {
-  margin-top: 20px;
-  width: 100%;
-  max-width: 280px;
-}
+.mt-12 { margin-top: 20px; width: 100%; }
+.mt-8 { margin-top: 8px; width: 100%; }
 @media (prefers-reduced-motion: reduce) {
   .spinner, .check-icon { animation: none; }
 }

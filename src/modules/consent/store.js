@@ -55,6 +55,14 @@ export const useConsentStore = defineStore('consent', {
   },
 
   actions: {
+    /** Перечитать состояние из localStorage (после applyState). */
+    reload() {
+      const fresh = readLocal()
+      this.answered = fresh.answered
+      this.granted = fresh.granted
+      this.at = fresh.at
+    },
+
     async loadStatus() {
       this.loading = true
       this.error = null
@@ -86,23 +94,16 @@ export const useConsentStore = defineStore('consent', {
       }
     },
 
-    /**
-     * Ответ на согласие. Оптимистично применяем локально,
-     * синхронизацию с сервером делаем «в фоне» — она не блокирует
-     * навигацию и не влияет на возвращаемое значение.
-     */
     async answer(granted) {
       if (this.saving) return false
       this.saving = true
       this.error = null
 
-      // 1. Мгновенно применяем локально — это главное
       this.answered = true
       this.granted = !!granted
       this.at = Date.now()
       writeLocal({ granted: this.granted, at: this.at })
 
-      // 2. Пытаемся синхронизировать, но не блокируем и не заваливаем вызов
       try {
         const auth = useAuthStore()
         if (auth.idUser) {
@@ -121,12 +122,10 @@ export const useConsentStore = defineStore('consent', {
             this.at = new Date(res.AT).getTime()
             writeLocal({ granted: this.granted, at: this.at })
           } else {
-            // Сервер не подтвердил — логируем, но локальное состояние оставляем
             console.warn('[consent] server did not confirm, applied locally', res)
           }
         }
       } catch (e) {
-        // Сеть / таймаут — тоже не проблема для UX
         console.warn('[consent] sync failed, applied locally:', e.message)
       } finally {
         this.saving = false

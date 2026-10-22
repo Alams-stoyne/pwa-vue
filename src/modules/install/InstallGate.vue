@@ -3,11 +3,10 @@
 
     <header class="head_white text-center">
       <h1 class="title">Требуется установка</h1>
-      <div class="subtitle">Пока приложение не установлено, остальные функции недоступны.</div>      
+      <div class="subtitle">Пока приложение не установлено, остальные функции недоступны.</div>
     </header>
 
-
-    <div v-if="!hasPromp" class="hint">
+    <div v-if="!hasPrompt" class="hint">
       <div class="hint_item">
         <div class="hint_icon">
           <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -19,7 +18,7 @@
         </div>
         <div class="hint_info">
           <div class="hint_info_title"><b>iOS (Safari):</b></div>
-          <div class="text">«Поделиться» → «На экран “Домой”».</div>
+          <div class="text">«Поделиться» → «На экран "Домой"».</div>
         </div>        
       </div>
 
@@ -56,19 +55,30 @@
           <div class="hint_info_text">иконка ⊕ в адресной строке.</div>
         </div>  
       </div>
-
     </div>
 
     <div class="bottom-action">
-      <button v-if="hasPrompt" @click="promptInstall" class="btn btn-primary btn-center" >Установить приложение</button>
+      <button v-if="hasPrompt" @click="promptInstall" class="btn btn-primary btn-center">Установить приложение</button>
     </div>
 
   </div>
 </template>
 
 <script setup>
+import { watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { useInstall } from './useInstall'
-const { hasPrompt, promptInstall } = useInstall()
+
+const { hasPrompt, promptInstall, isInstalled } = useInstall()
+const router = useRouter()
+
+// Как только приложение установилось — уходим с /install.
+// Роутер сам разберётся, куда дальше (access, registering, home).
+watch(isInstalled, (v) => {
+  if (v) {
+    router.replace('/').catch(() => {})
+  }
+}, { immediate: true })
 </script>
 
 <style scoped>
@@ -95,6 +105,7 @@ const { hasPrompt, promptInstall } = useInstall()
 }
 .hint .hint_item .hint_icon{ 
   position: relative;
+  flex-shrink: 0;
 }
 .hint .hint_item .hint_info{ 
   position: relative;
