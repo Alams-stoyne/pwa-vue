@@ -71,10 +71,10 @@
         </div>
       </div>
 
-      <label class="consent" v-if="canSubmitWithConsent">
+      <!-- <label class="consent" v-if="canSubmitWithConsent">
         <input type="checkbox" v-model="localConsent" />
         <span>согласен на обработку персональных данных</span>
-      </label>
+      </label> -->
 
       <!-- Скрытый инпут для выбора файла -->
       <input 
@@ -115,39 +115,39 @@
     </div>
 
     <!-- 2. Данные отправлены, но ЕЩЁ НЕ ПОДТВЕРЖДЕНЫ -->
-    <div v-else-if="!store.isConfirmedToday" class="success-card mt-16 pending-card">
-      <div class="success-emoji pending-emoji">⏳</div>
-      <h2>Данные на проверке</h2>
-      <p class="muted">Шаги отправлены и ожидают подтверждения модератором.</p>
-      <p class="timer-text">
-        Следующая отправка через: <strong>{{ timeLeft }}</strong>
-      </p>
-      <button type="button" class="btn btn-secondary btn-center" @click="store.loadSummary">
-        Обновить статус
-      </button>
+    <div v-else-if="!store.isConfirmedToday" class="result-card pending">
+      <div class="ico">
+        <AppIcon name="fading-clock" :size="24" />
+      </div>
+      <div class="info">
+        <div class="result-text text-center">данные на проверке</div>
+        <div class="timer-text">Следующая отправка через: <span>{{ timeLeft }}</span></div>        
+      </div>
+      <div class="bottom-action">
+        <button type="button" class="btn btn-primary btn-center" @click="store.loadSummary">Обновить статус</button>        
+      </div>
     </div>
-
     <!-- 3. Данные ПОДТВЕРЖДЕНЫ -->
-    <div v-else class="success-card mt-16">
-      <div class="success-emoji">✓</div>
-      <h2>Шаги подтверждены</h2>
-      <p class="muted">Спасибо, данные подтверждены сервером.</p>
-      <p class="timer-text">
-        Следующая отправка через: <strong>{{ timeLeft }}</strong>
-      </p>
+    <div v-else class="result-card success">
+      <div class="ico">
+        <AppIcon name="check" :size="24" />
+      </div>      
+      <div class="info">
+        <div class="result-text text-center">Шаги подтверждены</div>
+        <div class="timer-text">Следующая отправка через: <span>{{ timeLeft }}</span></div>        
+      </div>   
     </div>
-
   </div>
 </template>
 
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-
 import { useStepsStore } from './store'
 import { useConsentStore } from '../consent/store'
 import ConsentBanner from '../consent/ConsentBanner.vue'
 import { useToast } from '../core/composables/useToast'
 import { useAppBackground } from '../core/composables/useAppBackground'
+import AppIcon from '../../components/AppIcon.vue'
 const { setBackground, clearBackground } = useAppBackground()
 
 const store = useStepsStore()
@@ -158,7 +158,7 @@ const MAX_STEPS = 99999
 
 // Состояние формы
 const steps = ref(null)
-const localConsent = ref(false)
+// const localConsent = ref(false)
 const fileInput = ref(null)
 const imagePreview = ref(null)
 const selectedFile = ref(null)
@@ -169,6 +169,7 @@ let timerInterval = null
 let summaryInterval = null // <-- Таймер для опроса сервера
 
 const canSubmitWithConsent = computed(() => consentStore.isGranted)
+const localConsent = computed(() => consentStore.isGranted)
 
 const canSubmit = computed(() => {
   const n = Number(steps.value)
@@ -483,48 +484,67 @@ onUnmounted(() => {
   display: none;
 }
 
-/* Успех, таймер и статусы */
-.success-card {
+.result-card {
+  position: relative;
   display: grid;
-  gap: 12px;
-  padding: 32px 24px;
-  text-align: center;
-  background: #E6F4EA;
-  border-radius: var(--radius);
-  border: 1px solid #AFE6DD;
-  margin-top: 24px;
+  justify-content: center;
+  justify-items: center;
+  border-radius: 14px;
+  padding: 16px;
+  gap: 16px;
 }
-.success-emoji {
-  width: 56px; height: 56px;
-  margin: 0 auto;
-  border-radius: 50%;
-  background: var(--accent);
-  color: #fff;
-  font-size: 28px;
-  display: grid;
-  place-items: center;
-}
-.success-card h2 { margin: 0; font-size: 20px; }
-.success-card p { margin: 0 0 8px; font-size: 14px; }
 
-.timer-text {
+.result-card .ico {
+  width: 36px;
+  display: flex;
+  position: relative;
+  height: 36px;
+  flex-wrap: nowrap;
+  justify-content: center;
+  align-items: center;
+  border-radius: 100%;
+}
+.result-card .info {
+  position: relative;
+  display: grid;
+  gap: 4px;
+}
+
+.result-card.success{
+  border: 1px solid #c3eb91;  
+  background: var(--green-light);
+}
+.result-card.success .ico{
+  background: var(--txt-dark-green);
+}
+.result-card.pending{
+  background: #fef8ec;
+  border: 1px solid var(--orange-light);
+}
+.result-card.pending .ico{
+  background: var(--txt-brand-limon);
+}
+
+.result-text {
+  font-family: var(--font-family);
+  font-weight: 500;
   font-size: 14px;
-  margin-top: 8px;
-  color: #21271f;
+  line-height: 120%;
+  text-align: center;
+  text-transform: lowercase;
+  color: var(--txt-black-dark-green);
 }
-
-.timer-text strong {
-  font-family: ui-monospace, monospace;
-  font-size: 16px;
-  color: #015f01;
+.timer-text {
+  font-family: var(--font-family);
+  font-weight: 400;
+  font-size: 14px;
+  line-height: 120%;
+  text-align: center;
+  text-transform: lowercase;
+  color: var(--txt-black-dark-green);
 }
-
-/* Карточка на проверке */
-.pending-card {
-  background: #FFF8EC;
-  border-color: #FBE5C6;
-}
-.pending-emoji {
-  background: #F5A623;
+.timer-text span {
+  font-weight: 500;
+  color: var(--txt-dark-green);
 }
 </style>

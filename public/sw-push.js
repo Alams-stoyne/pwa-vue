@@ -62,11 +62,12 @@ registerRoute(
   }),
 )
 
-// CDN JSON: материалы + конфиги (в том числе config/tutorial.json)
+// CDN JSON: материалы + конфиги + события
 registerRoute(
   ({ url }) =>
     url.origin === 'https://cdn.x5hd.ru' &&
-    /\/(article|general|useful|archive|tasks|lectures|config)\/.*\.json$/.test(url.pathname),
+    // ДОБАВЛЕНЫ events
+    /\/(article|general|useful|archive|tasks|lectures|config|events)\/.*\.json$/.test(url.pathname),
   new NetworkFirst({
     cacheName: 'cdn-json',
     networkTimeoutSeconds: 5,

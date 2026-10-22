@@ -1,9 +1,9 @@
 <template>
   <section class="habit-widget">
-    <header class="hw-head">
+    <!-- <header class="hw-head">
       <h2 class="hw-title">Привычки на сегодня</h2>
       <span class="hw-progress muted">{{ total.done }} / {{ total.total }}</span>
-    </header>
+    </header> -->
 
     <HabitCard
       v-for="h in habits.list"

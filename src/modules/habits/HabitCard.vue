@@ -37,7 +37,7 @@
       </button>
     </header>
 
-    <div class="hc-progress">
+    <div class="hc-progress" v-if="habit.timesPerDay > 1">
       <div class="hc-progress-track" role="progressbar"
            :aria-valuenow="progress.done" :aria-valuemin="0" :aria-valuemax="habit.timesPerDay">
         <span class="hc-progress-fill" :style="{ width: fillPercent + '%' }" />
@@ -48,12 +48,12 @@
 
     <button
       type="button"
-      class="hc-btn"
+      class="btn btn-primary"
       :disabled="!canComplete"
       @click="$emit('complete')"
     >
-      <template v-if="done">Выполнено</template>
-      <template v-else-if="canComplete">Выполнить</template>
+      <template v-if="done">Выполнено 🍎</template>
+      <template v-else-if="canComplete">Выполнить 🍎</template>
       <template v-else>Через {{ leftText }}</template>
     </button>
   </article>

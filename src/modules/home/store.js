@@ -5,6 +5,7 @@ import { useAuthStore } from '../auth/store'
 import { useThemeStore } from '../theme/store'
 import { isOffline, OfflineError } from '../core/utils/network'
 import { sendDaily, fetchDailyStatus, fetchTodayState } from './api'
+import { FEATURES } from '../core/features'
 
 const LS_LAST = 'home.lastSendDate'
 const LS_LAST_TIME = 'home.lastSyncAt'
@@ -103,8 +104,9 @@ export const useHomeStore = defineStore('home', {
     justSent: false,
     online: typeof navigator === 'undefined' ? true : navigator.onLine,
 
-    // Виджет «Сегодня»
-    today: readTodayCache(),
+    // Виджет «Сегодня» (отключён через FEATURES.HOME_TODAY_WIDGET).
+    // Состояние оставляем для совместимости с TodayWidget/HabitWidget.
+    today: FEATURES.HOME_TODAY_WIDGET ? readTodayCache() : null,
     todayLoading: false,
     todayError: null,
 
@@ -116,10 +118,12 @@ export const useHomeStore = defineStore('home', {
   getters: {
     canSendToday: (s) => s.lastSendDate !== localDate(),
 
-    hasToday: (s) => !!s.today && !!s.today.title,
+    hasToday: (s) =>
+      FEATURES.HOME_TODAY_WIDGET && !!s.today && !!s.today.title,
 
     hasTodayButton: (s) =>
-      !!s.today
+      FEATURES.HOME_TODAY_WIDGET
+      && !!s.today
       && s.today.state !== 'done'
       && !!s.today.buttonLabel
       && !!s.today.buttonAction,
@@ -127,17 +131,19 @@ export const useHomeStore = defineStore('home', {
     progressDone:    (s) => Number(s.today?.progress?.done)    || 0,
     progressTotal:   (s) => Number(s.today?.progress?.total)   || 0,
     progressPercent: (s) => Number(s.today?.progress?.percent) || 0,
-    allDone:         (s) => s.today?.state === 'done',
+    allDone:         (s) => FEATURES.HOME_TODAY_WIDGET && s.today?.state === 'done',
   },
 
   actions: {
     load() {
       this.lastSendDate = localStorage.getItem(LS_LAST) || null
       this.lastSyncAt = Number(localStorage.getItem(LS_LAST_TIME) || 0)
-      this.initNetworkWatcher()
+      // Сетевой watcher имеет смысл только если виджет включён.
+      if (FEATURES.HOME_TODAY_WIDGET) this.initNetworkWatcher()
     },
 
     initNetworkWatcher() {
+      if (!FEATURES.HOME_TODAY_WIDGET) return
       if (_netWatched) return
       _netWatched = true
 
@@ -158,12 +164,12 @@ export const useHomeStore = defineStore('home', {
 
     /**
      * Загрузить состояние виджета «Сегодня».
+     * Если FEATURES.HOME_TODAY_WIDGET = false — сразу выходим (no-op).
      * @param {{ force?: boolean, commitSnapshot?: boolean }} opts
-     *   commitSnapshot: true — считать дифф с прошлого снимка
-     *   И перезаписать снимок текущим состоянием.
-     *   Использовать ТОЛЬКО из HomeView.onMounted.
      */
     async loadToday({ force = false, commitSnapshot = false } = {}) {
+      if (!FEATURES.HOME_TODAY_WIDGET) return false
+
       const cachedAt = Number(localStorage.getItem(LS_TODAY_AT) || 0)
       const fresh = Date.now() - cachedAt < TODAY_TTL
       if (!force && fresh && this.today) return true
@@ -173,7 +179,6 @@ export const useHomeStore = defineStore('home', {
       const auth = useAuthStore()
       if (!auth.idUser) return false
 
-      // Снимок читаем ДО перезаписи
       const prevSnapshot = commitSnapshot ? readSnapshot() : null
       const hasPrev = !!prevSnapshot && prevSnapshot.date === localDate()
 
@@ -212,6 +217,7 @@ export const useHomeStore = defineStore('home', {
     },
 
     async refreshToday(opts = {}) {
+      if (!FEATURES.HOME_TODAY_WIDGET) return false
       return this.loadToday({ force: true, ...opts })
     },
 
