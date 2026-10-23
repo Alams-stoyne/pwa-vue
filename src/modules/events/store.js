@@ -9,6 +9,7 @@ const LS_CACHE = 'events.cache'
 const LS_CACHE_DATE = 'events.cacheDate'
 const LS_CACHE_AT = 'events.cacheAt'
 const LS_STATE = 'events.state'
+const LS_QUEUE = 'events.queue'
 const HOUR = 60 * 60 * 1000
 
 function readLS(key, fallback) {
@@ -21,33 +22,32 @@ function writeLS(key, val) {
   try { localStorage.setItem(key, JSON.stringify(val)) } catch {}
 }
 
+let _tickTimer = null
+let _netWatched = false
+
 export const useEventsStore = defineStore('events', {
   state: () => ({
     config: [],
     loading: false,
     error: null,
-    // Состояния пользователя: { [eventId]: { clickedAt: timestamp, confirmedAt: timestamp } }
+    // Состояния пользователя: { [eventId]: { clickedAt, confirmedAt } }
     states: readLS(LS_STATE, {}),
     now: Date.now(),
   }),
 
   getters: {
-    /** События на сегодня (файл уже содержит только их) */
     todayEvents: (s) => s.config,
 
-    /** Вычисляет текущий статус события для UI */
     eventState: (s) => (eventId) => {
       const event = s.config.find((e) => e.id === eventId)
       if (!event) return { status: 'unknown', timeLeft: 0 }
 
       const userState = s.states[eventId] || {}
       
-      // 1. Уже подтверждено
       if (userState.confirmedAt) {
         return { status: 'done', timeLeft: 0 }
       }
 
-      // 2. Был клик, проверяем таймер
       if (userState.clickedAt) {
         const cooldownMs = (event.timerMins || 0) * 60 * 1000
         const expireAt = userState.clickedAt + cooldownMs
@@ -56,25 +56,36 @@ export const useEventsStore = defineStore('events', {
         if (timeLeft > 0) {
           return { status: 'timer', timeLeft }
         } else {
-          // Время вышло, ждем подтверждения
           return { status: 'ready_to_confirm', timeLeft: 0 }
         }
       }
 
-      // 3. Еще не начинал
       return { status: 'available', timeLeft: 0 }
     }
   },
 
   actions: {
     init() {
+      this._watchNet()
+      
       this.loadEvents()
       this.syncStatus()
-      
-      // Тикер для обновления таймеров на экране
-      setInterval(() => {
-        this.now = Date.now()
-      }, 1000)
+
+      if (!_tickTimer) {
+        _tickTimer = setInterval(() => {
+          this.now = Date.now()
+        }, 1000)
+      }
+    },
+
+    _watchNet() {
+      if (_netWatched) return
+      _netWatched = true
+      window.addEventListener('online', () => {
+        this.flushQueue()
+        this.syncStatus()
+        this.loadEvents({ force: true })
+      })
     },
 
     async loadEvents({ force = false } = {}) {
@@ -84,10 +95,8 @@ export const useEventsStore = defineStore('events', {
       const fresh = Date.now() - cachedAt < HOUR
       const isSameDay = cachedDate === today
 
-      // Если кэш свежий и на сегодня — выходим
       if (!force && fresh && isSameDay && this.config.length) return true
 
-      // Подтягиваем кэш, если он на сегодня
       if (!force && isSameDay && this.config.length === 0) {
         this.config = readLS(LS_CACHE, [])
       }
@@ -117,15 +126,37 @@ export const useEventsStore = defineStore('events', {
       try {
         const res = await fetchEventsStatus({ ID_USER: auth.idUser })
         if (isSuccess(res) && res.STATES) {
-          // Сервер возвращает только те, по которым есть действия
-          this.states = { ...this.states, ...res.STATES }
+          const merged = { ...this.states }
+          
+          for (const [id, srvState] of Object.entries(res.STATES)) {
+            const local = merged[id] || {}
+            
+            // Бэкенд присылает ISO-строки, переводим в timestamp
+            const srvClicked = srvState.CLICKED_AT ? new Date(srvState.CLICKED_AT).getTime() : 0
+            const srvConfirmed = srvState.CONFIRMED_AT ? new Date(srvState.CONFIRMED_AT).getTime() : 0
+            
+            // Мержим: берем максимум из локального и серверного, чтобы
+            // не затереть локальный клик, если сервер еще не получил запрос
+            const finalClicked = Math.max(local.clickedAt || 0, srvClicked) || undefined
+            const finalConfirmed = Math.max(local.confirmedAt || 0, srvConfirmed) || undefined
+
+            if (finalClicked || finalConfirmed) {
+              merged[id] = {
+                ...local,
+                clickedAt: finalClicked,
+                confirmedAt: finalConfirmed,
+              }
+            }
+          }
+          
+          this.states = merged
           writeLS(LS_STATE, this.states)
         }
       } catch { /* ignore */ }
     },
 
     async clickEvent(eventId) {
-      // Оптимистично ставим локальное время, только если еще не было клика
+      // Оптимистично ставим время
       if (!this.states[eventId]?.clickedAt) {
         this.states[eventId] = { ...this.states[eventId], clickedAt: Date.now() }
         writeLS(LS_STATE, this.states)
@@ -133,80 +164,107 @@ export const useEventsStore = defineStore('events', {
       }
 
       const auth = useAuthStore()
-      if (auth.idUser && !isOffline()) {
-        try {
-          const res = await sendEventAction({
-            ID_USER: auth.idUser,
-            EVENT_ID: eventId,
-            ACTION: 'click'
-          })
-          
-          // Бэкенд вернул ALREADY: true (уже подтверждено или уже кликали)
-          if (res.ALREADY) {
-            if (res.CLICKED_AT && !this.states[eventId]?.clickedAt) {
-               this.states[eventId] = { ...this.states[eventId], clickedAt: new Date(res.CLICKED_AT).getTime() }
-               writeLS(LS_STATE, this.states)
-            }
-          }
-        } catch (e) {
-          console.warn('[events] Failed to sync click:', e)
+      if (!auth.idUser) return
+
+      const payload = { ID_USER: auth.idUser, EVENT_ID: eventId, ACTION: 'click' }
+
+      if (isOffline()) {
+        const q = readLS(LS_QUEUE, [])
+        q.push(payload)
+        writeLS(LS_QUEUE, q)
+        return
+      }
+
+      try {
+        const res = await sendEventAction(payload)
+        if (res.ALREADY && res.CLICKED_AT && !this.states[eventId]?.clickedAt) {
+          this.states[eventId] = { ...this.states[eventId], clickedAt: new Date(res.CLICKED_AT).getTime() }
+          writeLS(LS_STATE, this.states)
         }
+      } catch (e) {
+        const q = readLS(LS_QUEUE, [])
+        q.push(payload)
+        writeLS(LS_QUEUE, q)
       }
     },
 
     async confirmEvent(eventId) {
       const auth = useAuthStore()
       
-      // Оптимистично ставим confirmedAt
       this.states[eventId] = { ...this.states[eventId], confirmedAt: Date.now() }
       writeLS(LS_STATE, this.states)
       this.now = Date.now()
 
-      if (auth.idUser && !isOffline()) {
+      if (!auth.idUser) return { success: true, already: false }
+
+      const payload = { ID_USER: auth.idUser, EVENT_ID: eventId, ACTION: 'confirm' }
+
+      if (isOffline()) {
+        const q = readLS(LS_QUEUE, [])
+        q.push(payload)
+        writeLS(LS_QUEUE, q)
+        return { success: true, already: false }
+      }
+
+      try {
+        const res = await sendEventAction(payload)
+        
+        if (res.RESULT === 'ALREADY_CONFIRMED') {
+          return { success: true, already: true, message: 'Вы уже получили награду за это событие.' }
+        }
+        
+        if (res.RESULT === 'TOO_EARLY') {
+          delete this.states[eventId].confirmedAt
+          writeLS(LS_STATE, this.states)
+          
+          let msg = 'Слишком рано подтверждать.'
+          if (res.RETRY_AFTER_SECONDS) {
+            msg = `Подождите еще ${Math.ceil(res.RETRY_AFTER_SECONDS / 60)} мин.`
+          }
+          return { success: false, message: msg }
+        }
+
+        if (res.RESULT === 'RATE_LIMITED') {
+          delete this.states[eventId].confirmedAt
+          writeLS(LS_STATE, this.states)
+          return { success: false, message: res.MESSAGE || 'Слишком часто. Попробуйте позже.' }
+        }
+
+        if (!isSuccess(res)) {
+          delete this.states[eventId].confirmedAt
+          writeLS(LS_STATE, this.states)
+          return { success: false, message: res.MESSAGE || 'Ошибка подтверждения' }
+        }
+        
+        return { success: true, already: false }
+      } catch (e) {
+        // Оставляем оптимистично, уйдёт в очередь при онлайн
+        const q = readLS(LS_QUEUE, [])
+        q.push(payload)
+        writeLS(LS_QUEUE, q)
+        return { success: true, already: false }
+      }
+    },
+
+    async flushQueue() {
+      if (isOffline()) return
+      const q = readLS(LS_QUEUE, [])
+      if (!q.length) return
+
+      const remain = []
+      for (const p of q) {
         try {
-          const res = await sendEventAction({
-            ID_USER: auth.idUser,
-            EVENT_ID: eventId,
-            ACTION: 'confirm'
-          })
-          
-          if (res.RESULT === 'ALREADY_CONFIRMED') {
-             return { success: true, already: true, message: 'Вы уже получили награду за это событие.' }
+          const res = await sendEventAction(p)
+          // Если пришел TOO_EARLY или ошибка — можем выкинуть из очереди, 
+          // так как клик уже не актуален, либо оставить. Оставляем только сетевые ошибки.
+          if (!isSuccess(res) && res.RESULT !== 'ALREADY_CONFIRMED') {
+             // Скорее всего, сервер отклонил. Повторять нет смысла.
           }
-          
-          if (res.RESULT === 'TOO_EARLY') {
-             // Откатываем подтверждение, если сервер говорит, что рано
-             delete this.states[eventId].confirmedAt
-             writeLS(LS_STATE, this.states)
-             
-             let msg = 'Слишком рано подтверждать.'
-             if (res.RETRY_AFTER_SECONDS) {
-                const min = Math.ceil(res.RETRY_AFTER_SECONDS / 60)
-                msg = `Подождите еще ${min} мин.`
-             }
-             return { success: false, message: msg }
-          }
-
-          if (res.RESULT === 'RATE_LIMITED') {
-             delete this.states[eventId].confirmedAt
-             writeLS(LS_STATE, this.states)
-             return { success: false, message: res.MESSAGE || 'Слишком часто. Попробуйте позже.' }
-          }
-
-          if (!isSuccess(res)) {
-             delete this.states[eventId].confirmedAt
-             writeLS(LS_STATE, this.states)
-             return { success: false, message: res.MESSAGE || 'Ошибка подтверждения' }
-          }
-          
-          return { success: true, already: false }
-        } catch (e) {
-           // В офлайне оставляем оптимистично
-           return { success: true, already: false }
+        } catch {
+          remain.push(p)
         }
       }
-      
-      return { success: true, already: false }
+      writeLS(LS_QUEUE, remain)
     }
   }
 })

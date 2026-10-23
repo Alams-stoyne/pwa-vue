@@ -274,7 +274,7 @@ async function submit() {
 }
 
 onMounted(() => {
-  setBackground({ url: 'backgrounds/bg_frame.jpg' })
+  setBackground({ url: '/backgrounds/bg_frame.jpg' })
   
   // 1. Первичная загрузка
   store.loadSummary()

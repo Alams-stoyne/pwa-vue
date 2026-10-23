@@ -18,15 +18,14 @@
         </div>             
       </div>
     </transition>
-
-    <transition name="fade" appear>  
-      <HabitWidget />
-    </transition>
-
-    <transition name="fade" appear>  
-      <EventsWidget />
-    </transition>
-
+    <div class="widgets_block">
+      <transition name="fade" appear>  
+        <HabitWidget />
+      </transition>
+      <transition name="fade" appear>  
+        <EventsWidget />
+      </transition>
+    </div>
     <!-- Виджет «Сегодня» отключается через FEATURES.HOME_TODAY_WIDGET -->
     <!-- <TodayWidget v-if="todayWidgetEnabled" /> -->
   </div>
@@ -130,6 +129,11 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.home-page{
+  position: relative;
+  /* max-height: 100dvh;
+  display: grid; */
+}
 .mascot_block {
   position: relative;
   display: grid;
@@ -143,4 +147,14 @@ onBeforeUnmount(() => {
   bottom: 28px;
   align-items: flex-end;
 }
+.widgets_block{
+    position: relative;
+    display: grid;
+    gap: 16px;
+    margin-bottom: 16px;
+    /* max-height: calc(100dvh - 74px); */
+    /* overflow: hidden;
+    overflow-y: auto; */
+}
+.widgets_block::-webkit-scrollbar { display: none; }
 </style>

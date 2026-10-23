@@ -1,0 +1,37 @@
+/* public/facecast-custom.css */
+
+/* 
+  Переопределяем фон плеера.
+  Селектор body внутри iframe — это фон всей области плеера.
+*/
+body {
+  background-color: #21271f !important; /* Темно-зеленый, как в дизайне */
+}
+
+/* 
+  Стилизация полосы прокрутки (для WebKit-браузеров: Chrome, Safari, Edge).
+  Это изменит вид скроллбара, если внутри плеера появится прокручиваемый контент (например, чат).
+*/
+::-webkit-scrollbar {
+  width: 8px !important;
+  height: 8px !important;
+}
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1) !important;
+  border-radius: 4px !important;
+}
+::-webkit-scrollbar-thumb {
+  background: #D3FF4F !important; /* Яркий акцентный цвет */
+  border-radius: 4px !important;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #b8e63f !important;
+}
+
+/* 
+  Для Firefox (если понадобится):
+*/
+* {
+  scrollbar-width: thin !important;
+  scrollbar-color: #D3FF4F rgba(255, 255, 255, 0.1) !important;
+}

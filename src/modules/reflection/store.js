@@ -62,8 +62,47 @@ export const useReflectionStore = defineStore('reflection', {
     todayDescription: (s) => {
       const today = localDate()
       const entry = (s.titlesList || []).find((t) => t && t.date === today)
-      return entry?.description || ' Ваши мысли'
+      return entry?.description || 'Поделитесь своими мыслями...'
     },
+
+
+    /**
+     * Кол-во баллов для сегодняшней даты.
+     */
+    todayRewardPoints: (s) => {
+      const today = localDate()
+      const entry = (s.titlesList || []).find((t) => t && t.date === today)
+      return entry?.rewardPoints || false
+    },
+
+    /**
+     * текст для Маскота при открытии - если не отправлял рефлексию.
+     */
+    todayOpenTextCloud: (s) => {
+      const today = localDate()
+      const entry = (s.titlesList || []).find((t) => t && t.date === today)
+      return entry?.openTextCloud || ''
+    },
+
+    /**
+     * текст для Маскота - после отправки рефлексии.
+     */
+    todaySendTextCloud: (s) => {
+      const today = localDate()
+      const entry = (s.titlesList || []).find((t) => t && t.date === today)
+      return entry?.sendTextCloud || ''
+    },
+
+    /**
+     * текст для Маскота при открытии - если уже отправлял рефлексию.
+     */
+    todayAfterTextCloud: (s) => {
+      const today = localDate()
+      const entry = (s.titlesList || []).find((t) => t && t.date === today)
+      return entry?.afterTextCloud || ''
+    },
+
+
   },
 
   actions: {

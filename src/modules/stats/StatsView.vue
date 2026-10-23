@@ -357,7 +357,7 @@ watch(() => store.errorGlobal, (v) => {
 })
 
 onMounted(() => {
-  setBackground({ url: 'backgrounds/bg_frame.jpg' })
+  setBackground({ url: '/backgrounds/bg_frame.jpg' })
   theme.load()
   store.init()
   store.refreshQueueInfo()

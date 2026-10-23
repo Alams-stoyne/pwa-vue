@@ -8,15 +8,13 @@
     }"
   >
     <header class="hc-head">
-      <span class="hc-icon" aria-hidden="true">
-        <HabitIcon :id="habit.icon || habit.id" />
-      </span>
-
       <div class="hc-title-wrap">
-        <h3 class="hc-title">{{ habit.title }}</h3>
-        <p class="hc-text">{{ habit.hint }}</p>
+        <div class="hc-title">{{ habit.title }}</div>
+        <div class="hc-text">{{ habit.hint }}</div>
       </div>
-
+      <div class="hc-icon" aria-hidden="true">
+        <HabitIcon :id="habit.icon || habit.id" />
+      </div>
       <button
         v-if="!notificationsEnabled"
         type="button"
@@ -48,13 +46,17 @@
 
     <button
       type="button"
-      class="btn btn-primary"
+      class="btn btn-primary btn-center"
       :disabled="!canComplete"
       @click="$emit('complete')"
     >
-      <template v-if="done">Выполнено 🍎</template>
-      <template v-else-if="canComplete">Выполнить 🍎</template>
-      <template v-else>Через {{ leftText }}</template>
+      <span class="text">
+        <template v-if="done">Выполнено</template>
+        <template v-else-if="canComplete">Выполнить </template>
+        <template v-else>Через {{ leftText }}</template>      
+      </span>
+      <span class="badge" v-if="habit.rewardPoints && canComplete">+{{ habit.rewardPoints }} <AppIcon name="apple" :size="21" /></span>
+
     </button>
   </article>
 </template>
@@ -96,20 +98,13 @@ const leftText = computed(() => {
 <style scoped>
 /* ─── Карточка ─── */
 .habit-card {
-  --hc-border: #AFE6DD;
-  --hc-green: #015F01;
-  --hc-accent: #D3FF4F;
-  --hc-track: #D1EFEA;
-
   position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  background: #FFFFFF;
-  border: 2px solid var(--hc-border);
-  border-radius: 28px;
-  padding: 18px 18px 22px;
-  margin-bottom: 12px;
+  display: grid;
+  gap: 10px;
+  border: 1px solid #afe6dd;
+  border-radius: 20px;
+  padding: 16px;
+  background: var(--white);
   transition: transform var(--t-base), box-shadow var(--t-base), border-color var(--t-base);
 }
 
@@ -129,7 +124,7 @@ const leftText = computed(() => {
 /* ─── Шапка ─── */
 .hc-head {
   display: grid;
-  grid-template-columns: 48px 1fr auto;
+  grid-template-columns: 1fr 48px;
   align-items: start;
   gap: 12px;
 }
@@ -138,27 +133,32 @@ const leftText = computed(() => {
   display: grid;
   place-items: center;
   width: 48px;
-  height: 56px;
+  height: 48px;
   flex-shrink: 0;
 }
 
-.hc-title-wrap { min-width: 0; padding-top: 2px; }
+.hc-title-wrap { 
+  display: grid;
+  gap: 6px;
+ }
 
 .hc-title {
-  margin: 0 0 2px;
-  font-size: 22px;
-  font-weight: 800;
-  letter-spacing: -0.01em;
-  color: var(--hc-green);
-  line-height: 1.1;
+  font-family: var(--font-family);
+  font-weight: 700;
+  font-size: 18px;
+  line-height: 87%;
+  text-transform: lowercase;
+  text-wrap: balance;
+  color: var(--txt-dark-green);
 }
 
 .hc-text {
-  margin: 0;
-  font-size: 13.5px;
-  line-height: 1.4;
-  color: #2A3B2A;
-  max-width: 42ch;
+  font-family: var(--font-family);
+  font-weight: 400;
+  font-size: 14px;
+  line-height: 120%;
+  text-transform: lowercase;
+  color: var(--txt-black-dark-green);
 }
 
 .hc-bell {

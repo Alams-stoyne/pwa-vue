@@ -101,6 +101,9 @@ import { themesComputed, getTheme } from '../theme/themes'
 import { localDate } from '../core/utils/date'
 import { useToast } from '../core/composables/useToast'
 
+import { useAppBackground } from '../core/composables/useAppBackground'
+const { setBackground, clearBackground } = useAppBackground()
+
 const store = useLecturesStore()
 const theme = useThemeStore()
 const route = useRoute()
@@ -267,6 +270,7 @@ async function syncAllThemes() {
 }
 
 onMounted(async () => {
+  setBackground({ url: '/backgrounds/bg_frame.jpg' })
   theme.load()
   await reload()
   loading.value = false

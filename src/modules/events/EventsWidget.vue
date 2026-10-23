@@ -6,7 +6,7 @@
       class="event-card"
     >
       <div class="event-content">
-        <h3 class="event-title color-text-stroke">{{ event.title }}</h3>
+        <h3 class="event-title"  @click="viewClick(event)">{{ event.title }}</h3>
         <p class="event-desc muted">{{ event.description }}</p>
       </div>
 
@@ -14,36 +14,40 @@
         <button
           v-if="getState(event.id).status === 'available'"
           type="button"
-          class="event-btn"
+          class="btn btn-primary btn-center btn-full"
           @click="handleClick(event)"
         >
           {{ event.buttonText || 'Открыть' }}
-          <span v-if="event.rewardText" class="event-reward">{{ event.rewardText }}</span>
         </button>
 
-        <div
+        <a
+          :href="event.link"
+          target="_blank" rel="noopener noreferrer"
           v-else-if="getState(event.id).status === 'timer'"
-          class="event-timer"
+          class="btn btn-secondary btn-center btn-full"
+          :title="'через' + formatTimeLeft(getState(event.id).timeLeft)"
         >
-          через {{ formatTimeLeft(getState(event.id).timeLeft) }}
-        </div>
+          {{ event.buttonText || 'Открыть' }}
+          <!--  -->
+        </a>
 
         <button
           v-else-if="getState(event.id).status === 'ready_to_confirm'"
           type="button"
-          class="event-btn"
+          class="btn btn-primary btn-center btn-full"
           :disabled="confirming"
           @click="handleConfirm(event)"
         >
-          Подтвердить
-          <span v-if="event.rewardText" class="event-reward">{{ event.rewardText }}</span>
+          <span class="text">Получить</span>
+          <span class="badge" v-if="event.rewardPoints">+{{ event.rewardPoints }} <AppIcon name="apple" :size="21" /></span>
         </button>
 
         <div
           v-else-if="getState(event.id).status === 'done'"
-          class="event-done"
+          class="btn btn-secondary btn-center btn-full"
         >
-          Посещено ✓
+          <span class="text">{{ event.rewardPoints ? 'Награда получена' : 'Посещено' }}</span>
+          <span class="badge" v-if="event.rewardPoints">+{{ event.rewardPoints }} <AppIcon name="apple" :size="21" /></span>
         </div>
       </div>
     </article>
@@ -54,6 +58,7 @@
 import { onMounted, ref } from 'vue'
 import { useEventsStore } from './store'
 import { useToast } from '../core/composables/useToast'
+import AppIcon from '../../components/AppIcon.vue'
 
 const events = useEventsStore()
 const toast = useToast()
@@ -67,6 +72,11 @@ function formatTimeLeft(ms) {
   const m = totalMins % 60
   if (h > 0) return `${h} ч ${String(m).padStart(2, '0')} мин`
   return `${m} мин`
+}
+
+
+function viewClick(event) {
+  console.log(event);
 }
 
 function handleClick(event) {
@@ -85,8 +95,8 @@ async function handleConfirm(event) {
   if (res.success) {
     if (res.already) {
       toast.info(res.message || 'Вы уже получили награду')
-    } else if (event.rewardText) {
-      toast.success(`Получено: ${event.rewardText}`)
+    } else if (event.rewardPoints) {
+      toast.success(`Получено: ${event.rewardPoints}`)
     } else {
       toast.success('Посещение подтверждено')
     }
@@ -105,32 +115,38 @@ onMounted(() => {
 <style scoped>
 /* Стили остаются без изменений */
 .events-widget {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-bottom: 20px;
-}
-.event-card {
-  background: #FFFFFF;
-  border: 2px solid #D1EFEA;
-  border-radius: 24px;
-  padding: 16px 20px;
-  display: flex;
-  flex-direction: column;
+  display: grid;
   gap: 16px;
 }
+.event-card {
+  position: relative;
+  display: grid;
+  gap: 16px;
+  border: 1px solid #afe6dd;
+  border-radius: 20px;
+  padding: 16px;
+  background: var(--white);
+  transition: transform var(--t-base), box-shadow var(--t-base), border-color var(--t-base);
+}
+.event-content{
+  font-family: var(--font-family);
+  text-transform: lowercase;  
+}
 .event-title {
-  margin: 0 0 4px;
-  font-size: 18px;
   font-weight: 700;
-  color: #015F01;
-  line-height: 1.2;
+  font-size: 18px;
+  line-height: 87%;
+  text-wrap: balance;
+  color: var(--txt-dark-green);
 }
 .event-desc {
-  margin: 0;
+  font-family: var(--font-family);
+  font-weight: 400;
   font-size: 14px;
-  color: #6b7268;
+  line-height: 120%;
+  color: var(--txt-black-dark-green);
 }
+
 .event-action { width: 100%; }
 .event-btn {
   width: 100%;
@@ -172,7 +188,15 @@ onMounted(() => {
   color: #015F01;
 }
 .event-done {
-  height: 48px;
+  font-family: var(--font-family);
+  font-weight: 500;
+  font-size: 18px;
+  line-height: 120%;
+  text-align: center;
+  text-transform: lowercase;
+  text-wrap: balance;
+  color: var(--txt-dark-green);
+  /* height: 48px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -181,6 +205,6 @@ onMounted(() => {
   color: #015F01;
   background: #EEF7E5;
   border: 1px solid #AFE6DD;
-  border-radius: 100px;
+  border-radius: 100px; */
 }
 </style>

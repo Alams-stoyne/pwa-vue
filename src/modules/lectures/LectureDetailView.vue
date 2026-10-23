@@ -9,40 +9,51 @@
     <article v-else class="lecture">
       <h1>{{ lecture.title }}</h1>
 
-      <!-- ── Медиа-превью: video > cover > first photo ── -->
-      <div v-if="hasVideo" class="media-hero">
-        <div v-if="video.type === 'iframe'" class="video-embed">
-          <iframe
-            :src="video.src"
-            :title="lecture.title"
-            :allow="video.allow"
-            allowfullscreen
-            frameborder="0"
-            loading="lazy"
-          />
+      <!-- ── Медиа-превью ── -->
+      <template v-if="hasVideo">
+        <!-- Facecast плеер -->
+        <div v-if="video.type === 'facecast'" class="facecast-wrap">
+          <FacecastPlayer :url="video.src" />
+          <p v-if="!store.online" class="media-offline">
+            Видео недоступно офлайн
+          </p>
         </div>
 
-        <video
-          v-else-if="video.type === 'video'"
-          :src="video.src"
-          controls
-          class="video"
-        />
+        <!-- Остальные типы видео (YouTube, MP4, ссылки) -->
+        <div v-else class="media-hero">
+          <div v-if="video.type === 'iframe'" class="video-embed">
+            <iframe
+              :src="video.src"
+              :title="lecture.title"
+              :allow="video.allow"
+              allowfullscreen
+              frameborder="0"
+              loading="lazy"
+            />
+          </div>
 
-        <a
-          v-else
-          :href="video.src"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="video-link"
-        >
-          ▶ Открыть видео
-        </a>
+          <video
+            v-else-if="video.type === 'video'"
+            :src="video.src"
+            controls
+            class="video"
+          />
 
-        <p v-if="!store.online" class="media-offline">
-          Видео недоступно офлайн
-        </p>
-      </div>
+          <a
+            v-else
+            :href="video.src"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="video-link"
+          >
+            ▶ Открыть видео
+          </a>
+
+          <p v-if="!store.online" class="media-offline">
+            Видео недоступно офлайн
+          </p>
+        </div>
+      </template>
 
       <div v-else-if="heroPhoto" class="media-hero cover-wrap">
         <img :src="heroPhoto" alt="" class="cover-img" />
@@ -83,7 +94,6 @@
       </template>
 
       <div class="footer">
-        <!-- Блок статуса награды -->
         <transition name="fade" mode="out-in" v-if="isToday">
           <div v-if="!isRead" key="read" class="read-state">
             <b>Внимание!</b> <span>Доступна награда за выполнение.</span>
@@ -106,14 +116,12 @@
           </div>
         </transition>
 
-        <!-- Блок действия -->
         <transition name="fade" mode="out-in">
           <div v-if="!isToday && !isRead" key="old" class="muted old-note">
             Отметить прочтение можно было только в день публикации
           </div>
         </transition>
         <transition name="fade" mode="out-in">
-          <!-- Предупреждение о необходимости согласия ПД -->
           <div v-if="!isRead && isToday && !canMarkRead" class="consent-warning">
             Отметить прочитанное можно только после согласия
             на обработку персональных данных.
@@ -153,6 +161,9 @@ import { useConsentStore } from '../consent/store'
 import { idbGet } from '../core/db'
 import { useToast } from '../core/composables/useToast'
 import { localDate } from '../core/utils/date'
+import FacecastPlayer from '../../components/FacecastPlayer.vue' // <-- ИМПОРТ
+import { useAppBackground } from '../core/composables/useAppBackground'
+const { setBackground, clearBackground } = useAppBackground()
 
 const props = defineProps({ dbKey: { type: String, required: true } })
 
@@ -167,12 +178,6 @@ const lecture = ref(null)
 const coverUrl = ref('')
 const photoObjectUrls = ref([])
 
-/**
- * Можно ли отметить лекцию прочитанной.
- * Требуется:
- *   • согласие ПД (иначе действие заблокировано);
- *   • лекция сегодняшняя (проверяется отдельно в onRead и isToday).
- */
 const canMarkRead = computed(() => consent.isGranted)
 
 const isRead = computed(() => lecture.value && store.isRead(lecture.value.dbKey))
@@ -231,6 +236,12 @@ const video = computed(() => {
   const url = String(raw).trim()
   if (!url) return null
 
+  // Facecast
+  if (url.includes('facecast.net')) {
+    return { type: 'facecast', src: url }
+  }
+
+  // YouTube
   const ytMatch = url.match(
     /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/,
   )
@@ -243,10 +254,12 @@ const video = computed(() => {
     }
   }
 
+  // Прямая ссылка на видеофайл
   if (/\.(mp4|webm|ogg|ogv|mov|m4v)(\?|#|$)/i.test(url)) {
     return { type: 'video', src: url }
   }
 
+  // Обычная ссылка
   return { type: 'link', src: url }
 })
 
@@ -270,19 +283,11 @@ const galleryPhotos = computed(() => {
 
 // ── Загрузка лекции ───────────────────────────────────────────
 async function load() {
+  setBackground({ url: '/backgrounds/bg_frame.jpg' })
   const key = decodeURIComponent(props.dbKey)
   const l = await store.getLectureByKey(key)
   if (!l) return
   lecture.value = l
-
-  console.log('[lecture] loaded', {
-    dbKey: l.dbKey,
-    hasCover: !!l.cover,
-    hasCoverKey: !!l.coverKey,
-    photosCount: Array.isArray(l.photos) ? l.photos.length : 0,
-    photosRaw: l.photos,
-    videoLink: l.videoLink,
-  })
 
   if (l.coverKey) {
     const blob = await idbGet('photos', l.coverKey)
@@ -320,7 +325,6 @@ async function load() {
   }
 
   photoObjectUrls.value = urls
-  console.log('[lecture] photoObjectUrls', urls)
 }
 
 function onRead() {
@@ -347,6 +351,7 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+/* ... (стили остаются без изменений, добавлен только .facecast-wrap) ... */
 .crumb { margin: 6px 0 6px; font-size: 13px; }
 .lecture h1 {
   font-family: var(--font-family);
@@ -360,15 +365,15 @@ onBeforeUnmount(() => {
 .lead { font-size: 15px; margin: 0 0 14px; }
 
 /* ── Медиа-превью ── */
+.facecast-wrap {
+  margin: 0 0 16px;
+}
+
 .media-hero {
   margin: 0 0 16px;
   border-radius: var(--radius);
   overflow: hidden;
   background: #000;
-}
-
-.media-hero.video-embed-wrap {
-  aspect-ratio: 16 / 9;
 }
 
 .media-hero.cover-wrap {
@@ -424,7 +429,7 @@ onBeforeUnmount(() => {
   text-align: center;
 }
 
-/* ── Текст ── */
+/* ... остальные стили без изменений ... */
 .text {
   font-family: var(--font-family);
   font-weight: 400;
@@ -499,7 +504,6 @@ onBeforeUnmount(() => {
   margin: 16px 0;
 }
 
-/* ── Фото (одно) ── */
 .photos {
   margin: 16px 0;
   display: grid;
@@ -511,7 +515,6 @@ onBeforeUnmount(() => {
   display: block;
 }
 
-/* ── Слайдер фото ── */
 .photos-slider {
   margin: 16px 0;
   border-radius: var(--radius);
@@ -544,7 +547,6 @@ onBeforeUnmount(() => {
   text-shadow: 0 1px 3px rgba(0,0,0,.5);
 }
 
-/* ── Футер ── */
 .footer { margin-top: 24px; }
 .read-state {
   font-family: var(--second-family);
@@ -590,7 +592,6 @@ onBeforeUnmount(() => {
 .read-btn { width: 100%; max-width: unset; }
 .old-note { font-size: 13px; }
 
-/* ── Предупреждение о согласии ПД ── */
 .consent-warning {
   margin-top: 12px;
   padding: 12px 14px;

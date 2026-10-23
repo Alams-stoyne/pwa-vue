@@ -96,7 +96,7 @@ function refresh() {
 onMounted(() => {
   // setBackground({ background: 'linear-gradient(180deg, #86d0fb -14.79%, rgba(255, 255, 255, 0) 100%)' })
   
-  setBackground({ url: 'backgrounds/bg_frame.jpg' })
+  setBackground({ url: '/backgrounds/bg_frame.jpg' })
   theme.load()
   lectures.initNetworkWatcher()
   lectures.flushReadQueue()

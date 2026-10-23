@@ -6,33 +6,33 @@
 
     <transition name="fade" appear>
     <div class="reflection-body">      
-      <div v-if="!store.checking && store.sentToday" class="already-card">
+      <!-- <div v-if="!store.checking && store.sentToday" class="already-card">
         <div class="already-emoji">✓</div>
         <h2>Рефлексия уже отправлена</h2>
         <p class="muted">
           Вы уже поделились мыслями сегодня. Возвращайтесь завтра.
         </p>
         <p v-if="lastSentText" class="muted small">Отправлено: {{ lastSentText }}</p>
-      </div>
+      </div> -->
       <form
-        v-else-if="!store.checking"
+        v-if="!store.checking && !store.sentToday"
         class="form"
         @submit.prevent="submit"
       >
         <label class="field">
-          <span class="field-label">{{ store.todayDescription || 'Ваши мысли' }}</span>
+          <span class="field-label" @click="viewClick(store)">{{ store.todayTitle || 'Ваши мысли' }}</span>
           <textarea
             v-model="store.text"
             :maxlength="MAX_TEXT"
             rows="10"
-            :placeholder="store.todayDescription || 'Поделитесь своими мыслями…'"
+            :placeholder="store.todayDescription || 'Поделитесь своими мыслями...'"
           />
           <span class="field-counter muted">{{ store.text.length }} / {{ MAX_TEXT }}</span>
         </label>
 
         <p v-if="store.error" class="error">{{ store.error }}</p>
         <div class="bottom-action d-grid g12">
-          <ConsentBanner v-if="!canSubmitWithConsent" :class="'relative'" text="Для отправки шагов нужно согласие на обработку персональных данных." />
+          <ConsentBanner v-if="!canSubmitWithConsent" :class="'relative'" text="Для отправки рефлексии нужно согласие на обработку персональных данных." />
 
           <button
             type="submit"
@@ -40,7 +40,7 @@
             :disabled="!store.canSubmit || !canSubmitWithConsent"
           >
             <span class="text">{{ store.sending ? 'Отправка…' : 'Отправить' }}</span>
-            <span class="badge">+5 <AppIcon name="apple" :size="21" /></span>
+            <span class="badge" v-if="store.todayRewardPoints">+{{ store.todayRewardPoints }} <AppIcon name="apple" :size="21" /></span>
           </button>  
         </div>
       </form>
@@ -49,8 +49,9 @@
     
     <Mascot ref="mascot" 
       :body-src="`/maskot/body_relax.png`" 
-      bubble-text="Привет! Я Зефирчик. Рад тебя видеть на Неделе здоровья и безопасности Х5!"
+      :bubble-text="store.sentToday ? store.todayAfterTextCloud : store.todayOpenTextCloud"
       :typewriter-speed="40"
+      :class="store.sentToday ? 'sent' : '' "
       emotion="laughing"
       @bubble-complete="onBubbleDone"
     />  
@@ -91,7 +92,7 @@ async function submit() {
 }
 
 onMounted(() => {
-  setBackground({ url: 'backgrounds/bg_frame.jpg' })
+  setBackground({ url: '/backgrounds/bg_frame.jpg' })
   if (typeof store.loadStatus === 'function') store.loadStatus()
   if (typeof store.loadTitles === 'function') store.loadTitles()
 
@@ -106,6 +107,10 @@ onMounted(() => {
 onUnmounted(() => {
   if (titlesTimer) clearInterval(titlesTimer)
 })
+
+function viewClick(event) {
+  console.log(event);
+}
 </script>
 
 <style scoped>

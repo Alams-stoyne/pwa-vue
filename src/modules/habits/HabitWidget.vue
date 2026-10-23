@@ -1,10 +1,5 @@
 <template>
   <section class="habit-widget">
-    <!-- <header class="hw-head">
-      <h2 class="hw-title">Привычки на сегодня</h2>
-      <span class="hw-progress muted">{{ total.done }} / {{ total.total }}</span>
-    </header> -->
-
     <HabitCard
       v-for="h in habits.list"
       :key="h.id"
@@ -61,9 +56,9 @@ onMounted(() => {
 
 <style scoped>
 .habit-widget {
+  position: relative;
   display: flex;
   flex-direction: column;
-  margin-bottom: 20px;
 }
 
 .hw-head {
