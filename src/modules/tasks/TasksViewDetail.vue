@@ -5,7 +5,7 @@
 
     <template v-else-if="task">
       <header class="detail-head">
-        <h1>{{ task.TITLE }}</h1>
+        <h1 @click="viewClick(task)">{{ task.TITLE }}</h1>
         <p v-if="task.DESCRIPTION" class="detail-desc">{{ task.DESCRIPTION }}</p>
         <img v-if="task.COVER" :src="task.COVER" :alt="task.TITLE" class="detail-cover" />
       </header>
@@ -52,7 +52,8 @@
           :disabled="marking"
           @click="markDone"
         >
-          {{ marking ? 'Отправка…' : 'готово' }}
+          <span class="text">{{ marking ? 'Отправка…' : 'готово' }}</span>
+          <span class="badge" v-if="task.REWARD_POINTS">+{{ task.REWARD_POINTS }} <AppIcon name="apple" :size="21" /></span>         
         </button>  
       </div>
 
@@ -66,6 +67,7 @@ import { useRoute } from 'vue-router'
 import { useTasksStore } from './store'
 import { useConsentStore } from '../consent/store'
 import { fetchTasksByThemeDate } from './api'
+import AppIcon from '../../components/AppIcon.vue'
 import FacecastPlayer from '../../components/FacecastPlayer.vue'
 import { useAppBackground } from '../core/composables/useAppBackground'
 const { setBackground, clearBackground } = useAppBackground()
@@ -168,6 +170,10 @@ async function markDone() {
 }
 
 onMounted(loadTask)
+
+function viewClick(event) {
+  console.log(event);
+}
 </script>
 
 <style scoped>

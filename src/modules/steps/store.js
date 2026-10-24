@@ -2,7 +2,13 @@ import { defineStore } from 'pinia'
 import { localDate, localDateTime } from '../core/utils/date'
 import { isSuccess } from '../core/utils/response'
 import { useAuthStore } from '../auth/store'
-import { sendSteps, fetchStepsSummary } from './api'
+import { useStatsStore } from '../stats/store'
+import { 
+  sendSteps, 
+  fetchStepsSummary,
+  fetchStepsLeaderboard,
+  fetchSchoolStats
+} from './api'
 
 const LS_LAST_SUBMIT = 'steps.lastSubmittedAt'
 
@@ -22,6 +28,12 @@ export const useStepsStore = defineStore('steps', {
     sending: false,
     error: null,
     lastSubmittedAt: Number(localStorage.getItem(LS_LAST_SUBMIT) || 0),
+
+    leaderboard: null,
+    leaderboardDate: 'all',
+    schoolStats: null,
+    loadingLeaderboard: false,
+    leaderboardUpdatedAt: null,
   }),
 
   getters: {
@@ -33,17 +45,35 @@ export const useStepsStore = defineStore('steps', {
     totalSteps: (s) => s.summary?.TOTAL_STEPS || 0,
     todaySteps: (s) => s.summary?.TODAY_STEPS || 0,
 
-    /**
-     * Отправлял ли пользователь данные сегодня (локально ИЛИ на сервере).
-     */
-    isSubmittedToday: (s) => {
-      // 1. Если сервер уже знает, что сегодня есть зачтенные шаги
-      if (Number(s.summary?.TODAY_STEPS) > 0) return true;
+    userWorkplace: () => {
+      try {
+        const profile = JSON.parse(localStorage.getItem('profile') || '{}')
+        return profile.workplace || ''
+      } catch {
+        return ''
+      }
+    },
+
+    myWorkplaceTop: (s) => {
+      if (!s.leaderboard) return []
       
-      // 2. Если сервер вернул флаг, что сегодня была отправка (даже на проверке)
+      const wp = s.userWorkplace
+      if (wp && s.leaderboard.BY_WORKPLACE && s.leaderboard.BY_WORKPLACE[wp]) {
+        return s.leaderboard.BY_WORKPLACE[wp].TOP || []
+      }
+      
+      return s.leaderboard.ALL || []
+    },
+
+    workplaceMeta: (s) => {
+      if (!s.leaderboard || !s.userWorkplace) return null
+      return s.leaderboard.BY_WORKPLACE?.[s.userWorkplace] || null
+    },
+
+    isSubmittedToday: (s) => {
+      if (Number(s.summary?.TODAY_STEPS) > 0) return true;
       if (s.summary?.TODAY_SUBMITTED === true) return true;
 
-      // 3. Проверка локального времени
       if (!s.lastSubmittedAt) return false
       const lastDate = new Date(s.lastSubmittedAt)
       const today = new Date()
@@ -52,18 +82,11 @@ export const useStepsStore = defineStore('steps', {
              lastDate.getFullYear() === today.getFullYear()
     },
 
-    /**
-     * Подтверждены ли сегодняшние шаги сервером.
-     * Если сервер присылает флаг TODAY_CONFIRMED — используем его.
-     * Если нет — считаем подтвержденными, если TODAY_STEPS > 0.
-     */
     isConfirmedToday: (s) => {
       if (!s.summary) return false;
-      // В идеале сервер должен присылать явный флаг
       if (s.summary.TODAY_CONFIRMED !== undefined) {
         return s.summary.TODAY_CONFIRMED === true;
       }
-      // Фолбэк: если есть зачтенные шаги за сегодня, значит, подтверждено
       return Number(s.summary.TODAY_STEPS) > 0;
     }
   },
@@ -119,15 +142,56 @@ export const useStepsStore = defineStore('steps', {
         this.lastSubmittedAt = Date.now()
         localStorage.setItem(LS_LAST_SUBMIT, String(this.lastSubmittedAt))
 
-        // Сразу запрашиваем сводку, чтобы проверить, подтвердилось ли (вдруг авто-модерация)
-        await this.loadSummary()
+        // ▼ ОПТИМИСТИЧНОЕ НАЧИСЛЕНИЕ ▼
+        try {
+          if (res.REWARD_POINTS) {
+            useStatsStore().addApplesLocally(res.REWARD_POINTS)
+          }
+        } catch { /* ignore */ }
 
+        await this.loadSummary()
         return true
       } catch (e) {
         this.error = e.message || 'Не удалось отправить данные'
         return false
       } finally {
         this.sending = false
+      }
+    },
+
+    async loadLeaderboard({ date = 'all', force = false } = {}) {
+      if (!force && this.leaderboard && this.leaderboardDate === date) {
+        const cacheTime = Number(localStorage.getItem(`steps.lb.cacheAt.${date}`) || 0)
+        if (Date.now() - cacheTime < 30 * 60 * 1000) return
+      }
+
+      this.leaderboardDate = date
+      this.loadingLeaderboard = true
+      
+      let queryDate = null
+      if (date === 'today') {
+        queryDate = localDate()
+      } else if (date === 'yesterday') {
+        const d = new Date()
+        d.setDate(d.getDate() - 1)
+        queryDate = localDate(d)
+      }
+
+      try {
+        const [lbData, schoolData] = await Promise.all([
+          fetchStepsLeaderboard(queryDate),
+          fetchSchoolStats()
+        ])
+
+        this.leaderboard = lbData
+        this.schoolStats = schoolData
+        this.leaderboardUpdatedAt = lbData?.UPDATED_AT || schoolData?.UPDATED_AT
+        
+        localStorage.setItem(`steps.lb.cacheAt.${date}`, String(Date.now()))
+      } catch (e) {
+        console.warn('[steps] loadLeaderboard failed:', e)
+      } finally {
+        this.loadingLeaderboard = false
       }
     },
 

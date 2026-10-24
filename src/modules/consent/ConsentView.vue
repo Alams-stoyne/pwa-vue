@@ -17,7 +17,7 @@
       </svg>
 
       <header class="head">
-        <h1>согласие<br> на обработку<br> персональных<br> данных</h1>
+        <h1>согласие<br> на обработку<br> персональных<br> данных</h1>
       </header>
 
       <button
@@ -28,10 +28,12 @@
         Что будет, если я не дам согласие?
       </button>
 
+      <a href="https://cdn.x5hd.ru/politika_x5.pdf" target="_blank" rel="noopener noreferrer" class="link_politika">Политика в отношении обработки персональных данных</a>
+
       <p v-if="store.error" class="error">{{ store.error }}</p>
     </div>
 
-    <div class="bottom-action d-grid g24">
+    <div class="bottom-action d-grid g8">
       <button
         type="button"
         class="btn btn-secondary btn-center"
@@ -55,12 +57,12 @@
       <transition name="fade">
         <div v-if="modalOpen" class="modal-backdrop" @click.self="modalOpen = false">
           <div class="modal" role="dialog" aria-modal="true">
-            <h2>Что будет, если я не дам согласие?</h2>
-            <ul class="modal-list">
-              <li>Останутся доступны: главная, обучение, материалы, статистика, профиль.</li>
-              <li>Не будут работать: отметки привычек, отправка рефлексии и шагов, обращения в поддержку, напоминания (PUSH).</li>
-              <li>Согласие можно дать позже в любой момент — на этой же странице.</li>
-            </ul>
+            <div class="modal-backdrop-title color-text-stroke">Если вы не хотите давать согласие</div>
+            <div class="modal-backdrop-text">
+              <p>Вы можете не давать согласие на обработку персональных данных </p>
+              <p>В этом случае вы не сможете указать компанию и магазин, а также загружать фотографии в разделе шагомер</p> 
+              <p>Ваши результаты не будут учитываться в статистике вашей команды</p>              
+            </div>
             <button
               type="button"
               class="btn btn-primary btn-center m-auto"
@@ -174,6 +176,26 @@ onBeforeUnmount(() => {
 }
 .link-btn:hover { opacity: .8; }
 
+.link_politika{
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: var(--font-family);
+  font-weight: 500;
+  font-size: 20px;
+  line-height: 120%;
+  text-align: center;
+  text-decoration: underline;
+  text-decoration-skip-ink: none;
+  text-transform: lowercase;
+  color: var(--white);
+  box-shadow: none;
+  -webkit-tap-highlight-color: transparent;
+  max-width: 320px;
+   opacity: .8;
+}
+
 .error {
   margin: 0;
   font-size: 13px;
@@ -195,6 +217,29 @@ onBeforeUnmount(() => {
   place-items: center;
   padding: 24px;
 }
+
+.modal-backdrop-title{
+  font-size: 28px;
+  line-height: 96%;
+  text-align: center;
+  text-transform: lowercase;
+  color: var(--txt-brand-limon);
+  margin-bottom: 18px;
+}
+
+.modal-backdrop-text{
+  font-family: var(--font-family);
+  font-weight: 400;
+  font-size: 16px;
+  line-height: 120%;
+  text-wrap: balance;
+  color: var(--txt-black-dark-green);
+}
+.modal-backdrop-text p{
+  margin: 0;
+  margin-bottom: 18px;
+}
+
 .modal {
   background: #fff;
   border-radius: var(--radius);

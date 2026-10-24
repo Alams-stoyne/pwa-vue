@@ -28,21 +28,10 @@
       </div>
     </div>
 
-    <div v-else-if="!groups.length && hasTodayOnly" class="empty">
-      <span class="empty-emoji">🗓️</span>
-      <h3>Здесь появятся материалы за прошедшие дни</h3>
-      <p class="muted">
-        Сегодняшние лекции — в разделе «Обучение».
-        В хранилище они появятся после полуночи.
-      </p>
-    </div>
-
     <div v-else-if="!groups.length" class="empty">
-      <span class="empty-emoji">📦</span>
-      <h3>Хранилище пусто</h3>
-      <p class="muted">
-        Нажмите «Синхронизировать 7 дней» — подтянем материалы за последнюю неделю.
-      </p>
+      <div class="empty-title">хранилище пока пусто</div>
+      <div class="empty-text">здесь появятся материалы прошедших дней</div>
+      <div class="empty-help-text">Нажмите «Синхронизировать» — подтянем материалы за последнюю неделю.</div>
     </div>
 
     <section v-for="g in groups" :key="g.date" class="group">
@@ -54,15 +43,18 @@
           :to="lectureLink(l.dbKey)"
           class="card clickable lecture-row"
         >
+          <!-- Обложка -->
+          <div class="lecture-cover" :style="getCoverStyle(l.dbKey)">
+            <span v-if="!coverUrls[l.dbKey] && !l.cover" class="cover-fallback">📖</span>
+            <span v-if="l.videoLink" class="video-badge">▶</span>
+          </div>
+
           <div class="lecture-row-main">
             <div class="lecture-row-head">
               <span class="lecture-row-title">{{ l.title }}</span>
-              <span v-if="store.isRead(l.dbKey)" class="read-badge">✓</span>
             </div>
-            <p class="lecture-row-desc muted">{{ l.description }}</p>
-            <span class="chip">{{ bucketLabel(l.bucket) }}</span>
+            <span v-if="store.isRead(l.dbKey)" class="read-badge">просмотрено</span>
           </div>
-          <span class="chevron" aria-hidden="true">›</span>
         </router-link>
       </div>
     </section>
@@ -76,7 +68,7 @@
       >
         <span v-if="busy" class="sync-spin" aria-hidden="true">↻</span>
         <span v-else class="sync-arrow" aria-hidden="true">↻</span>
-        {{ busy ? 'Синхронизация…' : 'Синхронизировать 7 дней' }}
+        {{ busy ? 'Синхронизация…' : 'Синхронизировать' }}
       </button>
 
       <p class="muted sync-hint">
@@ -91,18 +83,18 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import HelpIcon from '../../components/HelpIcon.vue'
 import { useLecturesStore } from './store'
 import { useThemeStore } from '../theme/store'
 import { themesComputed, getTheme } from '../theme/themes'
+import { idbGet } from '../core/db'
 
 import { localDate } from '../core/utils/date'
 import { useToast } from '../core/composables/useToast'
-
 import { useAppBackground } from '../core/composables/useAppBackground'
-const { setBackground, clearBackground } = useAppBackground()
+
+const { setBackground } = useAppBackground()
 
 const store = useLecturesStore()
 const theme = useThemeStore()
@@ -113,35 +105,24 @@ const items = ref([])
 const loading = ref(true)
 const filter = ref('')   // '' = все
 
+// Кэш Object URL для обложек
+const coverUrls = ref({})
+
 const busy = computed(() =>
   store.syncing || store.syncingReads || store.syncingPhotos
 )
 
-/**
- * Материалы без сегодняшних.
- * Всё, что относится к «хранилищу» (счётчики, чипы, группы), должно
- * считаться именно по этой коллекции — сегодняшние материалы доступны
- * через раздел «Обучение» и в хранилище не входят.
- */
 const pastItems = computed(() => {
   const today = localDate()
   return items.value.filter((l) => l.publishedDate && l.publishedDate !== today)
 })
 
-/** Индекс темы в themesComputed — для вторичной сортировки «всех остальных» */
 const themeOrder = computed(() => {
   const map = new Map()
   themesComputed.value.forEach((t, i) => map.set(t.id, i))
   return map
 })
 
-/**
- * Ключ сортировки bucket'ов:
- *   0 — Общие
- *   1 — Зарядка
- *   2 — Выбранное направление
- *   3 — все остальные направления (по порядку в themesComputed)
- */
 function bucketSortKey(bucket) {
   if (bucket === 'lecture-general') return [0, 0]
   if (bucket === 'lecture-charging') return [1, 0]
@@ -156,7 +137,6 @@ function compareBuckets(a, b) {
   return pa - pb || sa - sb
 }
 
-/** Уникальные bucket'ы, представленные среди прошлых материалов, с количеством */
 const availableBuckets = computed(() => {
   const map = new Map()
   for (const l of pastItems.value) {
@@ -166,7 +146,6 @@ const availableBuckets = computed(() => {
   return map
 })
 
-/** Чипы фильтра: Все + те, что реально есть среди прошлых материалов, в заданном порядке */
 const chips = computed(() => {
   const buckets = [...availableBuckets.value.entries()]
     .sort(([a], [b]) => compareBuckets(a, b))
@@ -189,11 +168,6 @@ const filteredItems = computed(() => {
   return pastItems.value.filter((l) => !filter.value || l.bucket === filter.value)
 })
 
-const hasTodayOnly = computed(() => {
-  const today = localDate()
-  return items.value.some((l) => l.publishedDate === today)
-})
-
 const groups = computed(() => {
   const map = new Map()
   for (const l of filteredItems.value) {
@@ -205,8 +179,6 @@ const groups = computed(() => {
     .sort((a, b) => b[0].localeCompare(a[0]))
     .map(([date, list]) => ({
       date,
-      // Внутри дня — тот же порядок, что и в чипах:
-      // Общие → Зарядка → выбранное направление → остальные направления
       items: [...list].sort((a, b) => compareBuckets(a.bucket, b.bucket)),
     }))
 })
@@ -248,8 +220,41 @@ function lectureLink(dbKey) {
   }
 }
 
+// ─── Логика обложек ───────────────────────────────────────────
+function getCoverStyle(dbKey) {
+  const url = coverUrls.value[dbKey]
+  return url ? { backgroundImage: `url("${url}")` } : {}
+}
+
+function revokeCovers() {
+  for (const url of Object.values(coverUrls.value)) {
+    if (url && url.startsWith('blob:')) {
+      URL.revokeObjectURL(url)
+    }
+  }
+  coverUrls.value = {}
+}
+
+async function loadCovers(items) {
+  // Сначала находим все нужные blob-ы
+  for (const l of items) {
+    if (!l.coverKey) continue
+    
+    try {
+      const blob = await idbGet('photos', l.coverKey)
+      if (blob) {
+        coverUrls.value[l.dbKey] = URL.createObjectURL(blob)
+      }
+    } catch (e) {
+      console.warn('[storage] failed to load cover for', l.dbKey, e)
+    }
+  }
+}
+
 async function reload() {
+  revokeCovers() // Очищаем старые URL перед загрузкой новых
   items.value = await store.loadArchive()
+  await loadCovers(items.value)
 }
 
 async function syncAllThemes() {
@@ -275,7 +280,6 @@ onMounted(async () => {
   await reload()
   loading.value = false
 
-  // Если есть фильтр из URL (например, пришли с «Все →» на слайдере) — применим
   if (route.query.filter) filter.value = route.query.filter
 
   if (store.online) {
@@ -291,11 +295,13 @@ onMounted(async () => {
     store.syncMissingPhotos()
   }
 })
+
+onBeforeUnmount(() => {
+  revokeCovers()
+})
 </script>
 
 <style scoped>
-/* .storage-page { padding-top: 12px; } */
-
 .head {
   display: flex;
   align-items: center;
@@ -343,7 +349,6 @@ onMounted(async () => {
   padding-right: 18px;
 }
 
-
 .chip {
   flex: 0 0 auto;
   display: inline-flex;
@@ -387,11 +392,46 @@ onMounted(async () => {
 }
 
 .list { display: grid; gap: 10px; }
+
+/* ─── Карточка в списке (строка) ─── */
 .lecture-row {
   display: flex; align-items: center; gap: 12px;
   text-decoration: none; color: var(--text);
-  padding: 12px 14px;
+  padding: 10px;
 }
+
+/* ─── Обложка ─── */
+.lecture-cover {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  flex-shrink: 0;
+  border-radius: 12px;
+  background-color: var(--grey-light);
+  background-size: cover;
+  background-position: center;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+.cover-fallback {
+  font-size: 28px;
+  opacity: .35;
+}
+
+.video-badge {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  background: rgba(15, 90, 5, 0.85);
+  color: #fff;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  backdrop-filter: blur(2px);
+}
+
 .lecture-row-main { flex: 1; min-width: 0; }
 .lecture-row-head {
   display: flex; align-items: center; gap: 8px;
@@ -399,15 +439,6 @@ onMounted(async () => {
 }
 .lecture-row-title { font-weight: 600; font-size: 15px; }
 .read-badge { color: var(--accent); font-weight: 700; font-size: 13px; }
-.lecture-row-desc {
-  margin: 0 0 6px;
-  font-size: 13px;
-  line-height: 1.4;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
 
 .chip--bucket {
   display: inline-flex;
@@ -421,15 +452,39 @@ onMounted(async () => {
   background: transparent;
 }
 
-.chevron { font-size: 22px; color: var(--muted); }
-
 .empty {
+  position: relative;
+  display: grid;
+  align-items: center;
+  border: 2px dashed #afe6dd;
+  border-radius: 14px;
+  padding: 14px;
+  font-family: var(--font-family);
+  text-transform: lowercase;
   text-align: center;
-  padding: 40px 12px;
-  display: flex; flex-direction: column; gap: 10px; align-items: center;
+  color: var(--txt-black-dark-green);
+  gap: 14px
 }
-.empty-emoji { font-size: 44px; }
-.empty h3 { margin: 4px 0 0; font-size: 16px; }
+.empty-title{
+  font-family: var(--font-family);
+  font-weight: 500;
+  font-size: 20px;
+  line-height: 100%;
+  text-wrap: balance;
+}
+.empty-text{
+  font-family: var(--font-family);
+  font-weight: 400;
+  font-size: 14px;
+  line-height: 120%;
+}
+.empty-help-text{
+  font-family: var(--font-family);
+  font-weight: 400;
+  font-size: 14px;
+  line-height: 120%;
+  opacity: 0.5;
+}
 
 .skeleton { padding: 14px; }
 .sk-line { height: 12px; border-radius: 6px; background: #eee; margin-bottom: 8px; }

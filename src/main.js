@@ -38,6 +38,10 @@ installNoZoomGuards()
 const app = createApp(App)
 app.use(pinia)
 app.use(router)
+
+const auth = useAuthStore()
+auth.load()
+
 app.mount('#app')
 
 // ── Всё ниже — вне критического пути ──────────────────────────
@@ -55,7 +59,7 @@ if (shift) {
   console.log('[debug] сдвиг даты:', shift / 86400000, 'дн.')
 }
 
-const auth = useAuthStore()
+// const auth = useAuthStore()
 auth.load()
 
 // Согласие ПД — загружаем при старте, если пользователь авторизован

@@ -3,7 +3,7 @@
     <transition name="fade" appear>
       <header class="head_style text-center">
         <h1 class="title color-text-stroke">Завершим настройку</h1>
-        <div class="subtitle">Заполните обязательные данные для участия.</div>
+        <div class="subtitle">Заполните обязательные данные для участия.</div>
       </header>
     </transition>
 
@@ -25,11 +25,12 @@
           required
         >
           <option value="" disabled>Бизнес-единица / магазин* Выберите из списка…</option>
+          <!-- ▼ ИСПОЛЬЗУЕМ id и name ▼ -->
           <option
-            v-for="w in workplaces"
-            :key="w.value"
-            :value="w.value"
-          >{{ w.label }}</option>
+            v-for="w in store.workplaces"
+            :key="w.id"
+            :value="w.id"
+          >{{ w.name }}</option>
         </select>
       </label>
     </form>
@@ -52,7 +53,6 @@ import { computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useProfileStore } from './store'
 import { useQuizStore } from '../quiz/store'
-import { WORKPLACES } from './workplaces'
 import { useToast } from '../core/composables/useToast'
 import { resolveNextOnboardingRoute } from '../onboarding/navigation'
 
@@ -60,8 +60,6 @@ const store = useProfileStore()
 const quiz = useQuizStore()
 const router = useRouter()
 const toast = useToast()
-
-const workplaces = WORKPLACES
 
 const canContinue = computed(() => store.isComplete)
 
@@ -71,7 +69,6 @@ watch(() => store.error, (v) => { if (v) toast.error(v) })
 async function onContinue() {
   if (!canContinue.value) return
   await store.save()
-  // toast.success('Профиль сохранён')
   const next = await resolveNextOnboardingRoute()
   router.replace(next)
 }

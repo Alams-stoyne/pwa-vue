@@ -121,7 +121,6 @@ const router = useRouter()
 
 const success = ref(false)
 
-/** Обёртка с таймаутом, чтобы регистрация не висела при сетевых проблемах. */
 function withTimeout(promise, ms = 3000) {
   return Promise.race([
     promise,
@@ -129,7 +128,6 @@ function withTimeout(promise, ms = 3000) {
   ])
 }
 
-/** Перечитать локальные сторы (после applyState в registerWithUid). */
 function reloadLocalState() {
   profile.load()
   quiz.load()
@@ -140,43 +138,55 @@ function reloadLocalState() {
   consent.reload()
 }
 
-/**
- * Догрузить с сервера то, что не пришло в STATE.
- * На переустановленном приложении main.js уже не вызовет loadSelection,
- * потому что auth.idUser был null. Поэтому делаем это здесь, явно.
- */
-  async function hydrateFromServer() {
-    if (!auth.idUser) return
+async function hydrateFromServer() {
+  if (!auth.idUser) return
 
-    // Согласие
-    if (!consent.isAnswered) {
-      try { await withTimeout(consent.loadStatus(), 3000) } catch (e) {
-        console.warn('[register] consent fetch failed:', e)
-      }
+  if (!consent.isAnswered) {
+    try { await withTimeout(consent.loadStatus(), 3000) } catch (e) {
+      console.warn('[register] consent fetch failed:', e)
     }
-
-    // Выбранная привычка
-    if (!habits.selectedHabitId) {
-      try { await withTimeout(habits.loadSelection(), 3000) } catch (e) {
-        console.warn('[register] habit selection fetch failed:', e)
-      }
-    }
-
-    console.log('[register] hydration result', {
-      consentAnswered: consent.isAnswered,
-      consentGranted: consent.isGranted,
-      selectedHabitId: habits.selectedHabitId,
-      localStorageHabit: localStorage.getItem('habits.selectedHabitId'),
-    })
   }
 
+  if (!habits.selectedHabitId) {
+    try { await withTimeout(habits.loadSelection(), 3000) } catch (e) {
+      console.warn('[register] habit selection fetch failed:', e)
+    }
+  }
+
+  console.log('[register] hydration result', {
+    consentAnswered: consent.isAnswered,
+    consentGranted: consent.isGranted,
+    selectedHabitId: habits.selectedHabitId,
+    localStorageHabit: localStorage.getItem('habits.selectedHabitId'),
+  })
+}
+
 async function run() {
+  console.log('[RegisteringView] run() started')
   try { localStorage.removeItem('auth.confirmed') } catch {}
 
   auth.error = null
   const ok = await auth.registerWithUid()
+  console.log('[RegisteringView] registerWithUid returned:', ok, 'auth.error:', auth.error)
+
   if (!ok) {
     if (auth.error === 'UID_LOCKED') router.replace('/access-error')
+    
+    // Если ошибки нет, но и успеха нет — значит, регистрация уже идет в фоне
+    if (!auth.error) {
+      console.warn('[RegisteringView] Registration is already in progress...')
+      // Ждем немного и проверяем снова (рекурсивно, но с задержкой)
+      setTimeout(() => {
+        if (auth.isAuthed && auth.isRegistered) {
+          reloadLocalState().then(() => {
+            hydrateFromServer().then(() => { success.value = true })
+          })
+        } else if (!auth.registering && !auth.error) {
+          // Если регистрация завершилась без ошибки и без успеха — странная ситуация
+          auth.error = 'Неизвестная ошибка. Попробуйте еще раз.'
+        }
+      }, 2000)
+    }
     return
   }
 
@@ -250,7 +260,6 @@ onMounted(async () => {
   }
 
   if (auth.isAuthed && auth.isRegistered) {
-    // Возврат на экран уже после успешной регистрации
     reloadLocalState()
     await hydrateFromServer()
     success.value = true

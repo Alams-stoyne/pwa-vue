@@ -137,6 +137,7 @@
         <div class="timer-text">Следующая отправка через: <span>{{ timeLeft }}</span></div>        
       </div>   
     </div>
+    <StepsLeaderboardWidget />
   </div>
 </template>
 
@@ -146,15 +147,16 @@ import { useStepsStore } from './store'
 import { useConsentStore } from '../consent/store'
 import ConsentBanner from '../consent/ConsentBanner.vue'
 import { useToast } from '../core/composables/useToast'
-import { useAppBackground } from '../core/composables/useAppBackground'
 import AppIcon from '../../components/AppIcon.vue'
+import StepsLeaderboardWidget from './StepsLeaderboardWidget.vue'
+import { useAppBackground } from '../core/composables/useAppBackground'
 const { setBackground, clearBackground } = useAppBackground()
 
 const store = useStepsStore()
 const consentStore = useConsentStore()
 const toast = useToast()
 
-const MAX_STEPS = 99999
+const MAX_STEPS = 70000
 
 // Состояние формы
 const steps = ref(null)

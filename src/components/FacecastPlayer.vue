@@ -40,32 +40,30 @@ const embedUrl = computed(() => {
   const params = new URLSearchParams({
     autorun: 'false',
     lang: 'ru',
-    nolabel: '',
-    nodate: '',
     css: fullCssUrl
   })
   
-  return `https://facecast.net/w/${videoId.value}?${params.toString()}`
+  return `https://facecast.net/w/${videoId.value}?${params.toString()}&nodate`
 })
 </script>
 
 <style scoped>
 .video-wrapper {
-  position: relative;
-  width: 100%;
-  padding-bottom: 56.25%; /* 16:9 */
-  border-radius: 16px;
-  overflow: hidden;
-  background: #000;
-  border: 1px solid var(--border);
+    position: relative;
+    border: 1px solid var(--border);
+    background: var(--grey-light);
+    border-radius: 16px;
+    aspect-ratio: 16 / 9;
+    overflow: hidden;
 }
 .video-iframe {
-  position: absolute;
-  top: 0;
-  left: 0;
+  position: relative;
+  display: block;
+  /* top: 0; */
+  /* left: 0; */
   width: 100%;
   height: 100%;
-  border: none;
+  /* border: none; */
 }
 .video-error {
   padding: 20px;

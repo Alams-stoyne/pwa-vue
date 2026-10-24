@@ -5,7 +5,8 @@
         <div class="reco-label" v-if="isRecommended">Ваша рекомендация</div>
         <div class="reco-name color-text-stroke">{{ theme.name }}</div>
       </header>
-      <div class="reco-desc">{{ theme.description }}</div>
+      <!-- ▼ ИЗМЕНЕНО: используем v-html для вывода HTML-контента -->
+      <div class="reco-desc" v-html="theme.description"></div>
     </div>
 
     <div class="action d-grid g4">
@@ -20,7 +21,7 @@
 </template>
 
 <script setup>
-import { computed, watch, onMounted } from 'vue'
+import { computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { getTheme } from './themes'
 import { useThemeStore } from './store'
@@ -40,8 +41,6 @@ const { setBackground, clearBackground } = useAppBackground()
 
 /**
  * Это направление — рекомендация после теста?
- * quiz.recommended хранится в localStorage (quiz.recommended) и
- * загружается через quiz.load(). Если тест не пройден — null.
  */
 const isRecommended = computed(() => {
   if (!quiz.done) return false
@@ -49,11 +48,6 @@ const isRecommended = computed(() => {
   return String(quiz.recommended) === String(props.id)
 })
 
-/**
- * Следим за изменением theme — это ключевой момент.
- * Если данные с CDN придут позже, чем сработал onMounted,
- * watch поймает обновление и установит фон.
- */
 watch(
   theme,
   (newTheme) => {
@@ -61,7 +55,7 @@ watch(
       setBackground({ url: newTheme.backgroundImageRecomendation })
     }
   },
-  { immediate: true } // сразу проверяем, если данные уже есть
+  { immediate: true }
 )
 
 function choose() {
@@ -75,19 +69,15 @@ function skip() {
 }
 
 onMounted(async () => {
-  // на случай, если RecommendationView открыли напрямую по URL
   await store.loadThemes().catch(() => {})
 })
 
-// при уходе с экрана — сбрасываем фон
-import { onBeforeUnmount } from 'vue'
 onBeforeUnmount(() => {
   clearBackground()
 })
 </script>
 
 <style scoped>
-/* без изменений — все стили из вашего файла */
 .reco-page {
   position: relative;
   align-content: end;
@@ -142,14 +132,44 @@ onBeforeUnmount(() => {
   padding: 16px 16px 24px;
 }
 
+/* ▼ ИЗМЕНЕНО: базовые стили и стили для HTML-тегов внутри описания */
 .reco-desc {
   font-family: var(--font-family);
   font-weight: 400;
   font-size: 16px;
   line-height: 130%;
   letter-spacing: -0.01em;
-  text-align: center;
   color: #21271f;
+}
+
+/* Стилизация HTML-тегов, пришедших из v-html */
+.reco-desc :deep(p) {
+  margin: 0 0 12px;
+}
+.reco-desc :deep(p:last-child) {
+  margin-bottom: 0;
+}
+.reco-desc :deep(ul),
+.reco-desc :deep(ol) {
+  text-align: left;
+  margin: 0 0 12px;
+  padding-left: 20px;
+}
+.reco-desc :deep(li) {
+  margin-bottom: 4px;
+}
+.reco-desc :deep(strong),
+.reco-desc :deep(b) {
+  font-weight: 700;
+}
+.reco-desc :deep(em),
+.reco-desc :deep(i) {
+  font-style: italic;
+}
+.reco-desc :deep(a) {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .reco-video-btn {

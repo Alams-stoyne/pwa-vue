@@ -24,11 +24,12 @@
       <label>Место работы
         <select v-model="store.workplace" class="select" :disabled="!canEdit">
           <option value="" disabled>Выберите из списка…</option>
+          <!-- ▼ ИСПОЛЬЗУЕМ id и name ▼ -->
           <option
-            v-for="w in workplaces"
-            :key="w.value"
-            :value="w.value"
-          >{{ w.label }}</option>
+            v-for="w in store.workplaces"
+            :key="w.id"
+            :value="w.id"
+          >{{ w.name }}</option>
         </select>
       </label>
 
@@ -60,20 +61,16 @@
 <script setup>
 import { computed, onMounted, watch } from 'vue'
 import { useProfileStore } from './store.js'
-import { WORKPLACES } from './workplaces.js'
 import { useConsentStore } from '../consent/store.js'
 import { useToast } from '../core/composables/useToast.js'
 import { useAppBackground } from '../core/composables/useAppBackground.js'
 
 import Mascot from '../../components/Mascot.vue'
 
-
 const store = useProfileStore()
 const consent = useConsentStore()
 const toast = useToast()
 const { setBackground } = useAppBackground()
-
-const workplaces = WORKPLACES
 
 const canEdit = computed(() => consent.isGranted)
 
@@ -108,6 +105,7 @@ async function onSave() {
 </script>
 
 <style scoped>
+/* Стили остаются без изменений */
 .profile-page {
   padding-bottom: 32px;
 }

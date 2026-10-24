@@ -10,7 +10,6 @@ import { setDocumentTitle } from '../modules/core/composables/usePageTitle'
 import HomeView from '../modules/home/HomeView.vue'
 import ConsentView from '../modules/consent/ConsentView.vue'
 import OnboardingProfileView from '../modules/profile/OnboardingProfileView.vue'
-import OnboardingWelcomeView from '../modules/onboarding/WelcomeView.vue'
 import HabitsCatalogView from '../modules/habits/CatalogView.vue'
 import TutorialView from '../modules/tutorial/TutorialView.vue'
 import ThemeSelectView from '../modules/theme/ThemeSelectView.vue'
@@ -33,7 +32,7 @@ import SupportTicketsView from '../modules/support/SupportTicketsView.vue'
 import SupportTicketDetailView from '../modules/support/SupportTicketDetailView.vue'
 
 const ONBOARDING_LOCKED_PATHS = [
-  '/onboarding/profile', '/onboarding/welcome', '/onboarding/habits',
+  '/onboarding/profile', '/onboarding/habits',
   '/onboarding/tutorial', '/quiz', '/quiz/welcome', '/themes',
 ]
 
@@ -50,7 +49,6 @@ const routes = [
   { path: '/home', component: HomeView, meta: { auth: true, title: 'Главная', back: false } },
   { path: '/onboarding/consent', component: ConsentView, meta: { auth: true, title: 'Согласие на обработку данных', back: false } },
   { path: '/onboarding/profile', component: OnboardingProfileView, meta: { auth: true, title: 'Знакомство', back: false } },
-  { path: '/onboarding/welcome', component: OnboardingWelcomeView, meta: { auth: true, title: 'О приложении', back: false } },
   { path: '/onboarding/habits', component: HabitsCatalogView, meta: { auth: true, title: 'Выбор привычки', back: false } },
   { path: '/onboarding/tutorial', component: TutorialView, meta: { auth: true, title: 'Обучение', back: false } },
   { path: '/quiz/welcome', component: QuizWelcomeView, meta: { auth: true, title: 'Тест на направление', back: false } },

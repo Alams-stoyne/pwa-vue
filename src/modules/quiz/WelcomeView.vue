@@ -1,21 +1,30 @@
 <template>
   <div class="page welcome-page">
-    <Mascot ref="mascot" 
-      :body-src="`/maskot/body_sport.png`" 
-      bubble-text="Привет! тут будет приветствие от зефирчика."
-      :typewriter-speed="40"
-      @bubble-complete="onBubbleDone"
-    />     
     <div class="welcome-body">
       <h1 class="welcome-title">Добро пожаловать</h1>
-      <p class="welcome-text">ответьте на несколько вопросов — мы предложим подходящее направление</p>
+    </div> 
+    <Mascot ref="mascot" id="welcome-mascot"
+      :body-src="`/maskot/body_sport.png`" 
+      bubble-text="Я Зефирчик!&#10;Спасибо, что заботились обо мне всё это время. Мне было так приятно ваше внимание и забота!" 
+      :typewriter-speed="40"
+      @bubble-complete="onBubbleDone"
+      effect="stars-fast" emotion="happy" 
+    />     
+    <div class="welcome-text">
+      <p><strong>А теперь пришла очередь Зефирчика позаботиться о вас!</strong></p>
+      <p>А теперь пришла очередь Зефирчика позаботиться о вас!</p>
+      <p>Всю Неделю здоровья и безопасности Х5 Зефирчик будет рядом: поможет освоиться на платформе, познакомит с её возможностями и подскажет, с чего начать.</p>
+      <p>Вместе с Зефирчиком вы сможете двигаться шаг за шагом, прислушиваться к себе и выбирать то, что подходит именно вам.</p>
+      <p>Давайте начнём с небольшого тестирования. Ваши ответы помогут определить, какое из трёх направлений может быть вам ближе: <strong>Антистресс</strong>, <strong>Энергия</strong> или <strong>Тело</strong>.</p>
+      <p>Здесь нет правильных или неправильных ответов — важно лишь то, что подходит именно вам. А окончательный выбор направления остаётся за вами!</p>
     </div>
-    <div class="bottom-action">
-      <button type="button" class="btn btn-primary btn-center" @click="start">
-        Начать тестирование
-      </button>
-    </div>
-  </div>
+    <Mascot class="mascot_bottom" :body-src="`/maskot/wellcome_dop.png`" hide-face/>     
+    <!-- <div class="bottom-action"></div> -->
+    <button type="button" class="btn btn-primary btn-center btn-full" @click="start">
+      Начать тестирование
+    </button>    
+  </div>    
+
 </template>
 
 <script setup>
@@ -70,11 +79,33 @@ function start() {
 
 .welcome-text {
   font-family: var(--font-family);
-  font-weight: 500;
-  font-size: 18px;
+  font-weight: 400;
+  font-size: 16px;
   line-height: 120%;
-  text-align: center;
-  color: var(--white);
+  border-radius: 28px;
+  padding: 28px;
+  background: var(--white);
+  color: var(--black);
+  font-family: var(--font-family);
+  font-weight: 400;
+  font-size: 16px;
+  letter-spacing: -0.01em;
+  margin-top: -15%;
 }
 
+.welcome-text p{
+  position: relative;
+}
+.welcome-text p strong{
+  position: relative;
+  font-weight: 500;
+  font-size: 18px;
+}
+.mascot_bottom{
+  position: relative;
+  margin-left: 18px;
+}
+.mascot_bottom .maskot__face{
+  display: none;
+}
 </style>

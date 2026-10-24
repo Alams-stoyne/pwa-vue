@@ -303,6 +303,16 @@ input:focus, textarea:focus {
   color: var(--txt-black-dark-green);
 }
 
+.btn-link{
+  border: none;
+  background: none;
+  box-shadow: none;
+  text-decoration: underline;
+}
+.btn-link:hover{
+ box-shadow: none;
+}
+
 .btn-full{
   width: 100%;
 }

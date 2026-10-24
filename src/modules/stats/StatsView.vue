@@ -1,574 +1,480 @@
 <template>
   <div class="page stats-page">
-    <!-- <header class="head">
-      <h1>Статистика</h1>
-      <HelpIcon>
-        Личная статистика обновляется мгновенно при ваших действиях (лекция,
-        задание, привычка) и синхронизируется с сервером раз в час.
-        Общая — сводка по всем пользователям.
-      </HelpIcon>
-    </header> -->
-
-    <div class="tabs" role="tablist">
-      <button class="tab" :class="{ active: tab === 'personal' }"
-              role="tab" @click="switchTab('personal')">Личная</button>
-      <button class="tab" :class="{ active: tab === 'global' }"
-              role="tab" @click="switchTab('global')">Общая</button>
-      <span class="tab-indicator"
-            :style="{ transform: `translateX(${tab === 'personal' ? 0 : 100}%)` }" />
+    <!-- Табы -->
+    <div class="tabs-wrap">
+      <div class="tabs" role="tablist">
+        <button 
+          class="tab" 
+          :class="{ active: tab === 'personal' }" 
+          @click="tab = 'personal'"
+        >личная</button>
+        <button 
+          class="tab" 
+          :class="{ active: tab === 'global' }" 
+          @click="tab = 'global'"
+        >общая</button>
+        <span class="tab-indicator" :style="{ transform: `translateX(${tab === 'personal' ? 0 : 100}%)` }" />
+      </div>
     </div>
 
-    <!-- ─────── ЛИЧНАЯ ─────── -->
+    <!-- ЛИЧНАЯ СТАТИСТИКА -->
     <section v-show="tab === 'personal'" class="pane">
-      <p class="muted sync-line">
-        <span v-if="store.syncing" class="sync-line-inner">
-          <span class="sync-dot is-syncing" /> Синхронизация…
-        </span>
-        <span v-else-if="!store.online" class="sync-line-inner">
-          <span class="sync-dot is-offline" /> Офлайн — данные хранятся локально
-        </span>
-        <span v-else-if="lastSyncText" class="sync-line-inner">
-          <span class="sync-dot is-ok" /> Синхронизировано {{ lastSyncText }}
-        </span>
-        <span v-else class="sync-line-inner">
-          <span class="sync-dot is-ok" /> Локальные данные
-        </span>
-      </p>
-
-      <!-- Фильтр периода -->
-      <div class="periods" role="tablist">
-        <button
-          v-for="p in periods"
-          :key="p.key"
-          type="button"
-          class="period-chip"
-          :class="{ active: store.period === p.key }"
-          @click="store.setPeriod(p.key)"
-        >
-          {{ p.label }}
-        </button>
-      </div>
-
-      <!-- Офлайн-очередь -->
-      <transition name="fade">
-        <section v-if="queue.total > 0" class="queue-card">
-          <header class="qc-head">
-            <span class="qc-icon" aria-hidden="true">📤</span>
-            <div>
-              <h3 class="qc-title">Офлайн-очередь</h3>
-              <p class="muted qc-sub">
-                {{ queue.total }} {{ plural(queue.total, ['отметка', 'отметки', 'отметок']) }}
-                ждут отправки
-              </p>
-            </div>
-          </header>
-          <ul class="qc-list">
-            <li v-if="queue.lectures">
-              <span>Лекции</span>
-              <span class="qc-count">{{ queue.lectures }}</span>
-            </li>
-            <li v-if="queue.tasks">
-              <span>Задания</span>
-              <span class="qc-count">{{ queue.tasks }}</span>
-            </li>
-            <li v-if="queue.habits">
-              <span>Привычки</span>
-              <span class="qc-count">{{ queue.habits }}</span>
-            </li>
-            <li v-if="queue.profile">
-              <span>Профиль</span>
-              <span class="qc-count">{{ queue.profile }}</span>
-            </li>
-          </ul>
-          <p class="muted qc-note">
-            Будут отправлены автоматически при появлении интернета.
-          </p>
-        </section>
-      </transition>
-
-      <!-- 1. Ключевые числа -->
-      <div class="grid">
-        <div v-for="c in keyCards" :key="c.key" class="stat-card card rise">
-          <span class="stat-emoji">{{ c.emoji }}</span>
-          <span class="stat-value">{{ c.value }}</span>
-          <span class="stat-label muted">{{ c.label }}</span>
+      <h1 class="page-title">ваш прогресс</h1>
+      
+      <div class="apples-row">
+        <span class="apples-label">у вас:</span>
+        <div class="apples-badge">
+          {{ formatNum(store.apples) }} <AppIcon name="apple" :size="20" />
         </div>
       </div>
 
-      <!-- 2. Активность за 7 дней -->
-      <section class="block">
-        <h3 class="block-title">Активность за 7 дней</h3>
-        <div class="week-chart">
-          <div
-            v-for="d in weekChart"
-            :key="d.date"
-            class="wc-col"
-            :class="{ 'is-today': d.isToday }"
-            :title="d.tooltip"
-          >
-            <span class="wc-count muted">{{ d.count || '' }}</span>
-            <div class="wc-bar-wrap">
-              <div
-                class="wc-bar"
-                :class="{ 'has-value': d.count > 0 }"
-                :style="{ height: d.height + '%' }"
-              />
-            </div>
-            <span class="wc-label">{{ d.shortLabel }}</span>
-          </div>
+      <!-- Карточка места в рейтинге -->
+      <div class="card rating-card">
+        <div class="rc-icon"><AppIcon name="crown" :size="28" /></div>
+        <div class="rc-info">
+          <div class="rc-value">{{ formatNum(personal.RANK) }}</div>
+          <div class="rc-label">ваше место среди всех участников</div>
         </div>
-      </section>
+      </div>
 
-      <!-- 3. Разбивка по направлениям -->
-      <section class="block">
-        <h3 class="block-title">По направлениям</h3>
-        <ul class="breakdown">
-          <li v-for="t in themeBreakdown" :key="t.id">
-            <span class="bd-label">
-              <span v-if="t.emoji" aria-hidden="true">{{ t.emoji }}</span>
-              {{ t.label }}
-            </span>
-            <span class="bd-value">{{ t.value }}</span>
-            <div class="bd-bar-wrap">
-              <div class="bd-bar" :style="{ width: t.percent + '%' }" />
-            </div>
-          </li>
-        </ul>
-      </section>
+      <!-- Сетка 2х2 -->
+      <div class="grid-2x2">
+        <div class="card stat-card">
+          <div class="sc-icon"><AppIcon name="book" :size="20" /></div>
+          <div class="sc-value">{{ formatNum(personal.LECTURES_READ) }}</div>
+          <div class="sc-label">просмотрено лекций</div>
+        </div>
 
-      <!-- 4. Разбивка по привычкам -->
-      <section class="block">
-        <h3 class="block-title">По привычкам</h3>
-        <ul class="breakdown">
-          <li v-for="h in habitBreakdown" :key="h.id">
-            <span class="bd-label">
-              <span aria-hidden="true">{{ h.emoji }}</span>
-              {{ h.label }}
-            </span>
-            <span class="bd-value">{{ h.value }}</span>
-            <div class="bd-bar-wrap">
-              <div class="bd-bar" :style="{ width: h.percent + '%' }" />
-            </div>
-          </li>
-        </ul>
-      </section>
+        <div class="card stat-card">
+          <div class="sc-icon"><AppIcon name="tasks" :size="20" /></div>
+          <div class="sc-value">{{ formatNum(personal.TASKS_DONE) }}</div>
+          <div class="sc-label">выполнено практик</div>
+        </div>
 
-      <p v-if="!store.hasLocalData" class="muted empty-hint">
-        Пока нет активности. Прочитайте лекцию, выполните задание или привычку —
-        счётчики появятся здесь.
-      </p>
+        <div class="card stat-card">
+          <div class="sc-icon"><AppIcon name="juice" :size="20" /></div>
+          <div class="sc-value">{{ formatNum(personal.HABITS_DAYS) }}</div>
+          <div class="sc-label">дней выполнена привычка</div>
+        </div>
+
+        <div class="card stat-card">
+          <div class="sc-icon"><AppIcon name="steps" :size="20" /></div>
+          <div class="sc-value">{{ formatNum(personal.STEPS_CONFIRMED) }}</div>
+          <div class="sc-label">подтверждено шагов</div>
+        </div>
+      </div>
+
+      <router-link to="/stats/rules" class="btn btn-outline rules-btn">
+        правила личного и командного зачёта
+      </router-link>
     </section>
 
-    <!-- ─────── ОБЩАЯ ─────── -->
+    <!-- ОБЩАЯ СТАТИСТИКА -->
     <section v-show="tab === 'global'" class="pane">
-      <p class="muted sync-line">
-        <span v-if="store.loadingGlobal" class="sync-line-inner">
-          <span class="sync-dot is-syncing" /> Обновление…
-        </span>
-        <span v-else-if="!store.online && !store.global" class="sync-line-inner">
-          <span class="sync-dot is-offline" /> Нет подключения
-        </span>
-        <span v-else-if="lastGlobalText" class="sync-line-inner">
-          <span class="sync-dot is-ok" /> Обновлено {{ lastGlobalText }}
-        </span>
-        <span v-else class="sync-line-inner">
-          <span class="sync-dot is-ok" /> Ожидание данных
-        </span>
-      </p>
+      <div class="alert-banner">
+        Яблоки и рейтинги обновляются раз в сутки. Шаги проходят проверку.
+      </div>
 
-      <div v-if="store.loadingGlobal && !store.global" class="grid">
-        <div v-for="n in 4" :key="n" class="card skeleton pulse">
-          <div class="sk-line sk-line--title" />
-          <div class="sk-line sk-line--text short" />
+      <h1 class="page-title mt-24">общий зачёт компаний х5</h1>
+      <p class="page-subtitle">ваши действия добавляют вклад в результат команды на протяжении всей недели</p>
+
+      <div class="apples-row mt-16">
+        <span class="apples-label">общее количество яблок:</span>
+        <div class="apples-badge big">
+          {{ formatNum(globalProgress.TOTAL_APPLES) }} <AppIcon name="apple" :size="24" />
         </div>
       </div>
 
-      <div v-else-if="store.errorGlobal && !store.global" class="empty">
-        <span class="empty-emoji">📡</span>
-        <h3>Не удалось загрузить</h3>
-        <p class="muted">Проверьте соединение и попробуйте снова.</p>
-        <button class="ghost" :disabled="!store.online" @click="manualGlobal">
-          Попробовать снова
-        </button>
-      </div>
+      <!-- Сетка 2х2 для общей статистики -->
+      <div class="grid-2x2 mt-16">
+        <div class="card stat-card">
+          <div class="sc-icon"><AppIcon name="user" :size="20" /></div>
+          <div class="sc-value">+{{ formatNum(globalProgress.TOTAL_USERS) }}</div>
+          <div class="sc-label">участников присоединилось</div>
+        </div>
 
-      <div v-else-if="store.global" class="grid">
-        <div v-for="c in globalCards" :key="c.key" class="stat-card card rise">
-          <span class="stat-emoji">{{ c.emoji }}</span>
-          <span class="stat-value">{{ c.value }}</span>
-          <span class="stat-label muted">{{ c.label }}</span>
+        <div class="card stat-card">
+          <div class="sc-icon"><AppIcon name="book" :size="20" /></div>
+          <div class="sc-value">{{ formatNum(globalProgress.LECTURES_READ) }}</div>
+          <div class="sc-label">просмотрено лекций</div>
+        </div>
+
+        <div class="card stat-card">
+          <div class="sc-icon"><AppIcon name="tasks" :size="20" /></div>
+          <div class="sc-value">{{ formatNum(globalProgress.TASKS_DONE) }}</div>
+          <div class="sc-label">выполнено практик</div>
+        </div>
+
+        <div class="card stat-card">
+          <div class="sc-icon"><AppIcon name="juice" :size="20" /></div>
+          <div class="sc-value">{{ formatNum(globalProgress.HABITS_DAYS) }}</div>
+          <div class="sc-label">общее кол-во дней привычки</div>
         </div>
       </div>
+
+      <div class="card stat-card full-width mt-16">
+        <div class="sc-icon"><AppIcon name="steps" :size="20" /></div>
+        <div class="sc-value">{{ formatNum(globalProgress.STEPS_CONFIRMED) }}</div>
+        <div class="sc-label">подтверждено шагов за период марафона</div>
+      </div>
+
+      <!-- Эффективность компаний -->
+      <h2 class="page-title mt-32">ваша эффективность</h2>
+      
+      <div class="company-progress-bar-wrap">
+        <div class="cpb-label">{{ companyPercent }}%</div>
+        <div class="cpb-track">
+          <div class="cpb-fill" :style="{ width: companyPercent + '%' }" />
+        </div>
+      </div>
+
+      <div class="companies-list">
+        <!-- ▼ ИСПОЛЬЗУЕМ companiesList ▼ -->
+        <div v-for="comp in companiesList" :key="comp.ID" class="company-item">
+          <div class="ci-header">
+            <div class="ci-name">
+              <span class="ci-logo">
+                <img v-if="comp.LOGO" :src="comp.LOGO" alt="" class="ci-logo-img" />
+                <template v-else>{{ comp.NAME[0] }}</template>
+              </span> 
+              {{ comp.NAME }}
+            </div>
+            <span class="ci-percent">{{ comp.PERCENT }}%</span>
+          </div>
+          <div class="ci-track">
+            <div class="ci-fill" :style="{ width: comp.PERCENT + '%' }" />
+          </div>
+        </div>
+      </div>
+
+      <router-link to="/stats/rules" class="btn btn-outline rules-btn mt-24">
+        правила личного и командного зачёта
+      </router-link>
     </section>
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
-import HelpIcon from '../../components/HelpIcon.vue'
+import { computed, onMounted, ref } from 'vue'
 import { useStatsStore } from './store'
-import { useThemeStore } from '../theme/store'
-import { themesComputed, getTheme } from '../theme/themes'
-import { habitsComputed } from '../habits/config'
-import { useToast } from '../core/composables/useToast'
+import AppIcon from '../../components/AppIcon.vue'
 import { useAppBackground } from '../core/composables/useAppBackground'
-const { setBackground, clearBackground } = useAppBackground()
 
+const { setBackground } = useAppBackground()
 const store = useStatsStore()
-const theme = useThemeStore()
-const toast = useToast()
-
 const tab = ref('personal')
 
-const periods = [
-  { key: 'today', label: 'Сегодня' },
-  { key: '7d',    label: '7 дней' },
-  { key: '30d',   label: '30 дней' },
-  { key: 'all',   label: 'Всё' },
-]
-
-// ─── Ключевые числа ───
-const keyCards = computed(() => [
-  { key: 'l', emoji: '📖', value: store.personal.LECTURES_READ, label: 'Лекций прочитано' },
-  { key: 't', emoji: '🎯', value: store.personal.TASKS_DONE,    label: 'Заданий выполнено' },
-  { key: 'h', emoji: '✨', value: store.personal.HABITS_DONE,   label: 'Привычек отмечено' },
-  { key: 's', emoji: '🔥', value: store.personal.STREAK,        label: 'Дней подряд' },
-])
-
-// ─── 7-дневный график ───
-const weekdays = ['Вс','Пн','Вт','Ср','Чт','Пт','Сб']
-
-/** Парсит 'YYYY-MM-DD' как локальную дату (без UTC-сдвига). */
-function parseLocalDate(str) {
-  const [y, m, d] = String(str).split('-').map(Number)
-  return new Date(y, (m || 1) - 1, d || 1)
-}
-
-function pad2(n) { return String(n).padStart(2, '0') }
-
-const weekChart = computed(() => {
-  const data = store.weekActivity
-  const max = Math.max(1, ...data.map((d) => d.count || 0))
-
-  const todayKey = (() => {
-    const d = new Date()
-    return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
-  })()
-
-  return data.map((d) => {
-    const dateObj = parseLocalDate(d.date)
-    const height = Math.round((d.count / max) * 100)
-    const parts = []
-    if (d.localCount)  parts.push(`локально: ${d.localCount}`)
-    if (d.serverCount) parts.push(`сервер: ${d.serverCount}`)
-    const tooltip = parts.length
-      ? `${d.date} — ${d.count} (${parts.join(', ')})`
-      : `${d.date} — нет активности`
-
-    return {
-      ...d,
-      height,
-      shortLabel: weekdays[dateObj.getDay()],
-      isToday: d.date === todayKey,
-      tooltip,
-    }
-  })
+// Дефолтные значения для личной статистики
+const personal = computed(() => {
+  const p = store.personal || {}
+  return {
+    APPLES: store.apples,
+    RANK: p.RANK || 0,
+    LECTURES_READ: p.LECTURES_READ || 0,
+    TASKS_DONE: p.TASKS_DONE || 0,
+    HABITS_DAYS: p.HABITS_DAYS || 0,
+    STEPS_CONFIRMED: p.STEPS_CONFIRMED || 0
+  }
 })
 
-// ─── Разбивка по направлениям ───
-const themeBreakdown = computed(() => {
-  const b = store.byTheme
-  const items = [
-    { id: 'general',  label: 'Общие',   emoji: '🌐', value: b.general  || 0 },
-    { id: 'charging', label: 'Зарядка', emoji: '⚡', value: b.charging || 0 },
-    ...themesComputed.value.map((t) => ({
-      id: t.id, label: t.name, emoji: t.emoji, value: b[t.id] || 0,
-    })),
-  ]
-  const max = Math.max(1, ...items.map((i) => i.value))
-  return items.map((i) => ({ ...i, percent: Math.round((i.value / max) * 100) }))
+// Глобальная статистика
+const globalProgress = computed(() => store.global?.GLOBAL_PROGRESS || {
+  TOTAL_APPLES: 0, TOTAL_USERS: 0, LECTURES_READ: 0, TASKS_DONE: 0, HABITS_DAYS: 0, STEPS_CONFIRMED: 0
 })
 
-// ─── Разбивка по привычкам ───
-const habitBreakdown = computed(() => {
-  const b = store.byHabit
-  const items = habitsComputed.value.map((h) => ({
-    id: h.id, label: h.title, emoji: h.emoji, value: b[h.id] || 0,
-  }))
-  const max = Math.max(1, ...items.map((i) => i.value))
-  return items.map((i) => ({ ...i, percent: Math.round((i.value / max) * 100) }))
+const companiesList = computed(() => store.companiesList)
+
+// Вычисляем процент эффективности компании пользователя
+const companyPercent = computed(() => {
+  if (store.personal?.COMPANY_PERCENT) return store.personal.COMPANY_PERCENT
+  if (store.userCompany) return store.userCompany.PERCENT
+  return 0
 })
 
-// ─── Общая ───
-const globalCards = computed(() => {
-  const g = store.global
-  if (!g) return []
-  return [
-    { key: 'u', emoji: '👥', value: g.USERS,         label: 'Пользователей' },
-    { key: 'l', emoji: '📖', value: g.LECTURES_READ, label: 'Прочтений всего' },
-    { key: 't', emoji: '🎯', value: g.TASKS_DONE,    label: 'Заданий выполнено' },
-    { key: 'h', emoji: '✨', value: g.HABITS_DONE,   label: 'Привычек отмечено' },
-    { key: 'p', emoji: '🏆', value: themeName(g.TOP_THEME), label: 'Топ-направление' },
-  ]
-})
-
-// ─── Офлайн-очередь ───
-const queue = computed(() => store.queueInfo)
-
-function plural(n, forms) {
-  const mod10 = n % 10
-  const mod100 = n % 100
-  if (mod10 === 1 && mod100 !== 11) return forms[0]
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return forms[1]
-  return forms[2]
+function formatNum(n) {
+  return Number(n || 0).toLocaleString('ru-RU')
 }
-
-// ─── Утилиты ───
-const lastSyncText = computed(() => formatAgo(store.times.lastSyncAt))
-const lastGlobalText = computed(() => formatAgo(store.times.lastGlobalAt))
-
-function formatAgo(ts) {
-  if (!ts) return ''
-  const diff = Date.now() - ts
-  const min = Math.floor(diff / 60000)
-  if (min < 1) return 'только что'
-  if (min < 60) return `${min} мин назад`
-  const hours = Math.floor(min / 60)
-  if (hours < 24) return `${hours} ч назад`
-  const d = new Date(ts)
-  return `${pad2(d.getDate())}.${pad2(d.getMonth() + 1)} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`
-}
-function themeName(id) { return getTheme(id)?.name || id || '—' }
-
-function switchTab(t) {
-  if (tab.value === t) return
-  tab.value = t
-  if (t === 'global') store.loadGlobal()
-  else store.syncPersonal()
-}
-function manualGlobal() {
-  if (!store.online) { toast.warn('Нет сети'); return }
-  store.loadGlobal({ force: true })
-}
-
-watch(() => store.errorGlobal, (v) => {
-  if (!v || v === 'OFFLINE_EMPTY') return
-  toast.error(v)
-})
 
 onMounted(() => {
   setBackground({ url: '/backgrounds/bg_frame.jpg' })
-  theme.load()
   store.init()
-  store.refreshQueueInfo()
 })
 </script>
 
 <style scoped>
-.head { display: flex; align-items: center; gap: 8px; }
-.head h1 { margin: 0; }
+/* Стили остаются без изменений (как в предыдущем файле) */
+.stats-page {
+  padding-bottom: 90px;
+}
 
-.sync-line { font-size: 12px; margin: 0 0 12px; min-height: 16px; }
-.sync-line-inner { display: inline-flex; align-items: center; gap: 6px; }
-.sync-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
-.sync-dot.is-ok      { background: #2e7d32; }
-.sync-dot.is-offline { background: #b58500; }
-.sync-dot.is-syncing { background: var(--accent); animation: pulse 1s ease-in-out infinite; }
+/* Табы */
+.tabs-wrap {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 24px;
+}
+.tabs {
+  position: relative;
+  display: flex;
+  background: #FFFFFF;
+  border-radius: 100px;
+  padding: 4px;
+  width: 100%;
+  max-width: 320px;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.05);
+}
+.tab {
+  flex: 1;
+  z-index: 2;
+  padding: 10px 0;
+  font-family: var(--font-family);
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: lowercase;
+  color: #6b7268;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: color 0.3s;
+}
+.tab.active { color: #21271f; }
+.tab-indicator {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: calc(50% - 4px);
+  height: calc(100% - 8px);
+  background: #21271f;
+  border-radius: 100px;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 1;
+}
+.tab.active { color: #fff; }
+.tab { position: relative; }
 
-/* ─── Офлайн-очередь ─── */
-.queue-card {
-  margin-bottom: 16px;
-  padding: 14px 16px;
-  border: 1px solid #FBE5C6;
-  background: #FFF8EC;
-  border-radius: var(--radius);
-  animation: riseIn var(--t-slow) both;
-}
-.qc-head {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  margin-bottom: 10px;
-}
-.qc-icon {
-  font-size: 22px;
-  line-height: 1;
-  flex-shrink: 0;
-  margin-top: 2px;
-}
-.qc-title {
-  margin: 0;
-  font-size: 15px;
+/* Заголовки */
+.page-title {
+  font-family: var(--font-family);
   font-weight: 700;
+  font-size: 24px;
+  line-height: 1.1;
+  text-transform: lowercase;
+  color: var(--txt-dark-green);
+  margin: 0 0 12px;
 }
-.qc-sub {
-  margin: 2px 0 0;
-  font-size: 12.5px;
-}
-.qc-list {
-  list-style: none;
-  margin: 0 0 8px;
-  padding: 0;
-  display: grid;
-  gap: 6px;
-}
-.qc-list li {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 13.5px;
-  color: var(--text);
-  padding: 4px 0;
-  border-bottom: 1px dashed rgba(0,0,0,.06);
-}
-.qc-list li:last-child { border-bottom: none; }
-.qc-count {
-  font-weight: 700;
-  color: #b58500;
-  font-variant-numeric: tabular-nums;
-}
-.qc-note {
-  margin: 0;
-  font-size: 12px;
+.page-subtitle {
+  font-family: var(--font-family);
+  font-size: 14px;
   line-height: 1.4;
+  color: var(--txt-black-dark-green);
+  margin: 0;
 }
 
-.pane { animation: fadePane var(--t-base) both; }
-@keyframes fadePane {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0); }
+/* Яблоки */
+.apples-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.apples-label {
+  font-size: 15px;
+  font-weight: 500;
+}
+.apples-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #fff;
+  border: 1.5px solid #21271f;
+  border-radius: 100px;
+  padding: 6px 12px;
+  font-weight: 700;
+  font-size: 16px;
+}
+.apples-badge.big {
+  font-size: 20px;
+  padding: 8px 16px;
 }
 
-/* ─── Ключевые числа ─── */
-.grid {
+/* Карточка рейтинга */
+.rating-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 12px;
+  padding: 16px;
+}
+.rc-icon {
+  width: 48px;
+  height: 48px;
+  background: #D3FF4F;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: #015F01;
+}
+.rc-value {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--txt-dark-green);
+}
+.rc-label {
+  font-size: 13px;
+  color: var(--txt-black-dark-green);
+  line-height: 1.2;
+}
+
+/* Сетка 2х2 */
+.grid-2x2 {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
+  margin-bottom: 20px;
 }
-@media (max-width: 380px) { .grid { grid-template-columns: 1fr; } }
-
 .stat-card {
-  display: flex; flex-direction: column; gap: 4px;
-  padding: 16px 14px; text-align: left;
-  transition: transform var(--t-base), box-shadow var(--t-base);
-}
-.stat-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-1); }
-.stat-emoji { font-size: 20px; }
-.stat-value {
-  font-size: 26px; font-weight: 700;
-  letter-spacing: -0.02em;
-  overflow-wrap: anywhere;
-}
-.stat-label { font-size: 12.5px; }
-
-/* ─── Блоки ─── */
-.block { margin-top: 22px; }
-.block-title {
-  margin: 0 0 10px;
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-}
-
-/* ─── 7-дневный график ─── */
-.week-chart {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 8px;
-  align-items: end;
-  height: 140px;
-  padding: 8px 0 0;
-}
-.wc-col {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  padding: 16px;
   gap: 4px;
-  height: 100%;
 }
-.wc-count {
-  font-size: 11px;
-  min-height: 14px;
-  font-variant-numeric: tabular-nums;
+.stat-card.full-width {
+  grid-column: 1 / -1;
 }
-.wc-bar-wrap {
-  flex: 1;
+.sc-icon {
+  width: 32px;
+  height: 32px;
+  background: #D3FF4F;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: #015F01;
+  margin-bottom: 8px;
+}
+.sc-value {
+  font-size: 22px;
+  font-weight: 800;
+  color: #21271f;
+  line-height: 1;
+}
+.sc-label {
+  font-size: 12.5px;
+  color: var(--txt-black-dark-green);
+  line-height: 1.3;
+}
+
+/* Кнопка правил */
+.rules-btn {
   width: 100%;
+  text-align: center;
+  text-transform: lowercase;
+  font-weight: 600;
+  border-color: #015F01;
+  color: #015F01;
+  padding: 16px;
+  border-radius: 100px;
+}
+
+/* Общая статистика: Алерт */
+.alert-banner {
+  background: #D3FF4F;
+  color: #015F01;
+  padding: 12px 16px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+/* Эффективность компаний */
+.company-progress-bar-wrap {
+  position: relative;
+  background: #D3FF4F;
+  border-radius: 100px;
+  height: 32px;
+  margin: 16px 0 24px;
   display: flex;
-  align-items: flex-end;
-  background: #f3f3f3;
-  border-radius: 6px;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 12px;
   overflow: hidden;
-  min-height: 20px;
 }
-.wc-bar {
-  width: 100%;
-  background: var(--accent);
-  border-radius: 6px;
-  transition: height var(--t-slow);
-}
-.wc-bar.has-value { min-height: 3px; }
-
-.wc-col.is-today .wc-bar-wrap {
-  outline: 1.5px solid var(--accent);
-  outline-offset: 2px;
-}
-.wc-col.is-today .wc-label {
-  color: var(--text);
+.cpb-label {
   font-weight: 700;
+  font-size: 14px;
+  color: #015F01;
+  z-index: 2;
+}
+.cpb-fill {
+  position: absolute;
+  top: 0; left: 0; bottom: 0;
+  background: #e5ff9c;
+  border-radius: 100px;
+  z-index: 1;
 }
 
-.wc-label { font-size: 11px; color: var(--muted); }
-
-/* ─── Разбивка (по темам и привычкам) ─── */
-.breakdown {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 12px;
+.companies-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
-.breakdown li {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 4px 10px;
+.company-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ci-header {
+  display: flex;
+  justify-content: space-between;
   align-items: center;
 }
-.bd-label {
-  display: inline-flex; align-items: center; gap: 6px;
-  font-size: 13.5px; font-weight: 600;
+.ci-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 14px;
+  color: #21271f;
 }
-.bd-value {
-  font-size: 13px;
+.ci-logo {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  background: #21271f;
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-size: 10px;
+  overflow: hidden;
+}
+.ci-logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.ci-percent {
   font-weight: 700;
-  color: var(--accent);
-  font-variant-numeric: tabular-nums;
+  color: var(--txt-dark-green);
 }
-.bd-bar-wrap {
-  grid-column: 1 / -1;
+.ci-track {
   height: 6px;
   background: #f0f0f0;
-  border-radius: 999px;
+  border-radius: 100px;
   overflow: hidden;
 }
-.bd-bar {
+.ci-fill {
   height: 100%;
-  background: var(--accent);
-  border-radius: 999px;
-  transition: width var(--t-slow);
+  background: #94E91E;
+  border-radius: 100px;
 }
 
-.empty-hint { font-size: 13px; text-align: center; margin-top: 20px; }
+.mt-16 { margin-top: 16px; }
+.mt-24 { margin-top: 24px; }
+.mt-32 { margin-top: 32px; }
 
-.empty {
-  text-align: center; padding: 40px 12px;
-  display: flex; flex-direction: column; gap: 10px; align-items: center;
+.card {
+  background: #fff;
+  border-radius: 20px;
+  border: 1px solid var(--border);
 }
-.empty-emoji { font-size: 44px; }
-.empty h3 { margin: 4px 0 0; }
-
-.skeleton { padding: 16px; }
-.sk-line { height: 12px; border-radius: 6px; background: #eee; margin-bottom: 8px; }
-.sk-line--title { width: 40%; height: 18px; }
-.sk-line--text.short { width: 60%; margin-bottom: 0; }
 </style>

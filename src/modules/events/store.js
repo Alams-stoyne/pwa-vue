@@ -1,16 +1,20 @@
 import { defineStore } from 'pinia'
+import { watch } from 'vue'
 import { fetchEventsForDate, fetchEventsStatus, sendEventAction } from './api'
 import { localDate } from '../core/utils/date'
 import { isSuccess } from '../core/utils/response'
 import { useAuthStore } from '../auth/store'
+import { useStatsStore } from '../stats/store' // <--- ДОБАВЛЕН ИМПОРТ
 import { isOffline } from '../core/utils/network'
 
 const LS_CACHE = 'events.cache'
 const LS_CACHE_DATE = 'events.cacheDate'
 const LS_CACHE_AT = 'events.cacheAt'
 const LS_STATE = 'events.state'
+const LS_STATE_SYNC_AT = 'events.statusSyncAt'
 const LS_QUEUE = 'events.queue'
 const HOUR = 60 * 60 * 1000
+const STATUS_TTL = 15 * 60 * 1000 // 15 минут
 
 function readLS(key, fallback) {
   try {
@@ -24,13 +28,13 @@ function writeLS(key, val) {
 
 let _tickTimer = null
 let _netWatched = false
+let _authWatched = false
 
 export const useEventsStore = defineStore('events', {
   state: () => ({
     config: [],
     loading: false,
     error: null,
-    // Состояния пользователя: { [eventId]: { clickedAt, confirmedAt } }
     states: readLS(LS_STATE, {}),
     now: Date.now(),
   }),
@@ -67,9 +71,10 @@ export const useEventsStore = defineStore('events', {
   actions: {
     init() {
       this._watchNet()
+      this._watchAuth()
       
       this.loadEvents()
-      this.syncStatus()
+      this.syncStatus() 
 
       if (!_tickTimer) {
         _tickTimer = setInterval(() => {
@@ -83,9 +88,24 @@ export const useEventsStore = defineStore('events', {
       _netWatched = true
       window.addEventListener('online', () => {
         this.flushQueue()
-        this.syncStatus()
+        this.syncStatus({ force: true })
         this.loadEvents({ force: true })
       })
+    },
+
+    _watchAuth() {
+      if (_authWatched) return
+      _authWatched = true
+      const auth = useAuthStore()
+      
+      if (!auth.idUser) {
+        const stop = watch(() => auth.idUser, (newId) => {
+          if (newId) {
+            this.syncStatus({ force: true })
+            stop()
+          }
+        })
+      }
     },
 
     async loadEvents({ force = false } = {}) {
@@ -119,24 +139,45 @@ export const useEventsStore = defineStore('events', {
       }
     },
 
-    async syncStatus() {
+    async syncStatus({ force = false } = {}) {
       const auth = useAuthStore()
       if (!auth.idUser || isOffline()) return
 
+      if (!force) {
+        const lastSync = Number(localStorage.getItem(LS_STATE_SYNC_AT) || 0)
+        const isFresh = Date.now() - lastSync < STATUS_TTL
+        
+        if (isFresh && this.config.length > 0) {
+          return
+        }
+
+        if (this.config.length > 0) {
+          const hasUnstable = this.config.some(e => {
+            const st = this.eventState(e.id)
+            return st.status === 'available' || st.status === 'ready_to_confirm'
+          })
+          
+          if (!hasUnstable) {
+            return
+          }
+        }
+      }
+
       try {
         const res = await fetchEventsStatus({ ID_USER: auth.idUser })
+        
         if (isSuccess(res) && res.STATES) {
           const merged = { ...this.states }
           
           for (const [id, srvState] of Object.entries(res.STATES)) {
             const local = merged[id] || {}
             
-            // Бэкенд присылает ISO-строки, переводим в timestamp
-            const srvClicked = srvState.CLICKED_AT ? new Date(srvState.CLICKED_AT).getTime() : 0
-            const srvConfirmed = srvState.CONFIRMED_AT ? new Date(srvState.CONFIRMED_AT).getTime() : 0
+            const rawClicked = srvState.CLICKED_AT || srvState.clicked_at
+            const rawConfirmed = srvState.CONFIRMED_AT || srvState.confirmed_at
             
-            // Мержим: берем максимум из локального и серверного, чтобы
-            // не затереть локальный клик, если сервер еще не получил запрос
+            const srvClicked = rawClicked ? new Date(rawClicked).getTime() : 0
+            const srvConfirmed = rawConfirmed ? new Date(rawConfirmed).getTime() : 0
+            
             const finalClicked = Math.max(local.clickedAt || 0, srvClicked) || undefined
             const finalConfirmed = Math.max(local.confirmedAt || 0, srvConfirmed) || undefined
 
@@ -151,12 +192,15 @@ export const useEventsStore = defineStore('events', {
           
           this.states = merged
           writeLS(LS_STATE, this.states)
+          
+          localStorage.setItem(LS_STATE_SYNC_AT, String(Date.now()))
         }
-      } catch { /* ignore */ }
+      } catch (e) { 
+        console.warn('[events] syncStatus failed:', e) 
+      }
     },
 
     async clickEvent(eventId) {
-      // Оптимистично ставим время
       if (!this.states[eventId]?.clickedAt) {
         this.states[eventId] = { ...this.states[eventId], clickedAt: Date.now() }
         writeLS(LS_STATE, this.states)
@@ -177,9 +221,29 @@ export const useEventsStore = defineStore('events', {
 
       try {
         const res = await sendEventAction(payload)
-        if (res.ALREADY && res.CLICKED_AT && !this.states[eventId]?.clickedAt) {
-          this.states[eventId] = { ...this.states[eventId], clickedAt: new Date(res.CLICKED_AT).getTime() }
-          writeLS(LS_STATE, this.states)
+        
+        if (res.CLICKED_AT) {
+          this.states[eventId] = { 
+            ...this.states[eventId], 
+            clickedAt: new Date(res.CLICKED_AT).getTime() 
+          }
+        }
+        
+        if (res.CONFIRMED_AT) {
+          this.states[eventId] = { 
+            ...this.states[eventId], 
+            confirmedAt: new Date(res.CONFIRMED_AT).getTime() 
+          }
+        }
+        
+        writeLS(LS_STATE, this.states)
+        
+        if (res.REWARD_POINTS) {
+           const ev = this.config.find(e => e.id === eventId)
+           if (ev) {
+             ev.rewardPoints = res.REWARD_POINTS
+             writeLS(LS_CACHE, this.config)
+           }
         }
       } catch (e) {
         const q = readLS(LS_QUEUE, [])
@@ -210,6 +274,10 @@ export const useEventsStore = defineStore('events', {
         const res = await sendEventAction(payload)
         
         if (res.RESULT === 'ALREADY_CONFIRMED') {
+          if (res.CONFIRMED_AT) {
+            this.states[eventId].confirmedAt = new Date(res.CONFIRMED_AT).getTime()
+            writeLS(LS_STATE, this.states)
+          }
           return { success: true, already: true, message: 'Вы уже получили награду за это событие.' }
         }
         
@@ -236,9 +304,13 @@ export const useEventsStore = defineStore('events', {
           return { success: false, message: res.MESSAGE || 'Ошибка подтверждения' }
         }
         
+        // ▼ ДОБАВЛЕНО: Локальное начисление яблок ▼
+        if (res.REWARD_POINTS) {
+          try { useStatsStore().addApplesLocally(res.REWARD_POINTS) } catch { /* ignore */ }
+        }
+
         return { success: true, already: false }
       } catch (e) {
-        // Оставляем оптимистично, уйдёт в очередь при онлайн
         const q = readLS(LS_QUEUE, [])
         q.push(payload)
         writeLS(LS_QUEUE, q)
@@ -254,12 +326,7 @@ export const useEventsStore = defineStore('events', {
       const remain = []
       for (const p of q) {
         try {
-          const res = await sendEventAction(p)
-          // Если пришел TOO_EARLY или ошибка — можем выкинуть из очереди, 
-          // так как клик уже не актуален, либо оставить. Оставляем только сетевые ошибки.
-          if (!isSuccess(res) && res.RESULT !== 'ALREADY_CONFIRMED') {
-             // Скорее всего, сервер отклонил. Повторять нет смысла.
-          }
+          await sendEventAction(p)
         } catch {
           remain.push(p)
         }

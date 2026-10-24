@@ -1,26 +1,18 @@
 <template>
   <div class="page tutorial-page">
-    <!-- Ссылка «Пропустить» — вверху справа -->
-    <button
-      type="button"
-      class="skip-btn"
-      @click="skip"
-    >
-      Пропустить
-    </button>
 
     <div class="tutorial-body">
       <transition name="tut-slide" mode="out-in">
         <section :key="currentStep" class="tut-slide">
           <div class="head text-center">
-            <h1 class="title color-text-stroke">{{ current?.title }}</h1>
-            <div v-if="current?.text" class="text">{{ current.text }}</div>
+            <h1 class="title text-center color-text-stroke">{{ current?.title }}</h1>
+            <!-- <div v-if="current?.text" class="text">{{ current.text }}</div> -->
           </div>
         </section>
       </transition>
     </div>
 
-    <div class="d-flex flex-column g24 bottom-action">
+    <div class="d-grid g16 bottom-action">
       <!-- Точки-индикаторы -->
       <div v-if="total > 1" class="tut-dots" role="tablist">
         <button
@@ -51,6 +43,15 @@
           @click="finish"
         >
           Завершить обучение
+        </button>
+        <!-- Ссылка «Пропустить» — вверху справа -->
+        <button
+          v-if="!isLast"
+          type="button"
+          class="btn btn-link btn-center"
+          @click="skip"
+        >
+          Пропустить
         </button>
       </div>
     </div>
@@ -126,8 +127,6 @@ onBeforeUnmount(() => {
 <style scoped>
 .tutorial-page {
   position: relative;
-  display: flex;
-  /* padding: var(--top-zone) 24px 120px; */
 }
 
 /* ─── Кнопка «Пропустить» ─── */
@@ -226,13 +225,13 @@ line-height: 88%;
   padding: 0;
   border-radius: 50%;
   border: none;
-  background: rgba(255, 255, 255, .5);
+  background: #afe6dd80;
   cursor: pointer;
   box-shadow: 0 0 0 1px rgba(1, 95, 1, .25);
   transition: background var(--t-fast), transform var(--t-fast);
 }
 .tut-dot.active {
-  background: var(--white);
+  background: var(--txt-dark-green);
   transform: scale(1.35);
   box-shadow: none;
 }

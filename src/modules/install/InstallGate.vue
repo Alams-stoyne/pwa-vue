@@ -2,11 +2,11 @@
   <div class="page install-gate">
 
     <header class="head_white text-center">
-      <h1 class="title">Требуется установка</h1>
-      <div class="subtitle">Пока приложение не установлено, остальные функции недоступны.</div>
+      <h1 class="title color-text-stroke">разместите ярлык недели здоровья на своем экране</h1>
+      <div class="subtitle">Это займёт несколько секунд</div>
     </header>
 
-    <div v-if="!hasPrompt" class="hint">
+    <div class="hint">
       <div class="hint_item">
         <div class="hint_icon">
           <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -35,11 +35,11 @@
         </div>
         <div class="hint_info">
           <div class="hint_info_title"> <b>Android (Chrome):</b></div>
-          <div class="hint_info_text">меню ⋮ → «Установить приложение».</div>
+          <div class="hint_info_text">нажать кнопку «Добавить ярлык на экран домой»</div>
         </div>  
       </div>
 
-      <div class="hint_item">
+      <div v-if="!hasPrompt" class="hint_item">
         <div class="hint_icon">
           <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
             <rect x="1.25" y="1.25" width="45.5082" height="45.5" rx="22.75" fill="#94E91E" />
@@ -58,7 +58,7 @@
     </div>
 
     <div class="bottom-action">
-      <button v-if="hasPrompt" @click="promptInstall" class="btn btn-primary btn-center">Установить приложение</button>
+      <button v-if="hasPrompt" @click="promptInstall" class="btn btn-primary btn-center">разместить</button>
     </div>
 
   </div>
@@ -111,16 +111,23 @@ watch(isInstalled, (v) => {
   position: relative;
   font-family: var(--font-family);
   text-wrap: balance;
-  line-height: 120%;
+  text-transform: lowercase;
   display: grid;
   gap: 6px;
 }
 .hint .hint_item .hint_info .title{ 
-  position: relative;
-  font-weight: 500;
-  font-size: 18px;
-  text-transform: lowercase;
+  font-weight: 400;
+  font-size: 28px;
+  line-height: 96%;
+  color: var(--txt-brand-limon);
 }
+.hint .hint_item .hint_info .subtitle{ 
+  font-weight: 500;
+  font-size: 16px;
+  line-height: 87%;
+  color: var(--white);
+}
+
 .hint .hint_item .hint_info .text{ 
   position: relative;
   font-weight: 400;

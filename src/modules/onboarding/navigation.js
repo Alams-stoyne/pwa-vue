@@ -5,11 +5,6 @@ import { useThemeStore } from '../theme/store'
 import { useHabitsStore } from '../habits/store'
 import { isTutorialDone } from '../tutorial/config'
 
-const LS_WELCOME_SEEN = 'onboarding.welcomeSeen'
-function isWelcomeSeen() {
-  try { return localStorage.getItem(LS_WELCOME_SEEN) === '1' } catch { return false }
-}
-
 /**
  * Возвращает путь к первому непройденному шагу онбординга.
  *
@@ -40,29 +35,24 @@ export function resolveNextOnboardingRoute() {
     }
   }
 
-  // 2. Welcome
-  if (!isWelcomeSeen()) {
-    return '/onboarding/welcome'
-  }
-
-  // 3. Тест
+  // 2. Тест (экран Welcome удален, сразу идем в тест)
   quiz.load()
   if (!quiz.done) {
     return quiz.started ? '/quiz' : '/quiz/welcome'
   }
 
-  // 4. Направление
+  // 3. Направление
   theme.load()
   if (!theme.hasTheme) {
     return '/themes'
   }
 
-  // 5. Привычка — только локальная проверка (localStorage)
+  // 4. Привычка — только локальная проверка (localStorage)
   if (!habits.selectedHabitId) {
     return '/onboarding/habits'
   }
 
-  // 6. Обучение
+  // 5. Обучение
   if (!isTutorialDone()) {
     return '/onboarding/tutorial'
   }

@@ -49,10 +49,12 @@ const resolvedText = computed(() => props.text || DEFAULT_TEXT)
   border-radius: var(--radius);
   font-size: 13px;
   color: #21271f;
+  z-index: 1000;
 }
 .consent-banner.relative{
   position: relative;
   margin: 0;
+  z-index: 1;
 }
 .cb-text { line-height: 1.4; }
 .cb-btn {

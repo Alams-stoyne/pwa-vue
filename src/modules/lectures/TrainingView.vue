@@ -7,14 +7,14 @@
     </div>
 
     <section v-show="tab === 'lectures'" class="pane">
-      <LectureSlider
+      <!-- <LectureSlider
         title="Общие лекции"
         emoji="🌐"
         :list="lectures.generalList"
         :is-read="lectures.isRead"
         :loading="lectures.loading"
         :show-all-link="{ path: '/training/storage', query: { filter: 'lecture-general' } }"
-      />
+      /> -->
 
       <LectureSlider
         :title="`Для направления ${themeName}`"

@@ -23,16 +23,6 @@ export async function sendSteps({ ID_USER, STEPS, IMAGES, CONSENT, LOCAL_DATETIM
  * Сводка шагомера: общее количество подтверждённых шагов, цель, место в рейтинге.
  *
  * Запрос:  POST {API}/steps/summary  { ID_USER }
- * Ответ:   {
- *   RESULT: 'OK',
- *   TOTAL_STEPS: 70000,     // подтверждённые на сервере шаги
- *   GOAL: 100000,           // цель, если задана
- *   RANK: 12,               // место в рейтинге (1 = лучший)
- *   TOTAL_USERS: 340,       // всего участников
- *   TODAY_STEPS: 3500,      // сколько сегодня зачтено
- *   DAILY_AVG: 5000,        // среднее в день (опционально)
- *   TOP_PERCENT: 4          // в каком проценте сверху (опционально)
- * }
  */
 export async function fetchStepsSummary({ ID_USER }) {
   if (isOffline()) throw new OfflineError()
@@ -52,13 +42,6 @@ export async function fetchStepsSummary({ ID_USER }) {
 
 /**
  * Правила шагомера с CDN.
- *
- * Запрос:  GET {CDN}/config/steps_rules.json
- * Ответ:   {
- *   TITLE: 'Правила шагомера',
- *   INTRO: 'Короткий вводный текст',
- *   SECTIONS: [ { id, title, text }, ... ]
- * }
  */
 export async function fetchStepsRules() {
   if (isOffline()) throw new OfflineError()
@@ -72,4 +55,38 @@ export async function fetchStepsRules() {
     console.error('[steps] invalid rules JSON from CDN:', text.slice(0, 200))
     throw new Error('Некорректный ответ CDN')
   }
+}
+
+/**
+ * ТОП шагомера (лидерборд).
+ * @param {string|null} date — null для all-time, 'YYYY-MM-DD' для конкретного дня
+ */
+export async function fetchStepsLeaderboard(date = null) {
+  if (isOffline()) throw new OfflineError()
+  
+  const url = date 
+    ? `${CDN}/steps/leaderboard/${date}.json` 
+    : `${CDN}/steps/leaderboard.json`
+    
+  const res = await fetchWithTimeout(url)
+  if (res.status === 404) return null // Нет данных за этот день — это нормально
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  
+  const text = await res.text()
+  try { return JSON.parse(text) }
+  catch { throw new Error('Некорректный ответ CDN') }
+}
+
+/**
+ * Сводка по школе/всем участникам (из school.json).
+ */
+export async function fetchSchoolStats() {
+  if (isOffline()) throw new OfflineError()
+  
+  const res = await fetchWithTimeout(`${CDN}/steps/school.json`)
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  
+  const text = await res.text()
+  try { return JSON.parse(text) }
+  catch { throw new Error('Некорректный ответ CDN') }
 }

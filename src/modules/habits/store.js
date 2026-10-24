@@ -26,8 +26,6 @@ const LS_CACHE = 'habits.cache'
 const LS_CACHE_AT = 'habits.cacheAt'
 const LS_CACHE_THEME = 'habits.cacheTheme'
 const LS_SELECTED = 'habits.selectedHabitId'
-// Кэш объекта выбранной привычки — чтобы не терять карточку на /home,
-// если каталог для текущей темы не содержит эту привычку.
 const LS_SELECTED_DATA = 'habits.selectedHabitData'
 
 const HOUR = 60 * 60 * 1000
@@ -58,9 +56,6 @@ function writeLS(key, val) {
   try { localStorage.setItem(key, JSON.stringify(val)) } catch {}
 }
 
-/**
- * Приводим конфиг CDN к плоскому массиву привычек для темы.
- */
 function extractHabitsForTheme(raw, themeId) {
   if (!raw) return null
 
@@ -94,11 +89,7 @@ export const useHabitsStore = defineStore('habits', {
     lastSyncAt: Number(localStorage.getItem(LS_LAST_TIME) || 0),
     now: Date.now(),
     notificationsEnabled: false,
-
-    /** Активный id выбранной привычки — одна на пользователя, не меняется. */
     selectedHabitId: localStorage.getItem(LS_SELECTED) || null,
-
-    /** Кеш полного каталога привычек текущей темы (для CatalogView). */
     catalogList: [],
   }),
 
@@ -155,9 +146,6 @@ export const useHabitsStore = defineStore('habits', {
         typeof Notification !== 'undefined' &&
         Notification.permission === 'granted'
       )
-      // Привычка не меняется и не привязана к теме — выбор уже есть в LS
-      // (или подтянется через POST /auth при регистрации).
-      // loadSelection здесь не нужен.
       this.loadHabits()
     },
 
@@ -186,8 +174,6 @@ export const useHabitsStore = defineStore('habits', {
       window.addEventListener('online', () => {
         this.online = true
         this.flushQueue()
-        // Привычка не меняется — loadSelection не нужен.
-        // Каталог обновим (свой TTL), состояние — из очереди и с API.
         this.loadHabits({ force: true })
       })
       window.addEventListener('offline', () => { this.online = false })
@@ -203,9 +189,6 @@ export const useHabitsStore = defineStore('habits', {
         () => theme.selected,
         (newTheme, oldTheme) => {
           if (!newTheme || newTheme === oldTheme) return
-          // Привычка НЕ привязана к теме: selectedHabitId не сбрасываем,
-          // loadSelection не вызываем. Перезагружаем только каталог,
-          // потому что habits.json для новой темы другой.
           this.catalogList = []
           try { localStorage.removeItem(LS_CACHE) } catch {}
           this.loadHabits({ force: true })
@@ -232,16 +215,6 @@ export const useHabitsStore = defineStore('habits', {
       }
     },
 
-    /**
-     * Загрузить выбор привычки с сервера.
-     *
-     * Используется ТОЛЬКО как fallback:
-     *   • после регистрации, если STATE.HABIT_SELECTED не пришёл;
-     *   • при старте, если selectedHabitId потерян, но пользователь авторизован.
-     *
-     * В обычной работе не вызывается: привычка приходит из POST /auth
-     * или уже есть в localStorage.
-     */
     async loadSelection({ force = false } = {}) {
       if (!force && this.selectedHabitId) {
         if (this.catalogList.length && !habitsList.value.length) {
@@ -270,9 +243,6 @@ export const useHabitsStore = defineStore('habits', {
       return this.selectedHabitId
     },
 
-    /**
-     * Сохранить выбор привычки. Срабатывает один раз на пользователя.
-     */
     async selectHabit(habitId) {
       if (!habitId) return false
       this.saving = true
@@ -309,10 +279,6 @@ export const useHabitsStore = defineStore('habits', {
       }
     },
 
-    /**
-     * Загрузить каталог привычек текущей темы (для экрана выбора)
-     * и применить фильтр к habitsList (активная привычка).
-     */
     async loadHabits({ force = false } = {}) {
       const theme = useThemeStore()
       const themeId = theme.selected
@@ -412,10 +378,6 @@ export const useHabitsStore = defineStore('habits', {
       }
     },
 
-    /**
-     * Фильтрует habitsList (активные для UI) по выбранной привычке.
-     * Если в текущем каталоге привычки нет — берём объект из кэша.
-     */
     _applyFilterToHabitsList() {
       if (!this.selectedHabitId) {
         habitsList.value = []
@@ -462,6 +424,12 @@ export const useHabitsStore = defineStore('habits', {
       try {
         const res = await sendHabitComplete(payload)
         if (!isSuccess(res)) throw new Error('not ok')
+        
+        // ▼ ОПТИМИСТИЧНОЕ НАЧИСЛЕНИЕ ▼
+        if (res.REWARD_POINTS) {
+          try { useStatsStore().addApplesLocally(res.REWARD_POINTS) } catch { /* ignore */ }
+        }
+
         if (res.DONE_TODAY != null) {
           const serverCount = Number(res.DONE_TODAY) || 0
           const local = this.data[habitId] || { count: 0, lastAt: 0 }
@@ -487,7 +455,14 @@ export const useHabitsStore = defineStore('habits', {
       for (const p of q) {
         try {
           const res = await sendHabitComplete(p)
-          if (!isSuccess(res)) remain.push(p)
+          if (!isSuccess(res)) {
+            remain.push(p)
+          } else {
+            // ▼ НАЧИСЛЕНИЕ ИЗ ОЧЕРЕДИ ▼
+            if (res.REWARD_POINTS) {
+              try { useStatsStore().addApplesLocally(res.REWARD_POINTS) } catch { /* ignore */ }
+            }
+          }
         } catch { remain.push(p) }
       }
       localStorage.setItem(LS_QUEUE, JSON.stringify(remain))

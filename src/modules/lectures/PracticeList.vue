@@ -27,22 +27,30 @@
         :style="{ animationDelay: i * 60 + 'ms' }"
         role="button"
         tabindex="0"
-        @click="openDetail(t)"
-        @keydown.enter="openDetail(t)"
       >
+        <!-- @click="openDetail(t)" @keydown.enter="openDetail(t)"  -->
         <header class="task-head">
-          <span class="task-index">#{{ i + 1 }}</span>
           <h3 class="task-title">{{ t.TITLE }}</h3>
-          <transition name="fade">
+          <!-- <transition name="fade">
             <span v-if="tasks.isDone(t.ID, t.DATE)" class="task-badge">✓ Выполнено</span>
-          </transition>
+          </transition> -->
         </header>
         <p class="task-text muted">{{ t.TEXT }}</p>
-        <div class="task-footer">
-          <span v-if="tasks.isDone(t.ID, t.DATE)" class="task-done-note muted">
-            Задание выполнено
+
+        <div class="task-footer" v-if="tasks.isDone(t.ID, t.DATE)"> 
+          <span class="read" aria-label="награда получена">
+            <div class="check"><AppIcon name="check" :size="10" /></div>          
+            <AppIcon name="apple" :size="14" />
+            <div class="text">награда получена</div>  
           </span>
-          <span v-else class="task-open muted">Подробнее →</span>
+          <span class="lecture-barge" aria-label="выполнено">выполнено</span>   
+        </div>
+        <div class="task-footer" v-else> 
+          <span class="read" aria-label="за выполнение">  
+            <AppIcon name="apple" :size="14" />
+            <div class="text">за выполнение</div>  
+          </span>
+          <span class="btn btn-primary btn-center" aria-label="выполнено" @click="openDetail(t)" @keydown.enter="openDetail(t)">открыть</span>   
         </div>
       </article>
     </div>
@@ -55,6 +63,7 @@ import { useRouter } from 'vue-router'
 import { useTasksStore } from '../tasks/store'
 import { useThemeStore } from '../theme/store'
 import { useToast } from '../core/composables/useToast'
+import AppIcon from '../../components/AppIcon.vue'
 
 const router = useRouter()
 const tasks = useTasksStore()
@@ -126,7 +135,33 @@ watch(() => theme.selected, (n, o) => {
   padding: 3px 8px; border-radius: 999px; background: var(--accent-soft);
 }
 .task-text { margin: 0 0 14px; font-size: 14px; line-height: 1.5; }
-.task-footer { display: flex; justify-content: flex-end; }
+.task-footer { 
+  display: flex; 
+  justify-content: space-between;
+  align-items: center;
+}
+.task-footer .read { 
+  display: flex;
+  gap: 4px;
+  font-family: var(--font-family);
+  font-weight: 500;
+  font-size: 14px;
+  line-height: 120%;
+  text-transform: lowercase;
+  color: var(--txt-black-dark-green);
+}
+.task-footer .read .check{ 
+  background: var(--txt-dark-green);
+  color: var(--txt-brand-limon);
+  border-radius: 9px;
+  padding: 2px;
+  width: 14px;
+  height: 14px;
+}
+
+.task-footer .btn{ 
+  padding: 8px 16px 9px;
+}
 .task-done-note { font-size: 13px; }
 .task-open { font-size: 13px; }
 

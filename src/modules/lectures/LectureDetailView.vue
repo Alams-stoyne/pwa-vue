@@ -7,7 +7,7 @@
     </div>
 
     <article v-else class="lecture">
-      <h1>{{ lecture.title }}</h1>
+      <h1 @click="viewClick(lecture)">{{ lecture.title }}</h1>
 
       <!-- ── Медиа-превью ── -->
       <template v-if="hasVideo">
@@ -60,7 +60,7 @@
       </div>
 
       <!-- ── Текст ── -->
-      <div class="text" v-html="safeText" />
+      <div class="lecture-text" v-html="safeText" />
 
       <!-- ── Галерея фото ── -->
       <template v-if="galleryPhotos.length">
@@ -121,17 +121,11 @@
             Отметить прочтение можно было только в день публикации
           </div>
         </transition>
-        <transition name="fade" mode="out-in">
-          <div v-if="!isRead && isToday && !canMarkRead" class="consent-warning">
-            Отметить прочитанное можно только после согласия
-            на обработку персональных данных.
-            <router-link to="/onboarding/consent">Дать согласие</router-link>
-          </div>          
-        </transition>
       </div>
 
       <transition name="fade" mode="out-in">
         <div class="bottom-action">
+          <ConsentBanner v-if="!canMarkRead && isToday" :class="'relative'" text="Отметить просмотрено можно только после согласия на обработку персональных данных." />
           <button
             v-if="!isRead && isToday"
             key="btn"
@@ -139,7 +133,9 @@
             :disabled="!canMarkRead"
             @click="onRead"
           >
-            {{ canMarkRead ? 'Просмотрено' : 'Требуется согласие ПД' }}
+            <span class="text">Просмотрено</span>
+            <span class="badge" v-if="lecture.rewardPoints">+{{ lecture.rewardPoints }} <AppIcon name="apple" :size="21" /></span>
+
           </button>          
         </div>
       </transition>
@@ -154,14 +150,15 @@ import { Swiper, SwiperSlide } from 'swiper/vue'
 import { Pagination, A11y } from 'swiper/modules'
 import 'swiper/css'
 import 'swiper/css/pagination'
-
+import AppIcon from '../../components/AppIcon.vue'
 import { useLecturesStore } from './store'
 import { useThemeStore } from '../theme/store'
 import { useConsentStore } from '../consent/store'
+import ConsentBanner from '../consent/ConsentBanner.vue'
 import { idbGet } from '../core/db'
 import { useToast } from '../core/composables/useToast'
 import { localDate } from '../core/utils/date'
-import FacecastPlayer from '../../components/FacecastPlayer.vue' // <-- ИМПОРТ
+import FacecastPlayer from '../../components/FacecastPlayer.vue'
 import { useAppBackground } from '../core/composables/useAppBackground'
 const { setBackground, clearBackground } = useAppBackground()
 
@@ -213,6 +210,7 @@ function sanitizeHtml(html) {
 }
 
 const safeText = computed(() => {
+  // ▼ ИСПРАВЛЕНО: lecture-text -> text
   const raw = lecture.value?.text || ''
   if (!raw) return ''
 
@@ -348,10 +346,13 @@ onBeforeUnmount(() => {
     if (u && u.startsWith('blob:')) URL.revokeObjectURL(u)
   })
 })
+
+function viewClick(event) {
+  console.log(event);
+}
 </script>
 
 <style scoped>
-/* ... (стили остаются без изменений, добавлен только .facecast-wrap) ... */
 .crumb { margin: 6px 0 6px; font-size: 13px; }
 .lecture h1 {
   font-family: var(--font-family);
@@ -429,8 +430,8 @@ onBeforeUnmount(() => {
   text-align: center;
 }
 
-/* ... остальные стили без изменений ... */
-.text {
+/* ── Текст ── */
+.lecture-text {
   font-family: var(--font-family);
   font-weight: 400;
   font-size: 14px;
@@ -438,39 +439,41 @@ onBeforeUnmount(() => {
   letter-spacing: -0.01em;
   color: #21271f;
 }
-.text :deep(p) { margin: 0 0 12px; }
-.text :deep(p:last-child) { margin-bottom: 0; }
 
-.text :deep(h2) {
+/* ▼ ИСПРАВЛЕНО: добавлен пробел перед :deep() */
+.lecture-text :deep(p) { margin: 0 0 12px; }
+.lecture-text :deep(p:last-child) { margin-bottom: 0; }
+
+.lecture-text :deep(h2) {
   font-size: 19px; font-weight: 700;
   margin: 18px 0 8px; line-height: 1.25;
   letter-spacing: -0.01em;
 }
-.text :deep(h3) {
+.lecture-text :deep(h3) {
   font-size: 16px; font-weight: 700;
   margin: 14px 0 6px; line-height: 1.3;
 }
-.text :deep(h2:first-child),
-.text :deep(h3:first-child) { margin-top: 0; }
+.lecture-text :deep(h2:first-child),
+.lecture-text :deep(h3:first-child) { margin-top: 0; }
 
-.text :deep(ul),
-.text :deep(ol) { margin: 0 0 12px; padding-left: 22px; }
-.text :deep(li) { margin-bottom: 4px; }
-.text :deep(li:last-child) { margin-bottom: 0; }
+.lecture-text :deep(ul),
+.lecture-text :deep(ol) { margin: 0 0 12px; padding-left: 22px; }
+.lecture-text :deep(li) { margin-bottom: 4px; }
+.lecture-text :deep(li:last-child) { margin-bottom: 0; }
 
-.text :deep(a) {
+.lecture-text :deep(a) {
   color: var(--accent);
   text-decoration: underline;
   text-underline-offset: 2px;
   overflow-wrap: anywhere;
 }
 
-.text :deep(strong),
-.text :deep(b) { font-weight: 700; }
-.text :deep(em),
-.text :deep(i) { font-style: italic; }
+.lecture-text :deep(strong),
+.lecture-text :deep(b) { font-weight: 700; }
+.lecture-text :deep(em),
+.lecture-text :deep(i) { font-style: italic; }
 
-.text :deep(img) {
+.lecture-text :deep(img) {
   max-width: 100%;
   height: auto;
   border-radius: var(--radius);
@@ -478,7 +481,7 @@ onBeforeUnmount(() => {
   display: block;
 }
 
-.text :deep(blockquote) {
+.lecture-text :deep(blockquote) {
   margin: 12px 0;
   padding: 4px 0 4px 12px;
   border-left: 3px solid var(--accent);
@@ -486,19 +489,19 @@ onBeforeUnmount(() => {
   font-style: italic;
 }
 
-.text :deep(code) {
+.lecture-text :deep(code) {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 0.9em;
   background: #f2f2f2;
   padding: 2px 6px;
   border-radius: 4px;
 }
-.text :deep(pre) {
+.lecture-text :deep(pre) {
   background: #f2f2f2; padding: 12px; border-radius: 8px;
   overflow-x: auto; font-size: 13px; line-height: 1.5;
 }
-.text :deep(pre code) { background: transparent; padding: 0; }
-.text :deep(hr) {
+.lecture-text :deep(pre code) { background: transparent; padding: 0; }
+.lecture-text :deep(hr) {
   border: none;
   border-top: 1px solid var(--border);
   margin: 16px 0;
@@ -591,23 +594,6 @@ onBeforeUnmount(() => {
 }
 .read-btn { width: 100%; max-width: unset; }
 .old-note { font-size: 13px; }
-
-.consent-warning {
-  margin-top: 12px;
-  padding: 12px 14px;
-  border-radius: 10px;
-  background: #FFF8EC;
-  border: 1px solid #FBE5C6;
-  font-size: 13px;
-  line-height: 1.5;
-  color: #21271f;
-}
-.consent-warning a {
-  color: var(--accent);
-  font-weight: 600;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
 
 .skeleton-wrap { margin-top: 16px; }
 .sk-line { height: 14px; background: #eee; border-radius: 6px; margin-bottom: 10px; }

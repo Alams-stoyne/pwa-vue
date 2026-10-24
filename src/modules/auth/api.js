@@ -1,17 +1,32 @@
 const AUTH_URL = import.meta.env.VITE_AUTH_URL
 
-/**
- * Регистрация по uid, привязанному к устройству.
- * Ответ сервера:
- *   { RESULT: 'OK', ID_USER }
- *   { RESULT: 'UID_LOCKED', LOCKED_UID, ID_USER } — если device_id уже привязан к другому uid
- */
 export async function registerRequest({ uid, deviceId }) {
-  const res = await fetch(AUTH_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ UID: uid, DEVICE_ID: deviceId }),
-  })
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
-  return res.json()
+  console.log('[auth api] Preparing request. AUTH_URL =', AUTH_URL)
+
+  if (!AUTH_URL) {
+    throw new Error('VITE_AUTH_URL не задан в .env')
+  }
+
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 15000)
+
+  try {
+    console.log('[auth api] Sending fetch to', AUTH_URL)
+    const res = await fetch(AUTH_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ UID: uid, DEVICE_ID: deviceId }),
+      signal: controller.signal,
+    })
+    console.log('[auth api] Response status:', res.status)
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    return await res.json()
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      throw new Error('Таймаут соединения с сервером (15 сек)')
+    }
+    throw err
+  } finally {
+    clearTimeout(timeoutId)
+  }
 }

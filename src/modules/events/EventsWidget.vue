@@ -6,11 +6,12 @@
       class="event-card"
     >
       <div class="event-content">
-        <h3 class="event-title"  @click="viewClick(event)">{{ event.title }}</h3>
-        <p class="event-desc muted">{{ event.description }}</p>
+        <div class="event-title" @click="viewClick(event)">{{ event.title }}</div>
+        <div class="event-desc muted">{{ event.description }}</div>
       </div>
 
       <div class="event-action">
+        <!-- 1. Доступно -->
         <button
           v-if="getState(event.id).status === 'available'"
           type="button"
@@ -20,6 +21,7 @@
           {{ event.buttonText || 'Открыть' }}
         </button>
 
+        <!-- 2. Таймер -->
         <a
           :href="event.link"
           target="_blank" rel="noopener noreferrer"
@@ -28,9 +30,9 @@
           :title="'через' + formatTimeLeft(getState(event.id).timeLeft)"
         >
           {{ event.buttonText || 'Открыть' }}
-          <!--  -->
         </a>
 
+        <!-- 3. Готово к подтверждению -->
         <button
           v-else-if="getState(event.id).status === 'ready_to_confirm'"
           type="button"
@@ -42,9 +44,10 @@
           <span class="badge" v-if="event.rewardPoints">+{{ event.rewardPoints }} <AppIcon name="apple" :size="21" /></span>
         </button>
 
+        <!-- 4. Выполнено -->
         <div
           v-else-if="getState(event.id).status === 'done'"
-          class="btn btn-secondary btn-center btn-full"
+          class="btn btn-white btn-center btn-full disabled"
         >
           <span class="text">{{ event.rewardPoints ? 'Награда получена' : 'Посещено' }}</span>
           <span class="badge" v-if="event.rewardPoints">+{{ event.rewardPoints }} <AppIcon name="apple" :size="21" /></span>
@@ -73,7 +76,6 @@ function formatTimeLeft(ms) {
   if (h > 0) return `${h} ч ${String(m).padStart(2, '0')} мин`
   return `${m} мин`
 }
-
 
 function viewClick(event) {
   console.log(event);
@@ -113,7 +115,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* Стили остаются без изменений */
+/* Стили оставлены без изменений */
 .events-widget {
   display: grid;
   gap: 16px;
@@ -131,6 +133,8 @@ onMounted(() => {
 .event-content{
   font-family: var(--font-family);
   text-transform: lowercase;  
+  display: grid;
+  gap: 8px;
 }
 .event-title {
   font-weight: 700;
@@ -196,15 +200,5 @@ onMounted(() => {
   text-transform: lowercase;
   text-wrap: balance;
   color: var(--txt-dark-green);
-  /* height: 48px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 16px;
-  font-weight: 700;
-  color: #015F01;
-  background: #EEF7E5;
-  border: 1px solid #AFE6DD;
-  border-radius: 100px; */
 }
 </style>

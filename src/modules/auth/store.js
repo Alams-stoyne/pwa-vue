@@ -77,7 +77,10 @@ export const useAuthStore = defineStore('auth', {
 
     async registerWithUid() {
       if (this.isAuthed) return true
-      if (this.registering) return false
+      if (this.registering) {
+        console.warn('[auth] registerWithUid skipped: already registering')
+        return false
+      }
 
       try {
         const last = Number(localStorage.getItem(LS_LAST_ATTEMPT) || 0)
@@ -114,6 +117,7 @@ export const useAuthStore = defineStore('auth', {
       })
 
       try {
+        console.log('[auth store] Calling registerRequest API...')
         const data = await registerRequest({
           uid,
           deviceId,
@@ -163,7 +167,7 @@ export const useAuthStore = defineStore('auth', {
         }
 
         if (!isSuccess(data) || !data.ID_USER) {
-          this.error = 'Сервер отклонил регистрацию'
+          this.error = data?.MESSAGE || 'Сервер отклонил регистрацию'
           return false
         }
 
@@ -192,7 +196,8 @@ export const useAuthStore = defineStore('auth', {
 
         return true
       } catch (e) {
-        this.error = 'Ошибка сети. Проверьте соединение.'
+        console.error('[auth] register error:', e)
+        this.error = e.message || 'Ошибка сети. Проверьте соединение.'
         bumpAttempts()
         if (readAttempts() >= MAX_ATTEMPTS) {
           this.error = 'Слишком много попыток. Перезапустите приложение.'
@@ -216,9 +221,7 @@ export const useAuthStore = defineStore('auth', {
       resetAttempts()
 
       useThemeStore().reset()
-      // Сброс кеша виджета «Сегодня»
       try { useHomeStore().resetToday() } catch { /* ignore */ }
-      // Сброс кеша обучения (Cache Storage + localStorage)
       try {
         if ('caches' in window) caches.delete('tutorial-slides').catch(() => {})
       } catch {}
@@ -237,7 +240,7 @@ export const useAuthStore = defineStore('auth', {
         'habits.selectedHabitId', 'habits.selectedHabitData', 
         'stats.local', 'stats.server', 'stats.global', 'stats.times',
         'home.lastSendDate', 'home.lastSyncAt', 'home.queue',
-        'home.today', 'home.todayAt',
+        'home.today', 'home.todayAt', 'home.today.snapshot',
         'theme.selected', 'theme.themesCache', 'theme.themesCacheAt',
       ]
       for (const k of userKeys) localStorage.removeItem(k)

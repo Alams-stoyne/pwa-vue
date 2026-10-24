@@ -11,10 +11,8 @@
           <router-link to="/support" class="btn-short btn-40">
             <AppIcon name="heart-plus" :size="21" />
           </router-link>
-          <router-link to="/support" class="btn-badge">
-            <span class="text">0</span>
-            <AppIcon name="apple" :size="21" />
-          </router-link>        
+          <!-- ▼ ЗАМЕНЕНО НА КОМПОНЕНТ ▼ -->
+          <ApplesBadge to="/stats" />
         </div>             
       </div>
     </transition>
@@ -38,8 +36,8 @@ import { FEATURES } from '../core/features'
 import { useThemeStore } from '../theme/store'
 import Mascot from '../../components/Mascot.vue'
 import HabitWidget from '../habits/HabitWidget.vue'
-import EventsWidget from '../events/EventsWidget.vue' // <-- НОВЫЙ ИМПОРТ
-// import TodayWidget from './TodayWidget.vue'
+import EventsWidget from '../events/EventsWidget.vue'
+import ApplesBadge from '../stats/ApplesBadge.vue' // <-- ИМПОРТ
 import { useAppBackground } from '../core/composables/useAppBackground'
 import AppIcon from '../../components/AppIcon.vue'
 
@@ -48,7 +46,6 @@ const theme = useThemeStore()
 const home = useHomeStore()
 
 const mascotRef = ref(null)
-
 const todayWidgetEnabled = FEATURES.HOME_TODAY_WIDGET
 
 let hideTimer = null
@@ -75,7 +72,6 @@ function formatNewlyDone(items) {
 }
 
 function pickMessage() {
-  // Если виджет «Сегодня» отключён — только приветствие.
   if (!todayWidgetEnabled) {
     return {
       text: 'Привет! Я Зефирчик. Рад тебя видеть на Неделе здоровья и безопасности Х5!',
@@ -89,19 +85,15 @@ function pickMessage() {
   if (newlyDone.length) {
     return { text: formatNewlyDone(newlyDone), emotion: 'happy', hideAfterMs: 5500 }
   }
-
   if (newlyVerified.length) {
     return { text: 'Шаги проверены и зачтены.', emotion: 'happy', hideAfterMs: 4500 }
   }
-
   if (allDone && progressTotal > 0) {
     return { text: 'Все действия дня выполнены. Отличная работа!', emotion: 'happy', hideAfterMs: 6000 }
   }
-
   if (progressDone > 0 && progressTotal > 0) {
     return { text: `Сегодня ${progressDone} из ${progressTotal}. Продолжаем!`, emotion: '', hideAfterMs: 5000 }
   }
-
   return {
     text: 'Привет! Я Зефирчик. Рад тебя видеть на Неделе здоровья и безопасности Х5!',
     emotion: '',
@@ -115,7 +107,6 @@ onMounted(async () => {
   home.load()
 
   if (todayWidgetEnabled) {
-    // Дифф с прошлого снимка — только когда виджет включён.
     await home.refreshToday({ commitSnapshot: true })
   }
 
@@ -129,16 +120,9 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.home-page{
-  position: relative;
-  /* max-height: 100dvh;
-  display: grid; */
-}
-.mascot_block {
-  position: relative;
-  display: grid;
-}
-
+/* Стили остаются без изменений */
+.home-page{ position: relative; }
+.mascot_block { position: relative; display: grid; }
 .bottom_panel { 
   display: flex;
   position: absolute;
@@ -152,9 +136,6 @@ onBeforeUnmount(() => {
     display: grid;
     gap: 16px;
     margin-bottom: 16px;
-    /* max-height: calc(100dvh - 74px); */
-    /* overflow: hidden;
-    overflow-y: auto; */
 }
 .widgets_block::-webkit-scrollbar { display: none; }
 </style>

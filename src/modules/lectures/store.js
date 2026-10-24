@@ -344,7 +344,6 @@ export const useLecturesStore = defineStore('lectures', {
       this.readKeys.push(dbKey)
       localStorage.setItem(LS_READ, JSON.stringify(this.readKeys))
 
-      // ─── Инкремент статистики по теме лекции ───
       const themeKey = String(bucket || '').replace(/^lecture-/, '') || 'general'
       try { useStatsStore().bumpLecturesRead(themeKey) } catch { /* ignore */ }
 
@@ -364,6 +363,12 @@ export const useLecturesStore = defineStore('lectures', {
       try {
         const res = await sendLectureRead(payload)
         if (!isSuccess(res)) throw new Error('not ok')
+        
+        // ▼ ОПТИМИСТИЧНОЕ НАЧИСЛЕНИЕ ▼
+        if (res.REWARD_POINTS) {
+          try { useStatsStore().addApplesLocally(res.REWARD_POINTS) } catch { /* ignore */ }
+        }
+
         try { useHomeStore().refreshToday() } catch { /* ignore */ }
       } catch {
         const q = queueFromLS(); q.push(payload)
@@ -381,7 +386,14 @@ export const useLecturesStore = defineStore('lectures', {
       for (const p of q) {
         try {
           const res = await sendLectureRead(p)
-          if (!isSuccess(res)) remain.push(p)
+          if (!isSuccess(res)) {
+            remain.push(p)
+          } else {
+            // ▼ НАЧИСЛЕНИЕ ИЗ ОЧЕРЕДИ ▼
+            if (res.REWARD_POINTS) {
+              try { useStatsStore().addApplesLocally(res.REWARD_POINTS) } catch { /* ignore */ }
+            }
+          }
         } catch { remain.push(p) }
       }
       localStorage.setItem(LS_QUEUE, JSON.stringify(remain))

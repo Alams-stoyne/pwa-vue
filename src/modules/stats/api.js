@@ -3,6 +3,10 @@ import { fetchWithTimeout, isOffline, OfflineError } from '../core/utils/network
 const CDN = import.meta.env.VITE_CDN_URL
 const API = import.meta.env.VITE_API_URL
 
+/**
+ * Глобальная статистика с CDN.
+ * Кэш: 24 часа (настраивается на CDN).
+ */
 export async function fetchGlobalStats() {
   if (isOffline()) throw new OfflineError()
   const res = await fetchWithTimeout(`${CDN}/stats/global.json`, { cache: 'no-store' })
@@ -11,21 +15,12 @@ export async function fetchGlobalStats() {
 }
 
 /**
- * Сервер — источник истины. Клиент отправляет только ID_USER, ничего
- * из локальных счётчиков (защита от подделки).
- *
- * Ожидаемый ответ:
- * {
- *   RESULT: 'OK',
- *   LECTURES_READ, TASKS_DONE, HABITS_DONE, DAYS_ACTIVE, STREAK,
- *   BY_THEME: { energy, antistress, body, balance, general, charging },
- *   BY_HABIT: { water, workout, eyes },
- *   WEEK_ACTIVITY: [{ date, count }, ...]  // 7 элементов, включая сегодня
- * }
+ * Персональная статистика (сервер — источник истины).
+ * POST {API}/stats/personal
  */
 export async function fetchPersonalStats({ ID_USER, LOCAL_DATETIME }) {
   if (isOffline()) throw new OfflineError()
-  const res = await fetchWithTimeout(`${API}/stats/sync`, {
+  const res = await fetchWithTimeout(`${API}/stats/personal`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ ID_USER, LOCAL_DATETIME }),

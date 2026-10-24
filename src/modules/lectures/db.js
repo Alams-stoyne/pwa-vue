@@ -50,6 +50,7 @@ export async function persistLecture(bucket, item, fallbackDate) {
     text: item.TEXT || '',
     videoLink: item.VIDEO_LINK || null,
     photos: photoKeys,
+    rewardPoints: item.REWARD_POINTS || false,    
     savedAt: Date.now(),
   })
 }

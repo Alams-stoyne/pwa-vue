@@ -5,6 +5,7 @@ import {
   fetchReflectionTitles,
 } from './api'
 import { useAuthStore } from '../auth/store'
+import { useStatsStore } from '../stats/store' // <--- ДОБАВЛЕН ИМПОРТ
 import { isSuccess } from '../core/utils/response'
 import { localDate, localDateTime } from '../core/utils/date'
 import { isOffline } from '../core/utils/network'
@@ -12,7 +13,7 @@ import { isOffline } from '../core/utils/network'
 const LS_SENT_DATE = 'reflection.sentDate'
 const LS_TITLES = 'reflection.titles'
 const LS_TITLES_AT = 'reflection.titlesAt'
-const TITLES_TTL = 6 * 60 * 60 * 1000   // 6 часов
+const TITLES_TTL = 6 * 60 * 60 * 1000
 const MIN_TEXT = 50
 const MAX_TEXT = 750
 
@@ -34,8 +35,6 @@ export const useReflectionStore = defineStore('reflection', {
     error: null,
     sentToday: false,
     lastSentAt: null,
-
-    // Заголовки по дням (тянутся с CDN)
     titlesList: readLS(LS_TITLES, []),
     loadingTitles: false,
   }),
@@ -47,62 +46,41 @@ export const useReflectionStore = defineStore('reflection', {
       !s.sentToday &&
       !s.sending,
 
-    /**
-     * Заголовок поля для сегодняшней даты.
-     */
     todayTitle: (s) => {
       const today = localDate()
       const entry = (s.titlesList || []).find((t) => t && t.date === today)
       return entry?.title || 'Ваши мысли'
     },
 
-    /**
-     * Описание для сегодняшней даты.
-     */
     todayDescription: (s) => {
       const today = localDate()
       const entry = (s.titlesList || []).find((t) => t && t.date === today)
       return entry?.description || 'Поделитесь своими мыслями...'
     },
 
-
-    /**
-     * Кол-во баллов для сегодняшней даты.
-     */
     todayRewardPoints: (s) => {
       const today = localDate()
       const entry = (s.titlesList || []).find((t) => t && t.date === today)
       return entry?.rewardPoints || false
     },
 
-    /**
-     * текст для Маскота при открытии - если не отправлял рефлексию.
-     */
     todayOpenTextCloud: (s) => {
       const today = localDate()
       const entry = (s.titlesList || []).find((t) => t && t.date === today)
       return entry?.openTextCloud || ''
     },
 
-    /**
-     * текст для Маскота - после отправки рефлексии.
-     */
     todaySendTextCloud: (s) => {
       const today = localDate()
       const entry = (s.titlesList || []).find((t) => t && t.date === today)
       return entry?.sendTextCloud || ''
     },
 
-    /**
-     * текст для Маскота при открытии - если уже отправлял рефлексию.
-     */
     todayAfterTextCloud: (s) => {
       const today = localDate()
       const entry = (s.titlesList || []).find((t) => t && t.date === today)
       return entry?.afterTextCloud || ''
     },
-
-
   },
 
   actions: {
@@ -129,10 +107,6 @@ export const useReflectionStore = defineStore('reflection', {
       }
     },
 
-    /**
-     * Загрузить заголовки рефлексии с CDN.
-     * @param {{ force?: boolean }} opts
-     */
     async loadTitles({ force = false } = {}) {
       const cachedAt = Number(localStorage.getItem(LS_TITLES_AT) || 0)
       const fresh = Date.now() - cachedAt < TITLES_TTL
@@ -182,6 +156,11 @@ export const useReflectionStore = defineStore('reflection', {
         }
 
         if (isSuccess(res)) {
+          // ▼ ОПТИМИСТИЧНОЕ НАЧИСЛЕНИЕ ▼
+          if (res.REWARD_POINTS) {
+            try { useStatsStore().addApplesLocally(res.REWARD_POINTS) } catch { /* ignore */ }
+          }
+
           this.sentToday = true
           this.lastSentAt = res.SERVER_DATETIME || null
           this.text = ''

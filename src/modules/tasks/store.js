@@ -39,8 +39,6 @@ export const useTasksStore = defineStore('tasks', {
   }),
 
   getters: {
-    // Второй аргумент — явная дата (для детального просмотра прошлых дней).
-    // Без него используется loadedDate (для списка «сегодня»).
     isDone: (s) => (taskId, date = s.loadedDate) => {
       if (!taskId || !date) return false
       return s.doneKeys.includes(`${date}:${taskId}`)
@@ -48,7 +46,6 @@ export const useTasksStore = defineStore('tasks', {
     progress: (s) => {
       if (!s.list.length) return { done: 0, total: 0 }
       const key = (id) => `${s.loadedDate}:${id}`
-      // ▼ ИСПРАВЛЕНО: t.ID → t.ID_TASK
       const done = s.list.filter((t) => s.doneKeys.includes(key(t.ID_TASK))).length
       return { done, total: s.list.length }
     },
@@ -100,7 +97,6 @@ export const useTasksStore = defineStore('tasks', {
       this.loading = true
       try {
         this.list = await fetchTasksByThemeDate(themeId, today)
-        // Виджет «Сегодня» зависит от состава практик — обновим
         try { useHomeStore().refreshToday() } catch { /* ignore */ }
       } catch (e) {
         this.list = []
@@ -113,22 +109,18 @@ export const useTasksStore = defineStore('tasks', {
     },
 
     async complete(task) {
-      // Без согласия на обработку ПД отметка недоступна —
-      // проверяем на уровне действия, чтобы нельзя было обойти через UI.
       const consent = useConsentStore()
       if (!consent.isGranted) {
         throw new Error('CONSENT_REQUIRED')
       }
 
       const date = task.DATE || localDate()
-      // ▼ ИСПРАВЛЕНО: task.ID → task.ID_TASK
       const key = `${date}:${task.ID_TASK}`
       if (this.doneKeys.includes(key)) return false
 
       this.doneKeys.push(key)
       localStorage.setItem(LS_DONE, JSON.stringify(this.doneKeys))
 
-      // ─── Инкремент статистики ───
       try { useStatsStore().bumpTaskDone() } catch { /* ignore */ }
 
       const auth = useAuthStore()
@@ -147,6 +139,12 @@ export const useTasksStore = defineStore('tasks', {
       try {
         const res = await sendTaskComplete(payload)
         if (!isSuccess(res)) throw new Error('not ok')
+        
+        // ▼ ОПТИМИСТИЧНОЕ НАЧИСЛЕНИЕ ▼
+        if (res.REWARD_POINTS) {
+          try { useStatsStore().addApplesLocally(res.REWARD_POINTS) } catch { /* ignore */ }
+        }
+
         try { useHomeStore().refreshToday() } catch { /* ignore */ }
       } catch {
         const q = queueFromLS(); q.push(payload)
@@ -164,7 +162,14 @@ export const useTasksStore = defineStore('tasks', {
       for (const p of q) {
         try {
           const res = await sendTaskComplete(p)
-          if (!isSuccess(res)) remain.push(p)
+          if (!isSuccess(res)) {
+            remain.push(p)
+          } else {
+            // ▼ НАЧИСЛЕНИЕ ИЗ ОЧЕРЕДИ ▼
+            if (res.REWARD_POINTS) {
+              try { useStatsStore().addApplesLocally(res.REWARD_POINTS) } catch { /* ignore */ }
+            }
+          }
         } catch { remain.push(p) }
       }
       localStorage.setItem(LS_QUEUE, JSON.stringify(remain))

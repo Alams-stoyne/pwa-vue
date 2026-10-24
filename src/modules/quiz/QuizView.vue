@@ -48,12 +48,12 @@
       </section>
     </transition>
 
-    <div class="bottom-action">
+    <div class="bottom-action" v-if="canAdvance">
       <button
         type="button"
         class="btn btn-primary btn-center"
         :disabled="!canAdvance"
-        @click="next"
+        @click="next"        
       >
         {{ isLast ? 'Получить рекомендацию' : 'Далее' }}
       </button>

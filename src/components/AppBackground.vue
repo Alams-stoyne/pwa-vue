@@ -114,7 +114,7 @@ function styleFor(b) {
   inset: -12px; /* компенсируем blur по краям */
   background-repeat: no-repeat;
   background-position: top center;
-  /* background-size: cover; */
+  background-size: cover;
   transition: opacity var(--t-slow);
 }
 
