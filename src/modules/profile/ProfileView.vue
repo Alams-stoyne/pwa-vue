@@ -15,8 +15,9 @@
       {{ store.nickname }}
     </div>
 
-    <router-link to="/support" class="btn btn-secondary">
-      Написать администратору
+    <router-link to="/support" class="btn btn-secondary"> 
+      <span class="text">Написать администратору</span>
+      <span class="ico"></span>      
     </router-link>
 
     <div class="bottom-action d-grid">

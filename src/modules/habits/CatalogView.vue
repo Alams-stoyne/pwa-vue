@@ -29,47 +29,42 @@
         :key="h.id"
         class="theme-card rise"
         :class="{
-          selected: habits.selectedHabitId === h.id,
+          selected: chosenId === h.id,
           busy: habits.saving,
         }"
         :style="{ animationDelay: i * 60 + 'ms' }"
       >
-        <button
+        <div
           type="button"
           class="theme-main"
-          :disabled="habits.saving"
-          @click="pick(h.id)"
         >
-          <span class="theme-check" aria-hidden="true">
+          <span class="theme-check" aria-hidden="true"
+            :disabled="habits.saving"
+            @click="pick(h.id)"        
+          >
             <AppIcon name="check" :size="16" />
           </span>
           <div class="theme-info">
-            <span class="theme-name color-text-stroke">{{ h.title }}</span>
-            <!-- <div
-              v-if="habits.selectedHabitId === h.id"
-              class="theme-badge"
-            >✓ Выбрана</div> -->
-            <span class="theme-subtitle muted">{{ h.hint }}</span>
+            <div class="theme-name color-text-stroke" v-html="h.title" />
+            <button
+              class="theme-details"
+              :disabled="habits.saving"
+              @click.stop="openDetails(h)"
+            >
+              <span>Подробнее</span>
+              <svg width="20" height="14" viewBox="0 0 20 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M3.75 1.5806C3.75 1.12187 4.12187 0.750001 4.5806 0.750002L15.544 0.75C15.7643 0.75 15.9755 0.83751 16.1313 0.993278C16.2871 1.14905 16.3746 1.36031 16.3746 1.5806V12.544C16.3746 13.0027 16.0027 13.3746 15.544 13.3746C15.0852 13.3746 14.7134 13.0027 14.7134 12.544V3.58585L5.16793 13.1313C4.84356 13.4557 4.31765 13.4557 3.99328 13.1313C3.66891 12.8069 3.66891 12.281 3.99328 11.9567L13.5387 2.4112L4.5806 2.4112C4.12187 2.4112 3.75 2.03933 3.75 1.5806Z" fill-rule="evenodd" clip-rule="evenodd" fill="#21271F" />
+              </svg>
+            </button>             
           </div>
-        </button>
-
-        <button
-          class="theme-details"
-          :disabled="habits.saving"
-          @click.stop="openDetails(h)"
-        >
-          <span>Подробнее</span>
-          <svg width="13" height="13" viewBox="0 0 13 13" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path fill-rule="evenodd" clip-rule="evenodd" d="M0 0.830603C-2.80058e-07 0.371874 0.371873 1.34778e-06 0.830601 1.55782e-06L11.794 0C12.0143 0 12.2255 0.0875097 12.3813 0.243278C12.5371 0.399046 12.6246 0.610312 12.6246 0.830601V11.794C12.6246 12.2527 12.2527 12.6246 11.794 12.6246C11.3352 12.6246 10.9634 12.2527 10.9634 11.794V2.83585L1.41793 12.3813C1.09356 12.7057 0.567648 12.7057 0.243278 12.3813C-0.0810918 12.0569 -0.0810921 11.531 0.243278 11.2067L9.78873 1.6612L0.830601 1.6612C0.371872 1.6612 -2.97561e-07 1.28933 0 0.830603Z" fill="#21271F" />
-          </svg>
-        </button>
+        </div>
       </article>
     </div>
 
     <!-- PUSH -->
     <transition name="fade">
       <section
-        v-if="habits.hasSelection && !habits.notificationsEnabled"
+        v-if="chosenId && !habits.notificationsEnabled"
         class="push-block"
       >
         <h3 class="push-title">🔔 Напоминания</h3>
@@ -91,10 +86,10 @@
       <button
         type="button"
         class="btn btn-primary btn-center"
-        :disabled="!habits.hasSelection || habits.saving"
+        :disabled="!chosenId || habits.saving"
         @click="proceed"
       >
-        Продолжить
+        {{ habits.saving ? 'Сохранение…' : 'Продолжить' }}
       </button>
     </div>
 
@@ -123,16 +118,15 @@ const { setBackground } = useAppBackground()
 const detailsOpen = ref(false)
 const currentHabit = ref(null)
 
+// ▼ ЛОКАЛЬНЫЙ ВЫБОР (не отправляем на сервер до нажатия "Продолжить") ▼
+const chosenId = ref(habits.selectedHabitId || null)
+
 const loading = computed(() => habits.loading)
 
 function pick(id) {
   if (habits.saving) return
-  const already = habits.selectedHabitId === id
-  if (already) return
-  habits.selectHabit(id).then((ok) => {
-    // if (ok) toast.success('Привычка выбрана')
-    // else if (habits.error) toast.error(habits.error)
-  })
+  // Меняем только локальное состояние
+  chosenId.value = id
 }
 
 function openDetails(habit) {
@@ -147,7 +141,17 @@ async function enableNotifications() {
 }
 
 async function proceed() {
-  if (!habits.hasSelection) return
+  if (!chosenId.value || habits.saving) return
+
+  // Отправляем на сервер только если выбор изменился
+  if (chosenId.value !== habits.selectedHabitId) {
+    const ok = await habits.selectHabit(chosenId.value)
+    if (!ok) {
+      toast.error(habits.error || 'Не удалось сохранить выбор')
+      return
+    }
+  }
+
   const next = await resolveNextOnboardingRoute()
   router.replace(next)
 }
@@ -228,29 +232,15 @@ onMounted(() => {
   flex-direction: column;
   align-items: flex-start;
   gap: 6px;
+  width: 100%;
 }
 
 .theme-name {
-  font-weight: 400;
-  font-size: 17px;
-  line-height: 159%;
+  font-size: 18px;
+  line-height: 150%;
+  text-transform: lowercase;
   text-wrap: balance;
-}
-.theme-subtitle { font-size: 12px; }
-
-.theme-badge {
-  display: flex;
-  gap: 8px;
-  border-radius: 120px;
-  padding: 4px 10px 5px 8px;
-  background: #f1f3e9;
-  font-family: var(--font-family);
-  font-weight: 500;
-  font-size: 12px;
-  line-height: 120%;
-  letter-spacing: -0.01em;
-  text-align: center;
-  color: #015f01;
+  color: var(--txt-brand-limon);
 }
 
 .theme-check {
@@ -270,30 +260,27 @@ onMounted(() => {
 }
 
 .theme-details {
-  position: absolute;
-  text-decoration: none;
+  border: 2px solid var(--txt-black-dark-green);
+  border-radius: 120px;
+  padding: 5px 16px;
   font-family: var(--font-family);
   font-weight: 500;
   font-size: 12px;
   line-height: 120%;
   letter-spacing: -0.01em;
   text-align: center;
-  background: #FFF;
-  color: #21271f;
-  top: 18px;
-  right: 15px;
-  display: flex;
-  gap: 6px;
-  border: 1.5px solid #21271f;
-  border-radius: 120px;
-  padding: 10px 16px 11px;
-  width: 117px;
-  height: 40px;
-  min-height: 40px;
+  text-transform: lowercase;
+  color: var(--txt-black-dark-green);
   cursor: pointer;
   transition: background var(--t-fast);
+  background: var(--white);
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
 }
-.theme-details:hover { background: rgba(15, 90, 5, .18); }
+.theme-details:hover {
+  background: var(--white);
+}
 
 /* ─── PUSH ─── */
 .push-block {

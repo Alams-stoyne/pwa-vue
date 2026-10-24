@@ -311,16 +311,21 @@ export const useHabitsStore = defineStore('habits', {
             const raw = await fetchHabitsConfig()
             const configs = extractHabitsForTheme(raw, themeId)
               || getFallbackHabitsForTheme(themeId)
+            
+            // ▼ ДОБАВЛЕНЫ description и picture ▼
             const normalized = configs.map((h) => ({
               id: h.id,
               icon: h.icon || h.id,
               title: h.title || '',
               emoji: h.emoji || '',
               hint: h.hint || '',
+              description: h.description || h.hint || '',
+              picture: h.picture || h.image || h.cover || '',
               timesPerDay: Number(h.timesPerDay) || 1,
               minIntervalMin: Number(h.minIntervalMin) || 60,
               themeId,
             }))
+            
             this.catalogList = normalized
             writeLS(LS_CACHE, normalized)
             localStorage.setItem(LS_CACHE_AT, String(Date.now()))

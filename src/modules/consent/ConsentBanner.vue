@@ -34,7 +34,7 @@ const resolvedText = computed(() => props.text || DEFAULT_TEXT)
 
 <style scoped>
 .consent-banner {
-  display: flex;
+  display: none;
   align-items: center;
   gap: 12px;
   justify-content: space-between;
@@ -53,6 +53,7 @@ const resolvedText = computed(() => props.text || DEFAULT_TEXT)
 }
 .consent-banner.relative{
   position: relative;
+  display: flex;
   margin: 0;
   z-index: 1;
 }

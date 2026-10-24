@@ -165,6 +165,8 @@ body {
 
 /* Экран с фиксированной нижней кнопкой — оставляем место */
 .page--bottom-action { padding-bottom: 92px; }
+.app-shell.has-nav .page--bottom-action-one { padding-bottom: 158px; }
+.app-shell.has-nav .page--bottom-action-two { padding-bottom: 212px; }
 
 
 .form{
@@ -263,6 +265,7 @@ input:focus, textarea:focus {
   cursor: default;
   opacity: 1;
   transform: none;
+  display: none !important;
 }
 .btn-40{
   aspect-ratio: 1 / 1;

@@ -23,7 +23,7 @@
         v-for="(t, i) in tasks.list"
         :key="t.ID_TASK"
         class="card task rise"
-        :class="{ done: tasks.isDone(t.ID, t.DATE) }"
+        :class="{ done: tasks.isDone(t.ID_TASK, t.DATE) }"
         :style="{ animationDelay: i * 60 + 'ms' }"
         role="button"
         tabindex="0"
@@ -37,13 +37,13 @@
         </header>
         <p class="task-text muted">{{ t.TEXT }}</p>
 
-        <div class="task-footer" v-if="tasks.isDone(t.ID, t.DATE)"> 
+        <div class="task-footer" v-if="tasks.isDone(t.ID_TASK, t.DATE)"> 
           <span class="read" aria-label="награда получена">
             <div class="check"><AppIcon name="check" :size="10" /></div>          
             <AppIcon name="apple" :size="14" />
             <div class="text">награда получена</div>  
           </span>
-          <span class="lecture-barge" aria-label="выполнено">выполнено</span>   
+          <span class="task-barge" aria-label="выполнено">выполнено</span>   
         </div>
         <div class="task-footer" v-else> 
           <span class="read" aria-label="за выполнение">  
@@ -162,6 +162,17 @@ watch(() => theme.selected, (n, o) => {
 .task-footer .btn{ 
   padding: 8px 16px 9px;
 }
+.task-barge{
+  border-radius: 120px;
+  padding: 4px 10px 5px;
+  background: var(--green-light);
+  font-size: 12px;
+  text-align: center;
+  color: var(--txt-dark-green);
+  background: var(--green-light);
+}
+
+
 .task-done-note { font-size: 13px; }
 .task-open { font-size: 13px; }
 

@@ -11,7 +11,7 @@ const LS_TIMES = 'stats.times.v3'
 const LS_PENDING_APPLES = 'stats.pendingApples'
 
 const PERSONAL_TTL = 15 * 60 * 1000 // 15 минут
-const GLOBAL_TTL = 24 * 60 * 60 * 1000   // 24 часа
+const GLOBAL_TTL = 15 * 60 * 1000   // 15 минут (как вы и просили)
 
 function loadLS(key, fallback) {
   try {
@@ -88,7 +88,8 @@ export const useStatsStore = defineStore('stats', {
     _startTimer() {
       if (_timer) return
       _timer = setInterval(() => {
-        this.fetchPersonal() 
+        this.fetchPersonal()
+        this.fetchGlobal() // <-- ДОБАВЛЕНО: обновляем общую статистику каждые 15 минут
       }, PERSONAL_TTL)
     },
 
@@ -144,7 +145,11 @@ export const useStatsStore = defineStore('stats', {
     async fetchGlobal({ force = false } = {}) {
       if (this.loadingGlobal) return
       const now = Date.now()
-      if (!force && this.global && now - this.times.lastGlobal < GLOBAL_TTL) return
+      
+      // ▼ ДОБАВЛЕНА ПРОВЕРКА: если в кэше нет COMPANIES — форсируем запрос ▼
+      const hasCompanies = !!(this.global && this.global.COMPANIES)
+      if (!force && hasCompanies && now - this.times.lastGlobal < GLOBAL_TTL) return
+      
       if (isOffline()) return
 
       this.loadingGlobal = true

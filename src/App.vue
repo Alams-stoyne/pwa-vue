@@ -68,11 +68,6 @@ const needsUidRecovery = computed(() =>
   isInstalled.value && !hasUid.value && !uidMismatch.value
 )
 
-/**
- * Баннер «режим просмотра» — показываем везде, кроме самого экрана
- * согласия (там баннер не нужен, у пользователя и так на экране
- * кнопки согласия).
- */
 const showConsentBanner = computed(() => {
   if (!auth.isAuthed) return false
   if (consent.isGranted) return false
@@ -81,11 +76,6 @@ const showConsentBanner = computed(() => {
   return true
 })
 
-/**
- * Онбординг считается завершённым, когда выбрано направление
- * и выбрана привычка. До этого нижнее меню не показываем —
- * пользователь ещё в процессе, навигация ему не нужна.
- */
 const onboarded = computed(() =>
   theme.hasTheme && !!habits.selectedHabitId
 )
@@ -112,29 +102,31 @@ const isChangeTheme = computed(() =>
   route.path === '/themes' && route.query.change === '1'
 )
 
-const showBack = computed(() =>
-  chromeVisible.value &&
-  (
-    route.meta?.back === true ||
-    hasOpenModal.value ||
-    isChangeTheme.value
-  )
-)
+// ▼ ИСПРАВЛЕНО: back теперь может быть функцией ▼
+const showBack = computed(() => {
+  if (!chromeVisible.value) return false
+  if (hasOpenModal.value) return true
+  if (isChangeTheme.value) return true
 
-/**
- * Нижнее меню:
- *   • приложение установлено, uid валиден, пользователь авторизован;
- *   • пользователь ответил на согласие ПД (да или нет);
- *   • онбординг пройден: выбрано направление и привычка;
- *   • не на онбординг-экранах, не на /quiz, /registering, storage;
- *   • не на экране смены направления.
- */
+  const metaBack = route.meta?.back
+  if (typeof metaBack === 'function') return !!metaBack(route)
+  return metaBack === true
+})
+
+// ▼ ИСПРАВЛЕНО: hideNav теперь может быть функцией ▼
 const showNav = computed(() => {
   if (!chromeVisible.value) return false
   if (!auth.isAuthed) return false
   if (!consent.isAnswered) return false
   if (!onboarded.value) return false
-  if (route.meta?.hideNav) return false
+
+  const metaHide = route.meta?.hideNav
+  if (typeof metaHide === 'function') {
+    if (metaHide(route)) return false
+  } else if (metaHide) {
+    return false
+  }
+
   if (route.path.startsWith('/onboarding/')) return false
   if (route.path === '/quiz' || route.path === '/quiz/welcome') return false
   if (route.path === '/registering') return false

@@ -13,17 +13,17 @@
           <div class="habit-modal__card">
             <div class="habit-modal__image-wrap">
               <img
-                v-if="habit.image"
-                :src="habit.image"
+                v-if="habit.picture"
+                :src="habit.picture"
                 :alt="habit.title"
                 class="habit-modal__image"
               />
-              <div
+              <!-- <div
                 v-else
                 class="habit-modal__emoji"
                 aria-hidden="true"
-              >{{ habit.emoji || '✨' }}</div>
-              <h1 class="habit-modal__title color-text-stroke">{{ habit.title }}</h1>
+              >{{ habit.emoji || '✨' }}</div> -->
+              <div class="habit-modal__title color-text-stroke" v-html="habit.title"></div>
             </div>
 
             <p
@@ -31,11 +31,11 @@
               class="habit-modal__desc"
             >{{ description }}</p>
 
-            <div class="habit-modal__meta">
+            <!-- <div class="habit-modal__meta">
               <span>{{ habit.timesPerDay }} {{ plural(habit.timesPerDay, ['раз', 'раза', 'раз']) }} в день</span>
               <span class="dot">·</span>
               <span>интервал {{ formatInterval(habit.minIntervalMin) }}</span>
-            </div>
+            </div> -->
           </div>
 
           <div class="habit-modal__actions">
@@ -145,6 +145,7 @@ onBeforeUnmount(() => {
   font-weight: 400;
   font-size: 28px;
   line-height: 96%;
+  text-align: center;
 }
 
 .habit-modal__card {
@@ -161,17 +162,19 @@ onBeforeUnmount(() => {
 
 .habit-modal__image-wrap {
   width: 100%;
-  border-radius: 16px;
+  border-radius: 24px;
+  padding: 20px 16px 28px;
   overflow: hidden;
   background: var(--grey-light);
   display: grid;
+  text-align: center;
   place-items: center;
 }
 
 .habit-modal__image {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+  /* width: 100%;
+  height: 100%; */
+  /* object-fit: cover; */
   display: block;
 }
 

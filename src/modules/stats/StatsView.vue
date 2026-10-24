@@ -1,156 +1,171 @@
 <template>
-  <div class="page stats-page">
+  <div class="page stats-page page--bottom-action-one">
     <!-- Табы -->
-    <div class="tabs-wrap">
-      <div class="tabs" role="tablist">
-        <button 
-          class="tab" 
-          :class="{ active: tab === 'personal' }" 
-          @click="tab = 'personal'"
-        >личная</button>
-        <button 
-          class="tab" 
-          :class="{ active: tab === 'global' }" 
-          @click="tab = 'global'"
-        >общая</button>
+
+    <div class="tabs" role="tablist">
+        <button class="tab" :class="{ active: tab === 'personal' }" role="tab" :aria-selected="tab === 'personal'" @click="tab = 'personal'">личная</button>
+        <button class="tab" :class="{ active: tab === 'global' }" role="tab" :aria-selected="tab === 'global'" @click="tab = 'global'">общая</button>
         <span class="tab-indicator" :style="{ transform: `translateX(${tab === 'personal' ? 0 : 100}%)` }" />
-      </div>
     </div>
 
     <!-- ЛИЧНАЯ СТАТИСТИКА -->
-    <section v-show="tab === 'personal'" class="pane">
-      <h1 class="page-title">ваш прогресс</h1>
-      
-      <div class="apples-row">
-        <span class="apples-label">у вас:</span>
-        <div class="apples-badge">
-          {{ formatNum(store.apples) }} <AppIcon name="apple" :size="20" />
-        </div>
+    <section v-show="tab === 'personal'" class="pane personal">
+      <div class="head">
+        <div class="title">ваш прогресс</div>
+        <!-- <div class="subtitle">ваши действия добавляют вклад в результат команды на протяжении всей недели</div>         -->
       </div>
 
-      <!-- Карточка места в рейтинге -->
-      <div class="card rating-card">
-        <div class="rc-icon"><AppIcon name="crown" :size="28" /></div>
-        <div class="rc-info">
-          <div class="rc-value">{{ formatNum(personal.RANK) }}</div>
-          <div class="rc-label">ваше место среди всех участников</div>
+      <div class="grid-stat">
+        <div class="apples-row">
+          <span class="apples-label">у вас:</span>
+          <div class="btn-badge">
+            {{ formatNum(store.apples) }}<AppIcon name="apple" :size="24" />
+          </div>
         </div>
+        <div class="card stat-card">
+          <div class="info">
+            <div class="sc-icon"><AppIcon name="crown" :size="24" /></div>
+            <div class="sc-value">{{  formatNum(personal.RANK) }}</div>            
+          </div>
+          <div class="sc-label">ваше место среди всех участников</div>
+        </div>  
+        <!-- Сетка 2х2 -->
+        <div class="grid-2x2">
+
+          <div class="card stat-card">
+            <div class="info">
+              <div class="sc-icon"><AppIcon name="book" :size="24" /></div>
+              <div class="sc-value">{{ formatNum(personal.LECTURES_READ) }}</div>              
+            </div>
+            <div class="sc-label">просмотрено лекций</div>
+          </div>
+
+          <div class="card stat-card">
+            <div class="info">
+              <div class="sc-icon"><AppIcon name="tasks" :size="24" /></div>
+              <div class="sc-value">{{ formatNum(personal.TASKS_DONE) }}</div>              
+            </div>
+            <div class="sc-label">просмотрено практик</div>
+          </div>
+
+          <div class="card stat-card">
+            <div class="info">
+              <div class="sc-icon"><AppIcon name="juice" :size="24" /></div>
+              <div class="sc-value">{{ formatNum(personal.HABITS_DAYS) }}</div>              
+            </div>
+            <div class="sc-label">дней выполнена привычка</div>
+          </div>
+
+          <div class="card stat-card">
+            <div class="info">
+              <div class="sc-icon"><AppIcon name="steps" :size="24" /></div>
+              <div class="sc-value">{{ formatNum(personal.STEPS_CONFIRMED) }}</div>              
+            </div>
+            <div class="sc-label">подтверждено шагов</div>
+          </div>
+        </div>        
       </div>
-
-      <!-- Сетка 2х2 -->
-      <div class="grid-2x2">
-        <div class="card stat-card">
-          <div class="sc-icon"><AppIcon name="book" :size="20" /></div>
-          <div class="sc-value">{{ formatNum(personal.LECTURES_READ) }}</div>
-          <div class="sc-label">просмотрено лекций</div>
-        </div>
-
-        <div class="card stat-card">
-          <div class="sc-icon"><AppIcon name="tasks" :size="20" /></div>
-          <div class="sc-value">{{ formatNum(personal.TASKS_DONE) }}</div>
-          <div class="sc-label">выполнено практик</div>
-        </div>
-
-        <div class="card stat-card">
-          <div class="sc-icon"><AppIcon name="juice" :size="20" /></div>
-          <div class="sc-value">{{ formatNum(personal.HABITS_DAYS) }}</div>
-          <div class="sc-label">дней выполнена привычка</div>
-        </div>
-
-        <div class="card stat-card">
-          <div class="sc-icon"><AppIcon name="steps" :size="20" /></div>
-          <div class="sc-value">{{ formatNum(personal.STEPS_CONFIRMED) }}</div>
-          <div class="sc-label">подтверждено шагов</div>
-        </div>
-      </div>
-
-      <router-link to="/stats/rules" class="btn btn-outline rules-btn">
-        правила личного и командного зачёта
-      </router-link>
     </section>
 
     <!-- ОБЩАЯ СТАТИСТИКА -->
-    <section v-show="tab === 'global'" class="pane">
-      <div class="alert-banner">
-        Яблоки и рейтинги обновляются раз в сутки. Шаги проходят проверку.
-      </div>
-
-      <h1 class="page-title mt-24">общий зачёт компаний х5</h1>
-      <p class="page-subtitle">ваши действия добавляют вклад в результат команды на протяжении всей недели</p>
-
-      <div class="apples-row mt-16">
-        <span class="apples-label">общее количество яблок:</span>
-        <div class="apples-badge big">
-          {{ formatNum(globalProgress.TOTAL_APPLES) }} <AppIcon name="apple" :size="24" />
-        </div>
+    <section v-show="tab === 'global'" class="pane global">
+      <div class="head">
+        <div class="title">общий зачёт компаний х5</div>
+        <div class="subtitle">ваши действия добавляют вклад в результат команды на протяжении всей недели</div>        
       </div>
 
       <!-- Сетка 2х2 для общей статистики -->
-      <div class="grid-2x2 mt-16">
+      <div class="grid-stat">
+        <div class="apples-row">
+          <span class="apples-label">общее количество яблок:</span>
+          <div class="btn-badge">
+            {{ formatNum(globalProgress.TOTAL_APPLES) }} <AppIcon name="apple" :size="24" />
+          </div>
+        </div>       
         <div class="card stat-card">
-          <div class="sc-icon"><AppIcon name="user" :size="20" /></div>
-          <div class="sc-value">+{{ formatNum(globalProgress.TOTAL_USERS) }}</div>
+          <div class="info">
+            <div class="sc-icon"><AppIcon name="user" :size="24" /></div>
+            <div class="sc-value">+{{ formatNum(globalProgress.TOTAL_USERS) }}</div>            
+          </div>
           <div class="sc-label">участников присоединилось</div>
-        </div>
+        </div>    
 
-        <div class="card stat-card">
-          <div class="sc-icon"><AppIcon name="book" :size="20" /></div>
-          <div class="sc-value">{{ formatNum(globalProgress.LECTURES_READ) }}</div>
-          <div class="sc-label">просмотрено лекций</div>
-        </div>
-
-        <div class="card stat-card">
-          <div class="sc-icon"><AppIcon name="tasks" :size="20" /></div>
-          <div class="sc-value">{{ formatNum(globalProgress.TASKS_DONE) }}</div>
-          <div class="sc-label">выполнено практик</div>
-        </div>
-
-        <div class="card stat-card">
-          <div class="sc-icon"><AppIcon name="juice" :size="20" /></div>
-          <div class="sc-value">{{ formatNum(globalProgress.HABITS_DAYS) }}</div>
-          <div class="sc-label">общее кол-во дней привычки</div>
-        </div>
-      </div>
-
-      <div class="card stat-card full-width mt-16">
-        <div class="sc-icon"><AppIcon name="steps" :size="20" /></div>
-        <div class="sc-value">{{ formatNum(globalProgress.STEPS_CONFIRMED) }}</div>
-        <div class="sc-label">подтверждено шагов за период марафона</div>
-      </div>
-
-      <!-- Эффективность компаний -->
-      <h2 class="page-title mt-32">ваша эффективность</h2>
-      
-      <div class="company-progress-bar-wrap">
-        <div class="cpb-label">{{ companyPercent }}%</div>
-        <div class="cpb-track">
-          <div class="cpb-fill" :style="{ width: companyPercent + '%' }" />
-        </div>
-      </div>
-
-      <div class="companies-list">
-        <!-- ▼ ИСПОЛЬЗУЕМ companiesList ▼ -->
-        <div v-for="comp in companiesList" :key="comp.ID" class="company-item">
-          <div class="ci-header">
-            <div class="ci-name">
-              <span class="ci-logo">
-                <img v-if="comp.LOGO" :src="comp.LOGO" alt="" class="ci-logo-img" />
-                <template v-else>{{ comp.NAME[0] }}</template>
-              </span> 
-              {{ comp.NAME }}
+        <div class="grid-2x2">
+          <div class="card stat-card">
+            <div class="info">
+              <div class="sc-icon"><AppIcon name="book" :size="24" /></div>
+              <div class="sc-value">{{ formatNum(globalProgress.LECTURES_READ) }}</div>              
             </div>
-            <span class="ci-percent">{{ comp.PERCENT }}%</span>
+            <div class="sc-label">просмотрено лекций</div>
           </div>
-          <div class="ci-track">
-            <div class="ci-fill" :style="{ width: comp.PERCENT + '%' }" />
+
+          <div class="card stat-card">
+            <div class="info">
+              <div class="sc-icon"><AppIcon name="tasks" :size="24" /></div>
+              <div class="sc-value">{{ formatNum(globalProgress.TASKS_DONE) }}</div>              
+            </div>
+            <div class="sc-label">выполнено практик</div>
+          </div>
+
+          <div class="card stat-card">
+            <div class="info">
+              <div class="sc-icon"><AppIcon name="juice" :size="24" /></div>
+              <div class="sc-value">{{ formatNum(globalProgress.HABITS_DAYS) }}</div>              
+            </div>
+            <div class="sc-label">общее кол-во дней привычки</div>
+          </div>
+
+          <div class="card stat-card">
+            <div class="info">
+              <div class="sc-icon"><AppIcon name="steps" :size="24" /></div>
+              <div class="sc-value">{{ formatNum(globalProgress.STEPS_CONFIRMED) }}</div>              
+            </div>
+            <div class="sc-label">подтверждено шагов за период марафона</div>
+          </div>        
+        </div>
+      </div>
+
+      <div class="effective">
+        <!-- Эффективность компаний -->
+        <div class="head">
+          <div class="title">ваша эффективность</div>
+          <div class="company-progress-bar-wrap">
+            <div class="cpb-label">{{ companyPercent }}%</div>
+            <div class="cpb-track">
+              <div class="cpb-fill" :style="{ width: companyPercent + '%' }" />
+            </div>
+          </div>          
+        </div>
+        <!-- <div class="page-title mt-32">ваша эффективность</div>       -->
+
+        <div class="companies-list">
+          <!-- ▼ ИСПОЛЬЗУЕМ companiesList ▼ -->
+          <div v-for="comp in companiesList" :key="comp.ID" class="company-item">
+            <div class="ci-header">
+              <div class="ci-name">
+                <span class="ci-logo">
+                  <img v-if="comp.LOGO" :src="comp.LOGO" :alt="comp.NAME" class="ci-logo-img" />
+                  <template v-else>{{ comp.NAME }}</template>
+                </span>              
+              </div>
+              <span class="ci-percent">{{ comp.PERCENT }}%</span>
+            </div>
+            <div class="ci-track">
+              <div class="ci-fill" :style="{ width: comp.PERCENT + '%' }" />
+            </div>
           </div>
         </div>
       </div>
 
-      <router-link to="/stats/rules" class="btn btn-outline rules-btn mt-24">
-        правила личного и командного зачёта
-      </router-link>
+
+
     </section>
+
+    <div class="bottom-action">
+      <router-link to="/stats/rules" class="btn btn-primary btn-center">
+        <div class="text">правила личного<br>и командного зачёта</div>        
+      </router-link>      
+    </div>
   </div>
 </template>
 
@@ -204,70 +219,39 @@ onMounted(() => {
 <style scoped>
 /* Стили остаются без изменений (как в предыдущем файле) */
 .stats-page {
-  padding-bottom: 90px;
-}
-
-/* Табы */
-.tabs-wrap {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 24px;
-}
-.tabs {
   position: relative;
-  display: flex;
-  background: #FFFFFF;
-  border-radius: 100px;
-  padding: 4px;
-  width: 100%;
-  max-width: 320px;
-  box-shadow: inset 0 1px 3px rgba(0,0,0,0.05);
+  display: grid;
+  gap: 32px;
+  align-items: start;
+  align-content: start;
 }
-.tab {
-  flex: 1;
-  z-index: 2;
-  padding: 10px 0;
-  font-family: var(--font-family);
-  font-size: 14px;
-  font-weight: 600;
-  text-transform: lowercase;
-  color: #6b7268;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  transition: color 0.3s;
-}
-.tab.active { color: #21271f; }
-.tab-indicator {
-  position: absolute;
-  top: 4px;
-  left: 4px;
-  width: calc(50% - 4px);
-  height: calc(100% - 8px);
-  background: #21271f;
-  border-radius: 100px;
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  z-index: 1;
-}
-.tab.active { color: #fff; }
-.tab { position: relative; }
 
-/* Заголовки */
-.page-title {
-  font-family: var(--font-family);
-  font-weight: 700;
-  font-size: 24px;
-  line-height: 1.1;
-  text-transform: lowercase;
-  color: var(--txt-dark-green);
-  margin: 0 0 12px;
+.pane{
+  position: relative;
+  display: grid;
+  gap: 32px;
 }
-.page-subtitle {
-  font-family: var(--font-family);
-  font-size: 14px;
-  line-height: 1.4;
-  color: var(--txt-black-dark-green);
-  margin: 0;
+
+.pane .head{
+  position: relative;
+  display: grid;
+  gap: 16px;
+  font-family: var(--font-family);  
+  text-transform: lowercase;
+  color: var(--txt-black-dark-green);  
+}
+.pane .head .title{
+  font-weight: 500;
+  font-size: 28px;
+  line-height: 100%;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+.pane .head .subtitle {
+  font-weight: 400;
+  font-size: 16px;
+  line-height: 120%;
+  text-wrap: pretty;
 }
 
 /* Яблоки */
@@ -275,13 +259,18 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 16px;
+  /* margin-bottom: 16px; */
 }
 .apples-label {
-  font-size: 15px;
+  font-family: var(--font-family);
   font-weight: 500;
+  font-size: 16px;
+  line-height: 100%;
+  text-transform: lowercase;
+  text-wrap: balance;
+  color: var(--txt-black-dark-green);
 }
-.apples-badge {
+/* .apples-badge {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -295,7 +284,7 @@ onMounted(() => {
 .apples-badge.big {
   font-size: 20px;
   padding: 8px 16px;
-}
+} */
 
 /* Карточка рейтинга */
 .rating-card {
@@ -324,38 +313,49 @@ onMounted(() => {
   color: var(--txt-black-dark-green);
   line-height: 1.2;
 }
-
+.grid-stat {
+  display: grid;
+  gap: 16px;
+}
 /* Сетка 2х2 */
 .grid-2x2 {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-bottom: 20px;
+  gap: 16px;
 }
 .stat-card {
+  display: grid;
+  gap: 8px;
+}
+.stat-card.full {
   display: flex;
-  flex-direction: column;
-  padding: 16px;
-  gap: 4px;
+  gap: 14px;
 }
-.stat-card.full-width {
-  grid-column: 1 / -1;
+.stat-card .info {
+  display: flex;
+  align-content: center;
+  align-items: center;
+  gap: 14px;
 }
+
 .sc-icon {
-  width: 32px;
-  height: 32px;
-  background: #D3FF4F;
-  border-radius: 50%;
+  border-radius: 58px;
+  padding: 6px;
   display: grid;
   place-items: center;
-  color: #015F01;
-  margin-bottom: 8px;
+  background: var(--txt-brand-limon);
+  border-radius: 50%;
+  width: 36px;
+  aspect-ratio: 1 / 1;
 }
 .sc-value {
-  font-size: 22px;
-  font-weight: 800;
-  color: #21271f;
-  line-height: 1;
+  font-family: var(--third-family);
+  font-weight: 400;
+  font-size: 18px;
+  line-height: 150%;
+  text-transform: lowercase;
+  text-wrap: balance;
+  color: var(--txt-black-dark-green);
 }
 .sc-label {
   font-size: 12.5px;
@@ -437,14 +437,10 @@ onMounted(() => {
   color: #21271f;
 }
 .ci-logo {
-  width: 20px;
-  height: 20px;
-  border-radius: 4px;
-  background: #21271f;
-  color: #fff;
+  color: var(--txt-black-dark-green);
   display: grid;
   place-items: center;
-  font-size: 10px;
+  font-size: 20px;
   overflow: hidden;
 }
 .ci-logo-img {
@@ -472,9 +468,12 @@ onMounted(() => {
 .mt-24 { margin-top: 24px; }
 .mt-32 { margin-top: 32px; }
 
-.card {
-  background: #fff;
-  border-radius: 20px;
-  border: 1px solid var(--border);
+.grid-stat .card {
+  border-radius: 14px;
+  padding: 16px 10px;
+  background: var(--white);
+}
+.grid-stat .card {
+  margin: 0;
 }
 </style>

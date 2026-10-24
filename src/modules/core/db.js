@@ -64,3 +64,17 @@ export function idbAllKeys(storeName) {
     })
   )
 }
+
+/** 
+ * Удаление записи по ключу.
+ * Используется для очистки лекций и фото, которых больше нет на сервере.
+ */
+export function idbDelete(storeName, key) {
+  return store(storeName, 'readwrite').then(
+    (s) => new Promise((res, rej) => {
+      const r = s.delete(key)
+      r.onsuccess = () => res()
+      r.onerror = () => rej(r.error)
+    })
+  )
+}

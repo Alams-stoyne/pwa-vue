@@ -9,11 +9,18 @@
   >
     <header class="hc-head">
       <div class="hc-title-wrap">
-        <div class="hc-title">{{ habit.title }}</div>
-        <div class="hc-text">{{ habit.hint }}</div>
+        <div class="hc-title" v-html="habit.title" />
+        <!-- <div class="hc-text">{{ habit.hint }}</div> -->
+        <div class="hc-text" v-html="habit.description" />
       </div>
       <div class="hc-icon" aria-hidden="true">
-        <HabitIcon :id="habit.icon || habit.id" />
+        <img
+            v-if="habit.picture"
+            :src="habit.picture"
+            :alt="habit.title"
+            class="hc-image"
+          />
+        <!-- <HabitIcon :id="habit.icon || habit.id" /> -->
       </div>
       <button
         v-if="!notificationsEnabled"
@@ -136,7 +143,9 @@ const leftText = computed(() => {
   height: 48px;
   flex-shrink: 0;
 }
-
+.hc-image{
+  width: 100%;
+}
 .hc-title-wrap { 
   display: grid;
   gap: 6px;

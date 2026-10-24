@@ -9,7 +9,7 @@
         />        
         <div class="bottom_panel">
           <router-link to="/support" class="btn-short btn-40">
-            <AppIcon name="heart-plus" :size="21" />
+            <AppIcon name="heart" :size="21" />
           </router-link>
           <!-- ▼ ЗАМЕНЕНО НА КОМПОНЕНТ ▼ -->
           <ApplesBadge to="/stats" />

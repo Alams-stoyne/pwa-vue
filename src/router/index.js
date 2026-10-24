@@ -25,6 +25,7 @@ import TrainingView from '../modules/lectures/TrainingView.vue'
 import LectureDetailView from '../modules/lectures/LectureDetailView.vue'
 import LectureStorageView from '../modules/lectures/LectureStorageView.vue'
 import StatsView from '../modules/stats/StatsView.vue'
+import StatsRulesView from '../modules/stats/StatsRulesView.vue' // <-- ДОБАВЛЕН ИМПОРТ
 import DayTaskView from '../modules/dayTask/DayTaskView.vue'
 import StepsRulesView from '../modules/steps/StepsRulesView.vue'
 import SupportView from '../modules/support/SupportView.vue'
@@ -61,6 +62,10 @@ const routes = [
   { path: '/training/lectures/:dbKey', component: LectureDetailView, props: true, meta: { auth: true, title: 'Лекция', viewBackTitle: true, back: true, hideNav: true, backTo: (r) => r.query.from === 'storage' ? { path: '/training/storage' } : { path: '/training' } } },
   { path: '/training/practices/:id', name: 'PracticeDetail', component: () => import('../modules/tasks/TasksViewDetail.vue'), meta: { auth: true, title: 'Практика', viewBackTitle: true, back: true, backTo: { path: '/training', query: { tab: 'practice' } } } },
   { path: '/training/storage', component: LectureStorageView, meta: { auth: true, title: 'Материалы прошлых дней', viewBackTitle: true, back: true, backTo: { path: '/training' } } },
+  
+  // ▼ ДОБАВЛЕН МАРШРУТ ПРАВИЛ ▼
+  { path: '/stats/rules', component: StatsRulesView, meta: { auth: true, title: 'Правила зачёта', viewBackTitle: true, back: true, backTo: { path: '/stats' } } },
+  
   { path: '/stats', component: StatsView, meta: { auth: true, title: 'Статистика', viewBackTitle: true, back: true, backTo: { path: '/home' } } },
 
   // Support routes — доступны всем, в том числе без установки (для жалобы на проблему установки)
@@ -68,7 +73,7 @@ const routes = [
   { path: '/support/tickets', component: SupportTicketsView, meta: { auth: true, title: 'Мои обращения', viewBackTitle: true, back: true, hideNav: true, backTo: { path: '/support' } } },
   { path: '/support/tickets/:id', component: SupportTicketDetailView, props: true, meta: { auth: true, title: 'Обращение', viewBackTitle: true, back: true, hideNav: true, backTo: { path: '/support/tickets' } } },
 
-  { path: '/dayTask', component: DayTaskView, meta: { auth: true, title: (r) => r.query.tab === 'steps' ? 'Шагомер' : 'Рефлексия', viewBackTitle: true, back: true, hideNav: true, backTo: { path: '/home' } } },
+  { path: '/dayTask', component: DayTaskView, meta: { auth: true, title: (r) => r.query.tab === 'steps' ? 'Шагомер' : 'Рефлексия', viewBackTitle: true, back: true, hideNav: (r) => r.query.tab === 'steps' ? true : false, backTo: { path: '/home' } } },
   { path: '/reflection', redirect: (to) => ({ path: '/dayTask', query: { ...to.query, tab: 'reflection' } }) },
   { path: '/steps', redirect: (to) => ({ path: '/dayTask', query: { ...to.query, tab: 'steps' } }) },
   { path: '/steps/rules', component: StepsRulesView, meta: { auth: true, title: 'Правила шагомера', back: true, hideNav: true, backTo: { path: '/dayTask', query: { tab: 'steps' } } } },

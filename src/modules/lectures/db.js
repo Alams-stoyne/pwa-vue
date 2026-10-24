@@ -1,11 +1,7 @@
-import { idbPut, idbGet, idbAll } from '../core/db'
+import { idbPut, idbGet, idbAll, idbDelete } from '../core/db'
 
 /**
  * Сохранение лекции в IDB.
- *
- * dbKey формируется как `${bucket}:${date}:${id}` — это гарантирует,
- * что лекция с одинаковым ID_LECTURE, но за разные дни, не перезатрёт
- * предыдущую.
  */
 export async function persistLecture(bucket, item, fallbackDate) {
   const id = String(item.ID_LECTURE)
@@ -50,9 +46,52 @@ export async function persistLecture(bucket, item, fallbackDate) {
     text: item.TEXT || '',
     videoLink: item.VIDEO_LINK || null,
     photos: photoKeys,
-    rewardPoints: item.REWARD_POINTS || false,    
+    rewardPoints: item.REWARD_POINTS || false,
     savedAt: Date.now(),
   })
+}
+
+/**
+ * Удаление лекции и всех её фото из IDB.
+ */
+export async function deleteLecture(dbKey) {
+  const lecture = await idbGet('lectures', dbKey)
+  if (!lecture) return
+
+  // Удаляем фотографии
+  for (const p of lecture.photos || []) {
+    if (p.key) await idbDelete('photos', p.key)
+  }
+  if (lecture.coverKey) {
+    await idbDelete('photos', lecture.coverKey)
+  }
+
+  // Удаляем саму лекцию
+  await idbDelete('lectures', dbKey)
+}
+
+/**
+ * Удаление всех лекций для конкретного bucket и даты (например, при 404).
+ */
+export async function deleteLecturesByBucketDate(bucket, date) {
+  const existing = await idbLecturesByBucket(bucket, { onlyDate: date })
+  for (const ext of existing) {
+    await deleteLecture(ext.dbKey)
+  }
+}
+
+/**
+ * Сверка: удаляет из IDB те лекции, которых больше нет в списке с сервера.
+ */
+export async function cleanupLectures(bucket, date, items) {
+  const validIds = new Set((items || []).map(it => String(it.ID_LECTURE)))
+  const existing = await idbLecturesByBucket(bucket, { onlyDate: date })
+  
+  for (const ext of existing) {
+    if (!validIds.has(ext.id)) {
+      await deleteLecture(ext.dbKey)
+    }
+  }
 }
 
 export async function idbLecturesByBucket(bucket, opts = {}) {

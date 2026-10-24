@@ -8,6 +8,8 @@ import {
   idbLecturesByBucket,
   idbAllLectures,
   getLecture,
+  deleteLecturesByBucketDate,
+  cleanupLectures,
 } from './db'
 import { idbAllKeys, idbPut } from '../core/db'
 import { localDate, localDateTime } from '../core/utils/date'
@@ -167,9 +169,18 @@ export const useLecturesStore = defineStore('lectures', {
       await Promise.all(jobs.map(async ({ bucket, fetcher }) => {
         try {
           const items = await fetcher()
+          // ▼ ОЧИСТКА СТАРЫХ ДАННЫХ ▼
+          await cleanupLectures(bucket, today, items)
+          
           for (const it of items) await persistLecture(bucket, it, today)
           anySuccess = true
-        } catch (e) { /* ignore */ }
+        } catch (err) {
+          // Если 404 (нет лекций за сегодня) — чистим кэш
+          if (err?.message?.includes('404')) {
+            await deleteLecturesByBucketDate(bucket, today)
+            anySuccess = true
+          }
+        }
       }))
 
       if (anySuccess) {
@@ -233,10 +244,19 @@ export const useLecturesStore = defineStore('lectures', {
           await Promise.all(jobs.map(async ({ bucket, fetcher }) => {
             try {
               const items = await fetcher()
+              // ▼ ОЧИСТКА СТАРЫХ ДАННЫХ ЗА ДЕНЬ ▼
+              await cleanupLectures(bucket, date, items)
+
               for (const it of items) await persistLecture(bucket, it, date)
               added += items.length
               dayOk = true
-            } catch { /* пропускаем */ }
+            } catch (err) {
+              // Если 404 — значит файла за этот день больше нет, чистим кэш
+              if (err?.message?.includes('404')) {
+                await deleteLecturesByBucketDate(bucket, date)
+                dayOk = true
+              }
+            }
           }))
           if (dayOk) daysOk++
         }
@@ -364,7 +384,6 @@ export const useLecturesStore = defineStore('lectures', {
         const res = await sendLectureRead(payload)
         if (!isSuccess(res)) throw new Error('not ok')
         
-        // ▼ ОПТИМИСТИЧНОЕ НАЧИСЛЕНИЕ ▼
         if (res.REWARD_POINTS) {
           try { useStatsStore().addApplesLocally(res.REWARD_POINTS) } catch { /* ignore */ }
         }
@@ -389,7 +408,6 @@ export const useLecturesStore = defineStore('lectures', {
           if (!isSuccess(res)) {
             remain.push(p)
           } else {
-            // ▼ НАЧИСЛЕНИЕ ИЗ ОЧЕРЕДИ ▼
             if (res.REWARD_POINTS) {
               try { useStatsStore().addApplesLocally(res.REWARD_POINTS) } catch { /* ignore */ }
             }
