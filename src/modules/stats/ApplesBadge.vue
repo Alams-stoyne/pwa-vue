@@ -54,6 +54,13 @@ const formattedApples = computed(() => {
 }
 
 .rating-badge .text {
-  font-variant-numeric: tabular-nums;
+  /* font-variant-numeric: tabular-nums; */
+  font-family: var(--font-family);
+  font-weight: 500;
+  font-size: 18px;
+  line-height: 87%;
+  text-transform: lowercase;
+  text-wrap: balance;
+  color: var(--txt-black-dark-green);
 }
 </style>

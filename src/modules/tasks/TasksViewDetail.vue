@@ -6,7 +6,7 @@
     <template v-else-if="task">
       <header class="detail-head">
         <h1 @click="viewClick(task)">{{ task.TITLE }}</h1>
-        <p v-if="task.DESCRIPTION" class="detail-desc">{{ task.DESCRIPTION }}</p>
+        <div v-if="task.DESCRIPTION" class="detail-desc" v-html="task.DESCRIPTION" />
         <img v-if="task.COVER" :src="task.COVER" :alt="task.TITLE" class="detail-cover" />
       </header>
 
@@ -36,39 +36,42 @@
       <div class="detail-actions">
         <span v-if="isDone" class="badge-done">✓ Практика выполнена</span>
 
-        <template v-else>
-          <p v-if="!hasConsent" class="consent-warning">
+        <!-- <template v-else> -->
+
+          <!-- <p v-if="!hasConsent" class="consent-warning">
             Чтобы отметить практику выполненной, необходимо
             <router-link to="/onboarding/consent">согласие на обработку персональных данных</router-link>.
-          </p>
+          </p> -->
 
           <!-- ▼ ДОБАВЛЕНО: блок лимита по практикам ▼ -->
-          <p v-else-if="taskLimit.reached" class="limit-warning">
+          <!-- <p v-else-if="taskLimit.reached" class="limit-warning">
             Лимит дня по практикам исчерпан.
             Награда за действия начнёт начисляться завтра.
           </p>
           <p v-else-if="taskLimit.limit > 0" class="limit-hint">
             Сегодня по практикам: {{ taskLimit.used }} из {{ taskLimit.limit }}.
-          </p>
-        </template>
+          </p> -->
+        <!-- </template> -->
 
         <p v-if="error" class="error-text">{{ error }}</p>
       </div>
 
       <div class="bottom-action">
+        <ConsentBanner
+          v-if="!hasConsent"
+          :class="'relative'"
+          text="Чтобы отметить практику выполненной, необходимо согласие на обработку персональных данных."
+        />
+
         <button
-          v-if="!isDone && hasConsent"
+          v-if="!isDone && hasConsent && task.REWARD_POINTS && !taskLimit.reached"
           class="btn btn-primary btn-center"
           type="button"
           :disabled="marking"
           @click="markDone"
         >
           <span class="text">{{ marking ? 'Отправка…' : 'готово' }}</span>
-          <!-- ▼ Бейдж скрываем, если лимит исчерпан ▼ -->
-          <span
-            class="badge"
-            v-if="task.REWARD_POINTS && !taskLimit.reached"
-          >
+          <span class="badge">
             +{{ task.REWARD_POINTS }} <AppIcon name="apple" :size="21" />
           </span>
         </button>
@@ -83,6 +86,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useTasksStore } from './store'
 import { useConsentStore } from '../consent/store'
+import ConsentBanner from '../consent/ConsentBanner.vue'
 import { useLimits } from '../core/limits'
 import { useToast } from '../core/composables/useToast'
 import { fetchTasksByThemeDate } from './api'

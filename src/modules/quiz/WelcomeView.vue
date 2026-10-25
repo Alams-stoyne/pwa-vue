@@ -3,13 +3,16 @@
     <div class="welcome-body">
       <h1 class="welcome-title">Добро пожаловать</h1>
     </div> 
-    <Mascot ref="mascot" id="welcome-mascot"
-      :body-src="`/maskot/body_sport.png`" 
-      bubble-text="Я Зефирчик!&#10;Спасибо, что заботились обо мне всё это время. Мне было так приятно ваше внимание и забота!" 
-      :typewriter-speed="40"
-      @bubble-complete="onBubbleDone"
-      effect="stars-fast" emotion="happy" 
-    />     
+    <div class="mascot_block">
+      <Mascot ref="mascot" id="welcome-mascot"
+        :body-src="`/maskot/body_sport.png`" 
+        bubble-text="Я Зефирчик!&#10;Спасибо, что заботились обо мне всё это время. Мне было так приятно ваше внимание и забота!" 
+        :typewriter-speed="40"
+        @bubble-complete="onBubbleDone"
+        effect="stars-fast" 
+      />           
+    </div>
+
     <div class="welcome-text">
       <p><strong>А теперь пришла очередь Зефирчика позаботиться о вас!</strong></p>
       <p>А теперь пришла очередь Зефирчика позаботиться о вас!</p>

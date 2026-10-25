@@ -103,7 +103,7 @@
               </span>
             </template>
             <template v-else>
-              <b>Внимание!</b> <span>Доступна награда за выполнение.</span>
+              Готово<span>Доступна награда за выполнение.</span>
             </template>
           </div>
         </transition>

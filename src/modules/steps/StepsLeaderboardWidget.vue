@@ -1,52 +1,76 @@
 <template>
   <section class="leaderboard-widget">
-    <!-- Заголовок и переключатель -->
     <header class="lb-header">
       <div class="lb-title">топ-5</div>
-      <div class="lb-tabs">
-        <button :class="{ active: store.leaderboardDate === 'all' }" @click="setDate('all')">всё</button>
-        <button :class="{ active: store.leaderboardDate === 'today' }" @click="setDate('today')">сегодня</button>
-      </div>      
-    </header>    
+      <!-- <div class="lb-tabs" ref="tabsRef">
+        <button
+          type="button"
+          :class="{ active: store.leaderboardDate === 'all' }"
+          @click="setAll"
+        >
+          всё
+        </button>
+        <div class="lb-date-wrap">
+          <button
+            type="button"
+            :class="{ active: store.leaderboardDate !== 'all' }"
+            @click.stop="toggleDatePicker"
+          >
+            <template v-if="store.leaderboardDate !== 'all'">
+              {{ formatShortDate(store.leaderboardDate) }}
+            </template>
+            <template v-else>по дате</template>
+          </button>
 
-    <!-- Сводка (приоритет у компании пользователя, иначе общая) -->
-    <!-- <div v-if="summaryData" class="lb-summary">
-      <div class="lbs-item">
-        <span class="lbs-val">{{ summaryData.TOTAL_PARTICIPANTS }}</span>
-        <span class="lbs-label">участников</span>
-      </div>
-      <div class="lbs-item">
-        <span class="lbs-val">{{ formatNum(summaryData.TOTAL_STEPS) }}</span>
-        <span class="lbs-label">шагов</span>
-      </div>
-      <div v-if="store.schoolStats && !store.workplaceMeta" class="lbs-item">
-        <span class="lbs-val">{{ store.schoolStats.AVG_PROGRESS_PERCENT }}%</span>
-        <span class="lbs-label">прогресс</span>
-      </div>
-    </div> -->
+          <div v-if="showDatePicker" class="lb-date-dropdown" @click.stop>
+            <div v-if="!store.availableDates.length" class="lb-date-empty">
+              нет доступных дат
+            </div>
+            <template v-else>
+              <button
+                v-for="d in store.availableDates"
+                :key="d"
+                type="button"
+                :class="{
+                  active: store.leaderboardDate === d,
+                  'is-disabled': !probedAvailable(d),
+                }"
+                :disabled="!probedAvailable(d)"
+                @click="selectDate(d)"
+              >
+                {{ formatDateLabel(d) }}
+              </button>
+            </template>
+          </div>
+        </div>
+      </div> -->
+    </header>
 
     <!-- Скелетон -->
-    <div v-if="store.loadingLeaderboard && !store.leaderboard" class="lb-list">
+    <div v-if="store.loadingLeaderboard && !store.currentLeaderboard" class="lb-list">
       <div v-for="i in 5" :key="i" class="lb-card skeleton pulse" />
     </div>
 
     <!-- Пустое состояние -->
     <div v-else-if="!top5.length" class="lb-empty">
-      <p>за этот период пока нет подтверждённых шагов.</p>
-      <button v-if="!store.online" class="btn btn-secondary mt-16" @click="refresh">Обновить</button>
+      <p>
+        {{ emptyText }}
+      </p>
+      <button v-if="!store.online" class="btn btn-secondary mt-16" @click="refresh">
+        Обновить
+      </button>
     </div>
 
     <!-- Список топ-5 -->
     <div v-else class="lb-list">
-      <div 
-        v-for="(user, index) in top5" 
-        :key="index" 
+      <div
+        v-for="(user, index) in top5"
+        :key="index"
         class="lb-card"
       >
         <div class="color-text-stroke lb-rank">№{{ user.rank }}</div>
         <div class="lb-user">
           <span class="lb-nick">{{ user.nickname }}</span>
-          <!-- <span v-if="user.workplace && !store.userWorkplace" class="lb-workplace">{{ user.workplace }}</span> -->
         </div>
         <div class="lb-steps">{{ formatNum(user.steps) }} шагов</div>
       </div>
@@ -60,29 +84,86 @@
 </template>
 
 <script setup>
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useStepsStore } from './store'
+import { localDate } from '../core/utils/date'
 
 const store = useStepsStore()
 
-// Берем топ-5 из отфильтрованного списка
-const top5 = computed(() => {
-  return store.myWorkplaceTop.slice(0, 5)
-})
+const showDatePicker = ref(false)
+const tabsRef = ref(null)
 
-// Если есть данные по компании — берем их, иначе общие школьные
-const summaryData = computed(() => {
-  if (store.workplaceMeta) {
-    return {
-      TOTAL_PARTICIPANTS: store.workplaceMeta.TOTAL_PARTICIPANTS,
-      TOTAL_STEPS: store.workplaceMeta.TOTAL_STEPS,
-    }
+const MONTHS_SHORT = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек']
+const MONTHS_FULL = [
+  'января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
+  'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря',
+]
+
+const top5 = computed(() => store.myWorkplaceTop.slice(0, 5))
+
+const emptyText = computed(() => {
+  if (store.leaderboardDate === 'all') {
+    return 'за этот период пока нет подтверждённых шагов.'
   }
-  return store.schoolStats || null
+  return `за ${formatDateLabel(store.leaderboardDate)} нет подтверждённых шагов.`
 })
 
-function setDate(date) {
-  store.loadLeaderboard({ date })
+function parseIso(iso) {
+  const [y, m, d] = String(iso).split('-').map(Number)
+  if (!y || !m || !d) return null
+  return new Date(y, m - 1, d)
+}
+
+function formatShortDate(iso) {
+  const d = parseIso(iso)
+  if (!d) return 'по дате'
+  return `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}`
+}
+
+function formatDateLabel(iso) {
+  const today = localDate()
+  if (iso === today) return 'сегодня'
+  const yest = new Date()
+  yest.setDate(yest.getDate() - 1)
+  if (iso === localDate(yest)) return 'вчера'
+  const d = parseIso(iso)
+  if (!d) return iso
+  return `${d.getDate()} ${MONTHS_FULL[d.getMonth()]}`
+}
+
+function probedAvailable(iso) {
+  // true / undefined → доступна (пока не проверили — не блокируем)
+  // false → точно нет данных
+  return store._probedDates[iso] !== false
+}
+
+async function toggleDatePicker() {
+  if (showDatePicker.value) {
+    showDatePicker.value = false
+    return
+  }
+  showDatePicker.value = true
+
+  // Если summary ещё не загружен — даты пусты. Пробуем.
+  if (!store.availableDates.length && !store.loadingSummary) {
+    await store.loadSummary().catch(() => {})
+  }
+  if (!store.availableDates.length) return
+
+  // Параллельная проверка доступности (кэшируется)
+  store.probeDates(store.availableDates).catch(() => {})
+}
+
+function setAll() {
+  showDatePicker.value = false
+  if (store.leaderboardDate === 'all') return
+  store.loadLeaderboard({ date: 'all' })
+}
+
+function selectDate(iso) {
+  showDatePicker.value = false
+  if (store.leaderboardDate === iso) return
+  store.loadLeaderboard({ date: iso })
 }
 
 function refresh() {
@@ -100,8 +181,20 @@ function formatDate(iso) {
   return `${p(d.getDate())}.${p(d.getMonth() + 1)} в ${p(d.getHours())}:${p(d.getMinutes())}`
 }
 
+function onDocumentClick(e) {
+  if (!showDatePicker.value) return
+  const el = tabsRef.value
+  if (el && el.contains(e.target)) return
+  showDatePicker.value = false
+}
+
 onMounted(() => {
   store.loadLeaderboard({ date: store.leaderboardDate })
+  document.addEventListener('click', onDocumentClick)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', onDocumentClick)
 })
 </script>
 
@@ -117,12 +210,6 @@ onMounted(() => {
   justify-content: space-between;
   margin-bottom: 4px;
 }
-.lb-title-wrap {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  flex-wrap: wrap;
-}
 .lb-title {
   font-family: var(--font-family);
   font-weight: 700;
@@ -133,15 +220,6 @@ onMounted(() => {
   text-wrap: balance;
   color: var(--txt-black-dark-green);
 }
-.lb-subtitle {
-  font-size: 13px;
-  color: #6b7268;
-  font-weight: 500;
-  max-width: 150px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
 
 .lb-tabs {
   display: flex;
@@ -150,8 +228,9 @@ onMounted(() => {
   padding: 2px;
   border: 1px solid var(--dark);
   flex-shrink: 0;
+  position: relative;
 }
-.lb-tabs button {
+.lb-tabs > button {
   background: transparent;
   border: none;
   padding: 4px 12px;
@@ -161,45 +240,84 @@ onMounted(() => {
   color: var(--dark);
   cursor: pointer;
 }
-.lb-tabs button.active {
+.lb-tabs > button.active {
   background: var(--dark);
   color: var(--white);
 }
 
-.lb-summary {
-  display: flex;
-  justify-content: space-between;
-  background: #f1f3e9;
-  padding: 12px 16px;
-  border-radius: 16px;
-  margin-bottom: 4px;
+/* ─── Date picker ─── */
+.lb-date-wrap {
+  position: relative;
+  display: inline-flex;
 }
-.lbs-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  flex: 1;
+.lb-date-wrap > button {
+  background: transparent;
+  border: none;
+  padding: 4px 12px;
+  border-radius: 100px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--dark);
+  cursor: pointer;
+  white-space: nowrap;
 }
-.lbs-item:not(:last-child) {
-  border-right: 1px solid rgba(0,0,0,0.05);
-}
-.lbs-val {
-  font-weight: 800;
-  font-size: 15px;
-  color: #015F01;
-}
-.lbs-label {
-  font-size: 11px;
-  color: #6b7268;
-  text-align: center;
+.lb-date-wrap > button.active {
+  background: var(--dark);
+  color: var(--white);
 }
 
+.lb-date-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 140px;
+  max-height: 260px;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .12);
+  padding: 4px;
+  display: grid;
+  gap: 2px;
+  z-index: 10;
+}
+.lb-date-dropdown button {
+  background: transparent;
+  border: none;
+  text-align: left;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--dark);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.lb-date-dropdown button:hover:not(:disabled) {
+  background: #f1f3e9;
+}
+.lb-date-dropdown button.active {
+  background: var(--dark);
+  color: var(--white);
+}
+.lb-date-dropdown button.is-disabled {
+  color: #b9beb3;
+  cursor: not-allowed;
+}
+.lb-date-empty {
+  padding: 10px 12px;
+  font-size: 12px;
+  color: var(--muted);
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* ─── Список ─── */
 .lb-list {
   display: grid;
   gap: 16px;
 }
-
 .lb-card {
   position: relative;
   border-radius: 14px;
@@ -231,13 +349,6 @@ onMounted(() => {
   line-height: 120%;
   text-transform: lowercase;
   color: var(--txt-black-dark-green);
-}
-.lb-workplace {
-  font-size: 11px;
-  color: #8FA69A;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .lb-steps {

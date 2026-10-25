@@ -141,7 +141,7 @@ function viewClick(event) {
   font-size: 16px;
   line-height: 100%;
   text-transform: lowercase;
-  text-wrap: balance;
+  /* text-wrap: balance; */
   color: var(--txt-black-dark-green);
 }
 

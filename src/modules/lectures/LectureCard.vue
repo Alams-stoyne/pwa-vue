@@ -231,6 +231,10 @@ onBeforeUnmount(() => {
   gap: 4px;
 }
 .lecture-read .check{ 
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: var(--txt-dark-green);
   color: var(--txt-brand-limon);
   border-radius: 9px;

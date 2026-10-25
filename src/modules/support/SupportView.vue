@@ -2,13 +2,6 @@
   <div class="page support-page">
     <transition name="fade" appear>
       <form v-if="!sent" class="form" @submit.prevent="submit">
-        
-        <!-- Ссылка на историю обращений (только для авторизованных) -->
-        <div class="tickets-link-wrapper" v-if="isAuthed">
-          <router-link to="/support/tickets" class="btn-badge">
-            Мои обращения
-          </router-link>
-        </div>
 
         <label class="field">
           <textarea
@@ -19,8 +12,14 @@
           />
           <span class="field-counter muted">{{ text.length }} / {{ MAX_TEXT }}</span>
         </label>
-
         <ImageUploader v-model="images" :max="MAX_IMAGES" />
+        
+        <!-- Ссылка на историю обращений (только для авторизованных) -->
+        <div class="tickets-link-wrapper" v-if="isAuthed">
+          <router-link to="/support/tickets" class="btn-badge">
+            Мои обращения
+          </router-link>
+        </div>
 
         <div
           class="consent-card"

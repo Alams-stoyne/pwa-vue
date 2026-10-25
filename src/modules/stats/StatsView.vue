@@ -64,7 +64,7 @@
         </div>
 
         <!-- ▼ НОВОЕ: лимиты наград на сегодня ▼ -->
-        <section v-if="anyLimitVisible" class="limits-block">
+        <!-- <section v-if="anyLimitVisible" class="limits-block">
           <div class="limits-title">лимиты наград на сегодня</div>
           <div class="limits-list">
             <div v-for="item in limitsList" :key="item.type" class="limit-item">
@@ -77,7 +77,7 @@
               </span>
             </div>
           </div>
-        </section>
+        </section> -->
       </div>
     </section>
 

@@ -3,13 +3,14 @@
     <p v-if="loadingSummary && !hasSummary" class="muted loading">
       загружаем прогресс…
     </p>
-    <div class="rating-block">  
+    <div class="rating-block">
       <div class="rating-text">
         <p>Каждый день загружай шаги за предыдущий день.<br> Укажи количество и приложи скриншот из приложения-шагомера в разделе рефлексии. </p>
-        <p>Учитываем шаги с 26 октября по 1 ноября.</p>
+        <p v-if="periodText">Учитываем шаги {{ periodText }}.</p>
+        <p v-else>Учитываем шаги с 26 октября по 1 ноября.</p>
+        <p v-if="daysLeftText" class="days-left">{{ daysLeftText }}</p>
         <p>Крайний срок загрузки: 2 ноября, 12:00 МСК.</p>
       </div>
-      <!-- Прогресс-арка -->
       <section class="arc-block">
         <div class="arc-wrap">
           <svg viewBox="0 0 289 160" class="progress-arc" aria-hidden="true">
@@ -29,27 +30,27 @@
               class="progress-arc__fill"
             />
           </svg>
-
           <div class="arc-center">
             <div class="arc-value">{{ formattedTotal }}</div>
+            <div v-if="totalDays > 0" class="arc-days">
+              {{ confirmedDays }} из {{ totalDays }} дн.
+            </div>
           </div>
           <div class="rating color-text-stroke" v-if="rank > 0">№ {{ formattedRank }}</div>
         </div>
       </section>
       <div class="rating-text">
         <template v-if="totalUsers > 0">
-          <div class="rating-title">твой путь в шагах</div>        
-          <p>Здесь результаты участников и твоё место среди всех пользователей. Рейтинг обновляется раз в сутки и остаётся предварительным до проверки подтверждений. Итоги марафона шагов будут опубликованы в Сфере 3 ноября.</p>        
+          <div class="rating-title">твой путь в шагах</div>
+          <p>Здесь результаты участников и твоё место среди всех пользователей. Рейтинг обновляется раз в сутки и остаётся предварительным до проверки подтверждений. Итоги марафона шагов будут опубликованы в Сфере 3 ноября.</p>
         </template>
         <template v-else>
           Пока результатов нет. Добавь шаги за вчера и скриншот из шагомера. Рейтинг обновляется раз в сутки, твоё место появится после обновления.
         </template>
       </div>
     </div>
-    <!-- 1. Блок отправки шагов (показывается, если еще не отправляли сегодня) -->
+    <!-- 1. Блок отправки шагов -->
     <div v-if="!store.isSubmittedToday" class="steps-form d-grid g12">
-      
-      <!-- Поле ввода с превью картинки -->
       <div class="input-wrapper" v-if="canSubmitWithConsent">
         <input
           v-model.number="steps"
@@ -61,49 +62,40 @@
           placeholder="укажите количество шагов"
           class="steps-input"
         />
-        
-        <!-- Превью загруженного изображения -->
         <div v-if="imagePreview" class="image-preview">
           <img :src="imagePreview" alt="Скриншот" />
           <button type="button" class="remove-img" @click="removeImage">✕</button>
         </div>
       </div>
 
-      <!-- <label class="consent" v-if="canSubmitWithConsent">
-        <input type="checkbox" v-model="localConsent" />
-        <span>согласен на обработку персональных данных</span>
-      </label> -->
-
-      <!-- Скрытый инпут для выбора файла -->
-      <input 
+      <input
         v-if="canSubmitWithConsent"
-        type="file" 
-        ref="fileInput" 
-        accept="image/*" 
-        class="hidden-input" 
-        @change="onFileChange" 
+        type="file"
+        ref="fileInput"
+        accept="image/*"
+        class="hidden-input"
+        @change="onFileChange"
       />
 
       <div class="bottom-action d-grid g12">
         <ConsentBanner v-if="!canSubmitWithConsent" :class="'relative'" text="Для отправки шагов нужно согласие на обработку персональных данных." />
-        
+
         <router-link to="/steps/rules" class="btn btn-secondary btn-center">правила</router-link>
-        
-        <!-- Кнопка загрузки / отправки -->
-        <button 
-          v-if="!imagePreview && canSubmitWithConsent" 
-          type="button" 
-          class="btn btn-primary btn-center upload-btn" 
+
+        <button
+          v-if="!imagePreview && canSubmitWithConsent"
+          type="button"
+          class="btn btn-primary btn-center upload-btn"
           :disabled="!canSubmitWithConsent"
           @click="triggerFileInput"
         >
           загрузить изображение
         </button>
-        
-        <button 
-          v-else-if="canSubmitWithConsent" 
-          type="button" 
-          class="btn btn-primary btn-center" 
+
+        <button
+          v-else-if="canSubmitWithConsent"
+          type="button"
+          class="btn btn-primary btn-center"
           :disabled="!canSubmit || store.sending || !canSubmitWithConsent"
           @click="submit"
         >
@@ -111,29 +103,29 @@
         </button>
       </div>
     </div>
-    <!-- 2. Данные отправлены, но ЕЩЁ НЕ ПОДТВЕРЖДЕНЫ -->
+    <!-- 2. Отправлено, ждёт подтверждения -->
     <div v-else-if="!store.isConfirmedToday" class="result-card pending">
       <div class="ico">
         <AppIcon name="fading-clock" :size="24" />
       </div>
       <div class="info">
         <div class="result-text text-center">данные на проверке</div>
-        <div class="timer-text">следующая отправка через: <span>{{ timeLeft }}</span></div>        
+        <div class="timer-text">следующая отправка через: <span>{{ timeLeft }}</span></div>
       </div>
-      <div class="bottom-action">
+      <div class="bottom-action d-grid g12">
         <router-link to="/steps/rules" class="btn btn-secondary btn-center">правила</router-link>
-        <button type="button" class="btn btn-primary btn-center" @click="store.loadSummary">Обновить статус</button>        
+        <button type="button" class="btn btn-primary btn-center" @click="refreshStatus">Обновить статус</button>
       </div>
     </div>
-    <!-- 3. Данные ПОДТВЕРЖДЕНЫ -->
+    <!-- 3. Подтверждено -->
     <div v-else class="result-card success">
       <div class="ico">
         <AppIcon name="check" :size="24" />
-      </div>      
+      </div>
       <div class="info">
         <div class="result-text text-center">шаги подтверждены</div>
-        <div class="timer-text">следующая отправка через: <span>{{ timeLeft }}</span></div>        
-      </div>   
+        <div class="timer-text">следующая отправка через: <span>{{ timeLeft }}</span></div>
+      </div>
       <div class="bottom-action">
         <router-link to="/steps/rules" class="btn btn-secondary btn-center">правила</router-link>
       </div>
@@ -160,17 +152,14 @@ const toast = useToast()
 
 const MAX_STEPS = 30000
 
-// Состояние формы
 const steps = ref(null)
-// const localConsent = ref(false)
 const fileInput = ref(null)
 const imagePreview = ref(null)
 const selectedFile = ref(null)
 
-// Состояние таймера
 const timeLeft = ref('')
 let timerInterval = null
-let summaryInterval = null // <-- Таймер для опроса сервера
+let summaryInterval = null
 
 const canSubmitWithConsent = computed(() => consentStore.isGranted)
 const localConsent = computed(() => consentStore.isGranted)
@@ -191,18 +180,59 @@ const progressPercent = computed(() => {
   return Math.max(0, Math.min(100, Number(p) || 0))
 })
 
+const confirmedDays = computed(() => store.confirmedDays)
+const totalDays = computed(() => store.totalDays)
+
 const hasSummary = computed(() => store.hasSummary)
 const loadingSummary = computed(() => store.loadingSummary)
-const goal = computed(() => store.goal)
 const rank = computed(() => store.rank)
 const totalUsers = computed(() => store.totalUsers)
-const todaySteps = computed(() => store.todaySteps)
-const topPercent = computed(() => Number(store.summary?.TOP_PERCENT) || 0)
 
 const formattedTotal = computed(() => formatNumber(store.totalSteps))
 const formattedRank = computed(() => formatNumber(store.rank))
-const formattedGoal = computed(() => formatNumber(goal.value))
-const formattedToday = computed(() => formatNumber(todaySteps.value))
+
+// ── Период (PLANNED_*) ───────────────────────────────────────
+const MONTHS_RU = [
+  'января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
+  'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря',
+]
+
+function formatPeriodText(fromIso, toIso) {
+  if (!fromIso || !toIso) return ''
+  const dFrom = new Date(fromIso)
+  const dTo = new Date(toIso)
+  if (!Number.isFinite(dFrom.getTime()) || !Number.isFinite(dTo.getTime())) return ''
+
+  const dayFrom = dFrom.getDate()
+  const dayTo = dTo.getDate()
+  const monFrom = dFrom.getMonth()
+  const monTo = dTo.getMonth()
+  const yearFrom = dFrom.getFullYear()
+  const yearTo = dTo.getFullYear()
+
+  if (yearFrom !== yearTo) {
+    return `с ${dayFrom} ${MONTHS_RU[monFrom]} ${yearFrom} по ${dayTo} ${MONTHS_RU[monTo]} ${yearTo}`
+  }
+  if (monFrom === monTo) {
+    return `с ${dayFrom} по ${dayTo} ${MONTHS_RU[monTo]}`
+  }
+  return `с ${dayFrom} ${MONTHS_RU[monFrom]} по ${dayTo} ${MONTHS_RU[monTo]}`
+}
+
+const periodText = computed(() => {
+  const p = store.plannedPeriod
+  if (!p) return ''
+  return formatPeriodText(p.FROM, p.TO)
+})
+
+const daysLeftText = computed(() => {
+  const n = store.daysLeft
+  if (n == null) return ''
+  if (n <= 0) return 'Челлендж завершён.'
+  if (n === 1) return 'Остался 1 день.'
+  if (n >= 2 && n <= 4) return `Осталось ${n} дня.`
+  return `Осталось ${n} дней.`
+})
 
 function formatNumber(n) {
   const v = Number(n) || 0
@@ -212,7 +242,6 @@ function formatNumber(n) {
 // ─── Таймер до следующего дня ───
 function updateTimer() {
   const now = new Date()
-  // Вычисляем время до следующей полуночи
   const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
   const diffMs = tomorrow - now
 
@@ -220,16 +249,14 @@ function updateTimer() {
     timeLeft.value = '00:00:00'
     return
   }
-
   const hours = Math.floor(diffMs / (1000 * 60 * 60))
   const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60))
   const seconds = Math.floor((diffMs % (1000 * 60)) / 1000)
-
   const pad = (n) => String(n).padStart(2, '0')
   timeLeft.value = `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`
 }
 
-// ─── Логика загрузки файла ───
+// ─── Загрузка файла ───
 function triggerFileInput() {
   if (!canSubmitWithConsent.value) return
   fileInput.value?.click()
@@ -238,17 +265,12 @@ function triggerFileInput() {
 function onFileChange(event) {
   const file = event.target.files?.[0]
   if (!file) return
-
-  // Базовая валидация размера (например, до 5 МБ)
   if (file.size > 5 * 1024 * 1024) {
     toast.error('файл слишком большой (макс. 5МБ)')
     return
   }
-
   selectedFile.value = file
   imagePreview.value = URL.createObjectURL(file)
-  
-  // Сбрасываем input, чтобы можно было выбрать тот же файл снова
   event.target.value = ''
 }
 
@@ -270,42 +292,52 @@ async function submit() {
     images: [selectedFile.value],
     consent: localConsent.value,
   })
-  
+
   if (ok) {
-    // store.send() сам вызовет loadSummary() для проверки подтверждения
+    // store.send() сам вызвал loadSummary({force: true})
   } else if (store.error) {
-    // toast.error(store.error)
+    // error уже в store.error
+  }
+}
+
+function refreshStatus() {
+  store.loadSummary({ force: true })
+}
+
+function onVisibilityChange() {
+  if (document.visibilityState !== 'visible') return
+  if (store.isSubmittedToday && !store.isConfirmedToday) {
+    store.loadSummary({ force: true })
   }
 }
 
 onMounted(() => {
   setBackground({ url: '/backgrounds/bg_frame.jpg' })
-  
-  // 1. Первичная загрузка
+
   store.loadSummary()
-  
-  // 2. Таймер до конца дня
+
   updateTimer()
   timerInterval = setInterval(updateTimer, 1000)
-  
-  // 3. Опрос сервера каждые 60 секунд (чтобы узнать о подтверждении)
+
   summaryInterval = setInterval(() => {
-    // Опрашиваем только если уже что-то отправлено (незачем спамить сервер, если формы нет)
-    if (store.isSubmittedToday) {
-      store.loadSummary()
+    if (store.isSubmittedToday && !store.isConfirmedToday) {
+      store.loadSummary({ force: true })
     }
-  }, 60000)
+  }, 3 * 60 * 1000)
+
+  document.addEventListener('visibilitychange', onVisibilityChange)
 })
 
 onUnmounted(() => {
   if (timerInterval) clearInterval(timerInterval)
   if (summaryInterval) clearInterval(summaryInterval)
+  document.removeEventListener('visibilitychange', onVisibilityChange)
   removeImage()
 })
 </script>
 
 <style scoped>
-.steps-home-panel { 
+.steps-home-panel {
   padding-bottom: 74px;
   overflow: hidden;
   max-height: calc(100dvh - 235px);
@@ -361,6 +393,17 @@ onUnmounted(() => {
   text-wrap: balance;
   color: var(--txt-dark-green);
 }
+
+.arc-days {
+  margin-top: 2px;
+  font-family: var(--font-family);
+  font-weight: 500;
+  font-size: 13px;
+  line-height: 120%;
+  color: var(--txt-black-dark-green);
+  opacity: .85;
+}
+
 .arc-goal {
   font-size: 15px;
   color: #6b7268;
@@ -396,11 +439,13 @@ onUnmounted(() => {
   font-weight: 400;
   font-size: 14px;
   line-height: 120%;
-  /* text-transform: lowercase; */
   color: var(--black);
 }
-.rating-text p{
-  margin-bottom: 8px;
+.rating-text p{ margin-bottom: 8px; }
+.rating-text .days-left {
+  color: var(--txt-dark-green);
+  font-weight: 500;
+  text-transform: lowercase;  
 }
 .rating-title {
   font-family: var(--font-family);
@@ -412,10 +457,9 @@ onUnmounted(() => {
   text-wrap: balance;
   color: var(--txt-black-dark-green);
 }
+
 /* ─── Форма ─── */
-.steps-form {
-  margin-top: 24px;
-}
+.steps-form { margin-top: 24px; }
 
 .input-wrapper {
   position: relative;
@@ -441,7 +485,6 @@ onUnmounted(() => {
   color: #a3a69a;
   text-align: left;
 }
-/* Убираем стрелки у number */
 .steps-input::-webkit-outer-spin-button,
 .steps-input::-webkit-inner-spin-button {
   -webkit-appearance: none;
@@ -457,7 +500,6 @@ onUnmounted(() => {
   width: 42px;
   height: 42px;
 }
-
 .image-preview img {
   width: 100%;
   height: 100%;
@@ -465,7 +507,6 @@ onUnmounted(() => {
   border-radius: 12px;
   overflow: hidden;
 }
-
 .remove-img {
   position: absolute;
   top: -4px;
@@ -483,25 +524,7 @@ onUnmounted(() => {
   padding: 0;
 }
 
-.consent {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  font-size: 13px;
-  line-height: 1.4;
-  cursor: pointer;
-  margin-bottom: 8px;
-}
-.consent input { 
-  margin-top: 2px; 
-  accent-color: var(--accent);
-  width: 16px;
-  height: 16px;
-}
-
-.hidden-input {
-  display: none;
-}
+.hidden-input { display: none; }
 
 .result-card {
   position: relative;
@@ -530,7 +553,7 @@ onUnmounted(() => {
 }
 
 .result-card.success{
-  border: 1px solid #c3eb91;  
+  border: 1px solid #c3eb91;
   background: var(--green-light);
 }
 .result-card.success .ico{
