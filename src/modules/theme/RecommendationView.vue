@@ -11,10 +11,10 @@
 
     <div class="action d-grid g4">
       <button type="button" class="btn btn-primary btn-center" @click="choose">
-        Выбрать это направление
+        выбрать это направление
       </button>
       <button type="button" class="reco-skip m-auto" @click="skip">
-        Посмотреть другие направления
+        посмотреть другие направления
       </button>
     </div>
   </div>
@@ -22,7 +22,7 @@
 
 <script setup>
 import { computed, watch, onMounted, onBeforeUnmount } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { getTheme } from './themes'
 import { useThemeStore } from './store'
 import { useQuizStore } from '../quiz/store'
@@ -35,9 +35,15 @@ const theme = computed(() => getTheme(props.id))
 
 const store = useThemeStore()
 const quiz = useQuizStore()
+const route = useRoute()
 const router = useRouter()
 const toast = useToast()
 const { setBackground, clearBackground } = useAppBackground()
+
+const isChangeMode = computed(() =>
+  route.query.change === '1' ||
+  (!!store.selected && !route.meta?.recommendationOnly && route.query.change !== '0')
+)
 
 /**
  * Это направление — рекомендация после теста?
@@ -60,12 +66,16 @@ watch(
 
 function choose() {
   store.setTheme(props.id)
-  toast.success(`Выбрано направление: ${theme.value?.name || ''}`)
+  // toast.success(`Выбрано направление: ${theme.value?.name || ''}`)
   router.replace('/home')
 }
 
 function skip() {
-  router.replace('/themes')
+  if(isChangeMode){
+    router.replace('/themes?change=1')
+  }else{
+    router.replace('/themes')
+  }  
 }
 
 onMounted(async () => {

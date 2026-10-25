@@ -5,7 +5,7 @@
         
         <!-- Ссылка на историю обращений (только для авторизованных) -->
         <div class="tickets-link-wrapper" v-if="isAuthed">
-          <router-link to="/support/tickets" class="tickets-link">
+          <router-link to="/support/tickets" class="btn-badge">
             Мои обращения
           </router-link>
         </div>
@@ -15,7 +15,7 @@
             v-model="text"
             :maxlength="MAX_TEXT"
             rows="12"
-            placeholder="Опишите проблему подробнее…"
+            placeholder="опишите проблему подробнее…"
           />
           <span class="field-counter muted">{{ text.length }} / {{ MAX_TEXT }}</span>
         </label>
@@ -31,12 +31,13 @@
           @click="toggleConsent"
           @keydown.space.prevent="toggleConsent"
           @keydown.enter.prevent="toggleConsent"
+          v-if="!consentGlob.isGranted"
         >
           <span class="consent-check" aria-hidden="true">
             <AppIcon name="check" :size="16" />
           </span>
           <span class="consent-text">
-            Согласен на обработку персональных данных
+            согласен на обработку персональных данных
           </span>
         </div>
 
@@ -79,6 +80,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { useConsentStore } from '../consent/store'
 import Mascot from '../../components/Mascot.vue'
 import AppIcon from '../../components/AppIcon.vue'
 import ImageUploader from '../../components/ImageUploader.vue'
@@ -87,6 +89,7 @@ import { useAuthStore } from '../auth/store'
 import { useAppBackground } from '../core/composables/useAppBackground'
 
 const { setBackground } = useAppBackground()
+const consentGlob = useConsentStore()
 
 const MAX_TEXT = 1000
 const MAX_IMAGES = 5
@@ -100,7 +103,7 @@ const isAuthed = computed(() => auth.isAuthed)
 
 const text = ref('')
 const images = ref([])
-const consent = ref(false)
+const consent = ref(consentGlob.isGranted)
 const sent = ref(false)
 
 const canSubmit = computed(() =>
@@ -140,7 +143,7 @@ async function submit() {
     images.value = []
     consent.value = false
     setTimeout(() => {
-      mascot.value?.showBubble('Администратор скоро свяжется с вами.');
+      mascot.value?.showBubble('администратор скоро свяжется с вами');
     }, 1500)
   }
 }

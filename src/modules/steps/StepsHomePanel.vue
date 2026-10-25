@@ -1,53 +1,51 @@
 <template>
   <div class="steps-home-panel">
     <p v-if="loadingSummary && !hasSummary" class="muted loading">
-      Загружаем прогресс…
+      загружаем прогресс…
     </p>
-
-    <div class="rating-text">
-      <p>Каждый день загружай шаги за предыдущий день. Укажи количество и приложи скриншот из приложения-шагомера в разделе рефлексии. </p>
-      <p>Период учёта: утверждённые даты. </p>
-      <p>Приём до дата, время и часовой пояс.</p>
-    </div>
-
-    <!-- Прогресс-арка -->
-    <section class="arc-block">
-      <div class="arc-wrap">
-        <svg viewBox="0 0 289 160" class="progress-arc" aria-hidden="true">
-          <path
-            d="M 14 145 A 130.5 130.5 0 0 1 275 145"
-            fill="none" stroke="#D0E8FC" stroke-width="14" stroke-linecap="round"
-          />
-          <path
-            d="M 14 145 A 130.5 130.5 0 0 1 275 145"
-            fill="none" stroke="#FFFFFF" stroke-width="14" stroke-linecap="round"
-          />
-          <path
-            d="M 14 145 A 130.5 130.5 0 0 1 275 145"
-            fill="none" stroke="#0E5505" stroke-width="14" stroke-linecap="round"
-            pathLength="100"
-            :stroke-dasharray="`${progressPercent} 100`"
-            class="progress-arc__fill"
-          />
-        </svg>
-
-        <div class="arc-center">
-          <div class="arc-value">{{ formattedTotal }}</div>
-        </div>
-        <div class="rating color-text-stroke" v-if="rank > 0">{{ rank }}</div>
+    <div class="rating-block">  
+      <div class="rating-text">
+        <p>Каждый день загружай шаги за предыдущий день.<br> Укажи количество и приложи скриншот из приложения-шагомера в разделе рефлексии. </p>
+        <p>Учитываем шаги с 26 октября по 1 ноября.</p>
+        <p>Крайний срок загрузки: 2 ноября, 12:00 МСК.</p>
       </div>
-    </section>
-    <div class="rating-text">
-      <template v-if="totalUsers > 0">
-        <div class="rating-title">твой путь в шагах</div>        
-        <p>Здесь результаты участников и твоё место среди всех пользователей. Рейтинг обновляется раз в сутки и остаётся предварительным до проверки подтверждений. Итоги: <a href="http://" target="_blank" rel="noopener noreferrer">[дата и ссылка]    </a>      
-        </p>        
-      </template>
-      <template v-else>
-        Пока результатов нет. Добавь шаги за вчера и скриншот из шагомера. Рейтинг обновляется раз в сутки, твоё место появится после обновления
-      </template>
-    </div>
+      <!-- Прогресс-арка -->
+      <section class="arc-block">
+        <div class="arc-wrap">
+          <svg viewBox="0 0 289 160" class="progress-arc" aria-hidden="true">
+            <path
+              d="M 14 145 A 130.5 130.5 0 0 1 275 145"
+              fill="none" stroke="#D0E8FC" stroke-width="14" stroke-linecap="round"
+            />
+            <path
+              d="M 14 145 A 130.5 130.5 0 0 1 275 145"
+              fill="none" stroke="#FFFFFF" stroke-width="14" stroke-linecap="round"
+            />
+            <path
+              d="M 14 145 A 130.5 130.5 0 0 1 275 145"
+              fill="none" stroke="#0E5505" stroke-width="14" stroke-linecap="round"
+              pathLength="100"
+              :stroke-dasharray="`${progressPercent} 100`"
+              class="progress-arc__fill"
+            />
+          </svg>
 
+          <div class="arc-center">
+            <div class="arc-value">{{ formattedTotal }}</div>
+          </div>
+          <div class="rating color-text-stroke" v-if="rank > 0">№ {{ formattedRank }}</div>
+        </div>
+      </section>
+      <div class="rating-text">
+        <template v-if="totalUsers > 0">
+          <div class="rating-title">твой путь в шагах</div>        
+          <p>Здесь результаты участников и твоё место среди всех пользователей. Рейтинг обновляется раз в сутки и остаётся предварительным до проверки подтверждений. Итоги марафона шагов будут опубликованы в Сфере 3 ноября.</p>        
+        </template>
+        <template v-else>
+          Пока результатов нет. Добавь шаги за вчера и скриншот из шагомера. Рейтинг обновляется раз в сутки, твоё место появится после обновления.
+        </template>
+      </div>
+    </div>
     <!-- 1. Блок отправки шагов (показывается, если еще не отправляли сегодня) -->
     <div v-if="!store.isSubmittedToday" class="steps-form d-grid g12">
       
@@ -113,7 +111,6 @@
         </button>
       </div>
     </div>
-
     <!-- 2. Данные отправлены, но ЕЩЁ НЕ ПОДТВЕРЖДЕНЫ -->
     <div v-else-if="!store.isConfirmedToday" class="result-card pending">
       <div class="ico">
@@ -121,9 +118,10 @@
       </div>
       <div class="info">
         <div class="result-text text-center">данные на проверке</div>
-        <div class="timer-text">Следующая отправка через: <span>{{ timeLeft }}</span></div>        
+        <div class="timer-text">следующая отправка через: <span>{{ timeLeft }}</span></div>        
       </div>
       <div class="bottom-action">
+        <router-link to="/steps/rules" class="btn btn-secondary btn-center">правила</router-link>
         <button type="button" class="btn btn-primary btn-center" @click="store.loadSummary">Обновить статус</button>        
       </div>
     </div>
@@ -133,10 +131,14 @@
         <AppIcon name="check" :size="24" />
       </div>      
       <div class="info">
-        <div class="result-text text-center">Шаги подтверждены</div>
-        <div class="timer-text">Следующая отправка через: <span>{{ timeLeft }}</span></div>        
+        <div class="result-text text-center">шаги подтверждены</div>
+        <div class="timer-text">следующая отправка через: <span>{{ timeLeft }}</span></div>        
       </div>   
+      <div class="bottom-action">
+        <router-link to="/steps/rules" class="btn btn-secondary btn-center">правила</router-link>
+      </div>
     </div>
+
     <StepsLeaderboardWidget />
   </div>
 </template>
@@ -156,7 +158,7 @@ const store = useStepsStore()
 const consentStore = useConsentStore()
 const toast = useToast()
 
-const MAX_STEPS = 70000
+const MAX_STEPS = 30000
 
 // Состояние формы
 const steps = ref(null)
@@ -198,6 +200,7 @@ const todaySteps = computed(() => store.todaySteps)
 const topPercent = computed(() => Number(store.summary?.TOP_PERCENT) || 0)
 
 const formattedTotal = computed(() => formatNumber(store.totalSteps))
+const formattedRank = computed(() => formatNumber(store.rank))
 const formattedGoal = computed(() => formatNumber(goal.value))
 const formattedToday = computed(() => formatNumber(todaySteps.value))
 
@@ -238,7 +241,7 @@ function onFileChange(event) {
 
   // Базовая валидация размера (например, до 5 МБ)
   if (file.size > 5 * 1024 * 1024) {
-    toast.error('Файл слишком большой (макс. 5МБ)')
+    toast.error('файл слишком большой (макс. 5МБ)')
     return
   }
 
@@ -271,7 +274,7 @@ async function submit() {
   if (ok) {
     // store.send() сам вызовет loadSummary() для проверки подтверждения
   } else if (store.error) {
-    toast.error(store.error)
+    // toast.error(store.error)
   }
 }
 
@@ -302,7 +305,16 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.steps-home-panel { padding-bottom: 74px; }
+.steps-home-panel { 
+  padding-bottom: 74px;
+  overflow: hidden;
+  max-height: calc(100dvh - 235px);
+  overflow-y: auto;
+  display: grid;
+  gap: 32px;
+  scrollbar-width: none;
+}
+.steps-home-panel::-webkit-scrollbar { display: none; }
 
 .loading { padding: 16px 0; text-align: center; font-size: 14px; }
 
@@ -311,7 +323,6 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-bottom: 20px;
 }
 
 .arc-wrap {
@@ -341,12 +352,14 @@ onUnmounted(() => {
 }
 
 .arc-value {
+  font-family: var(--third-family);
+  font-weight: 400;
   font-size: 34px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  color: #0E5505;
-  font-variant-numeric: tabular-nums;
-  line-height: 1.1;
+  line-height: 150%;
+  text-align: center;
+  text-transform: lowercase;
+  text-wrap: balance;
+  color: var(--txt-dark-green);
 }
 .arc-goal {
   font-size: 15px;
@@ -363,12 +376,16 @@ onUnmounted(() => {
 }
 
 /* ─── Рейтинг ─── */
+.rating-block {
+  position: relative;
+  display: grid;
+}
 .rating {
   position: absolute;
-  bottom: 0;
+  bottom: 32px;
   text-align: center;
   width: 100%;
-  font-size: 18px;
+  font-size: 28px;
   line-height: 150%;
   text-transform: lowercase;
   text-wrap: balance;
@@ -379,7 +396,7 @@ onUnmounted(() => {
   font-weight: 400;
   font-size: 14px;
   line-height: 120%;
-  text-transform: lowercase;
+  /* text-transform: lowercase; */
   color: var(--black);
 }
 .rating-text p{
@@ -518,6 +535,7 @@ onUnmounted(() => {
 }
 .result-card.success .ico{
   background: var(--txt-dark-green);
+  color: var(--txt-brand-limon);
 }
 .result-card.pending{
   background: #fef8ec;

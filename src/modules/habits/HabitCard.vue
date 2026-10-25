@@ -22,11 +22,11 @@
           />
         <!-- <HabitIcon :id="habit.icon || habit.id" /> -->
       </div>
-      <button
+      <!-- <button
         v-if="!notificationsEnabled"
         type="button"
         class="hc-bell"
-        :aria-label="`Включить напоминания для «${habit.title}»`"
+        :aria-label="`включить напоминания для «${habit.title}»`"
         @click="$emit('enable-notifications')"
       >
         <svg viewBox="0 0 24 24" width="22" height="22" fill="none" aria-hidden="true">
@@ -39,7 +39,7 @@
                 stroke="currentColor" stroke-width="1.6"
                 stroke-linecap="round"/>
         </svg>
-      </button>
+      </button> -->
     </header>
 
     <div class="hc-progress" v-if="habit.timesPerDay > 1">
@@ -71,6 +71,7 @@
 <script setup>
 import { computed } from 'vue'
 import HabitIcon from './HabitIcon.vue'
+import AppIcon from '../../components/AppIcon.vue'
 
 const props = defineProps({
   habit: { type: Object, required: true },
@@ -166,7 +167,7 @@ const leftText = computed(() => {
   font-weight: 400;
   font-size: 14px;
   line-height: 120%;
-  text-transform: lowercase;
+  /* text-transform: lowercase; */
   color: var(--txt-black-dark-green);
 }
 

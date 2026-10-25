@@ -156,14 +156,10 @@
           </div>
         </div>
       </div>
-
-
-
     </section>
-
     <div class="bottom-action">
       <router-link to="/stats/rules" class="btn btn-primary btn-center">
-        <div class="text">правила личного<br>и командного зачёта</div>        
+        <div class="text">правила</div>        
       </router-link>      
     </div>
   </div>

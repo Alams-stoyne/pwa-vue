@@ -550,7 +550,10 @@ function viewClick(event) {
   text-shadow: 0 1px 3px rgba(0,0,0,.5);
 }
 
-.footer { margin-top: 24px; }
+.footer { 
+  margin-top: 24px; 
+  text-transform: lowercase;
+}
 .read-state {
   font-family: var(--second-family);
   font-weight: 700;

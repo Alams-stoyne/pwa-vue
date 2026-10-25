@@ -64,7 +64,7 @@ export const useSupportStore = defineStore('support', {
         if (Array.isArray(images)) {
           for (const file of images) {
             if (file instanceof File) {
-              if (file.size > 3 * 1024 * 1024) throw new Error('Фото больше 3 МБ')
+              if (file.size > 3 * 1024 * 1024) throw new Error('фото больше 3 МБ')
               const base64 = await fileToBase64(file)
               base64Images.push(base64)
             } else if (typeof file === 'string') {
@@ -75,7 +75,7 @@ export const useSupportStore = defineStore('support', {
 
         const res = await sendSupportTicket({
           ID_USER: auth.idUser || null,
-          SUBJECT: subject || 'Обращение в поддержку',
+          SUBJECT: subject || 'обращение в поддержку',
           TEXT: String(text || '').trim(),
           IMAGES: base64Images,
         })
@@ -84,10 +84,10 @@ export const useSupportStore = defineStore('support', {
           this.lastTicketId = res.TICKET_ID
           return true
         }
-        this.error = res?.MESSAGE || 'Не удалось отправить'
+        this.error = res?.MESSAGE || 'не удалось отправить'
         return false
       } catch (e) {
-        this.error = e.message || 'Ошибка отправки'
+        this.error = e.message || 'ошибка отправки'
         return false
       } finally {
         this.sending = false
@@ -103,7 +103,7 @@ export const useSupportStore = defineStore('support', {
         if (Array.isArray(images)) {
           for (const file of images) {
             if (file instanceof File) {
-              if (file.size > 3 * 1024 * 1024) throw new Error('Фото больше 3 МБ')
+              if (file.size > 3 * 1024 * 1024) throw new Error('фото больше 3 МБ')
               const base64 = await fileToBase64(file)
               base64Images.push(base64)
             } else if (typeof file === 'string') {
@@ -113,7 +113,7 @@ export const useSupportStore = defineStore('support', {
         }
 
         const deviceId = readDeviceId()
-        if (!deviceId) throw new Error('Не найден ID устройства')
+        if (!deviceId) throw new Error('не найден ID устройства')
         
         const meta = collectMeta(authError, uid)
         
@@ -132,10 +132,10 @@ export const useSupportStore = defineStore('support', {
           localStorage.setItem('support.guestTicketId', String(res.TICKET_ID))
           return true
         }
-        this.error = res?.MESSAGE || 'Не удалось отправить'
+        this.error = res?.MESSAGE || 'не удалось отправить'
         return false
       } catch (e) {
-        this.error = e.message || 'Ошибка отправки'
+        this.error = e.message || 'ошибка отправки'
         return false
       } finally {
         this.sending = false
@@ -151,7 +151,7 @@ export const useSupportStore = defineStore('support', {
         if (Array.isArray(images)) {
           for (const file of images) {
             if (file instanceof File) {
-              if (file.size > 3 * 1024 * 1024) throw new Error('Фото больше 3 МБ')
+              if (file.size > 3 * 1024 * 1024) throw new Error('фото больше 3 МБ')
               const base64 = await fileToBase64(file)
               base64Images.push(base64)
             } else if (typeof file === 'string') {
@@ -164,7 +164,7 @@ export const useSupportStore = defineStore('support', {
         let res
 
         if (auth.isAuthed) {
-          if (!auth.idUser) throw new Error('Пользователь не авторизован')
+          if (!auth.idUser) throw new Error('пользователь не авторизован')
           res = await sendSupportMessage({
             ID_USER: auth.idUser,
             TICKET_ID: ticketId,
@@ -173,7 +173,7 @@ export const useSupportStore = defineStore('support', {
           })
         } else {
           const deviceId = readDeviceId()
-          if (!deviceId) throw new Error('Не найден ID устройства')
+          if (!deviceId) throw new Error('не найден ID устройства')
           res = await sendGuestMessage({
             DEVICE_ID: deviceId,
             TICKET_ID: ticketId,
@@ -215,7 +215,7 @@ export const useSupportStore = defineStore('support', {
             return
           }
           const deviceId = readDeviceId()
-          if (!deviceId) throw new Error('Не найден ID устройства')
+          if (!deviceId) throw new Error('не найден ID устройства')
           
           const res = await fetchGuestTicket({ DEVICE_ID: deviceId, TICKET_ID: gId })
           if (isSuccess(res) && res.TICKET) {
@@ -225,7 +225,7 @@ export const useSupportStore = defineStore('support', {
           }
         }
       } catch (e) {
-        this.error = e.message || 'Не удалось загрузить обращения'
+        this.error = e.message || 'не удалось загрузить обращения'
       } finally {
         this.loadingTickets = false
       }
@@ -241,7 +241,7 @@ export const useSupportStore = defineStore('support', {
           res = await fetchSupportTicket({ ID_USER: auth.idUser, TICKET_ID: ticketId })
         } else {
           const deviceId = readDeviceId()
-          if (!deviceId) throw new Error('Не найден ID устройства')
+          if (!deviceId) throw new Error('не найден ID устройства')
           res = await fetchGuestTicket({ DEVICE_ID: deviceId, TICKET_ID: ticketId })
         }
 
@@ -249,10 +249,10 @@ export const useSupportStore = defineStore('support', {
           this.currentTicket = res.TICKET
           this.currentMessages = res.MESSAGES || []
         } else {
-          this.error = res?.MESSAGE || 'Обращение не найдено'
+          this.error = res?.MESSAGE || 'обращение не найдено'
         }
       } catch (e) {
-        this.error = e.message || 'Не удалось загрузить обращение'
+        this.error = e.message || 'не удалось загрузить обращение'
       } finally {
         this.loadingTicket = false
       }

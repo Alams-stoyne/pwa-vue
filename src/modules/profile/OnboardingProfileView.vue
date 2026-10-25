@@ -2,8 +2,8 @@
   <div class="page onboarding-page page--bottom-action">
     <transition name="fade" appear>
       <header class="head_style text-center">
-        <h1 class="title color-text-stroke">Завершим настройку</h1>
-        <div class="subtitle">Заполните обязательные данные для участия.</div>
+        <h1 class="title color-text-stroke">завершим настройку</h1>
+        <div class="subtitle">заполните обязательные данные для участия</div>
       </header>
     </transition>
 
@@ -14,7 +14,7 @@
           type="text"
           autocomplete="nickname"
           maxlength="32"
-          placeholder="Никнейм например: ivan_x5"
+          placeholder="никнейм например: ivan_x5"
         />
       </label>
 
@@ -24,7 +24,7 @@
           class="select"
           required
         >
-          <option value="" disabled>Бизнес-единица / магазин* Выберите из списка…</option>
+          <option value="" disabled>бизнес-единица / магазин* выберите из списка…</option>
           <!-- ▼ ИСПОЛЬЗУЕМ id и name ▼ -->
           <option
             v-for="w in store.workplaces"

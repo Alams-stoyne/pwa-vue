@@ -312,7 +312,7 @@ export const useHabitsStore = defineStore('habits', {
             const configs = extractHabitsForTheme(raw, themeId)
               || getFallbackHabitsForTheme(themeId)
             
-            // ▼ ДОБАВЛЕНЫ description и picture ▼
+            // ▼ ДОБАВЛЕНЫ description, picture и rewardPoints ▼
             const normalized = configs.map((h) => ({
               id: h.id,
               icon: h.icon || h.id,
@@ -321,6 +321,7 @@ export const useHabitsStore = defineStore('habits', {
               hint: h.hint || '',
               description: h.description || h.hint || '',
               picture: h.picture || h.image || h.cover || '',
+              rewardPoints: h.rewardPoints || h.reward_points || 0, // <-- Подстраховка
               timesPerDay: Number(h.timesPerDay) || 1,
               minIntervalMin: Number(h.minIntervalMin) || 60,
               themeId,
@@ -430,9 +431,10 @@ export const useHabitsStore = defineStore('habits', {
         const res = await sendHabitComplete(payload)
         if (!isSuccess(res)) throw new Error('not ok')
         
-        // ▼ ОПТИМИСТИЧНОЕ НАЧИСЛЕНИЕ ▼
-        if (res.REWARD_POINTS) {
-          try { useStatsStore().addApplesLocally(res.REWARD_POINTS) } catch { /* ignore */ }
+        // ▼ ДОБАВЛЕНА ПОДСТРАХОВКА: если сервер не прислал REWARD_POINTS, берем из конфига ▼
+        const reward = res.REWARD_POINTS !== undefined ? res.REWARD_POINTS : h.rewardPoints
+        if (reward) {
+          try { useStatsStore().addApplesLocally(reward) } catch { /* ignore */ }
         }
 
         if (res.DONE_TODAY != null) {
@@ -463,9 +465,11 @@ export const useHabitsStore = defineStore('habits', {
           if (!isSuccess(res)) {
             remain.push(p)
           } else {
-            // ▼ НАЧИСЛЕНИЕ ИЗ ОЧЕРЕДИ ▼
-            if (res.REWARD_POINTS) {
-              try { useStatsStore().addApplesLocally(res.REWARD_POINTS) } catch { /* ignore */ }
+            const habitId = p.HABIT_ID
+            const h = getHabit(habitId)
+            const reward = res.REWARD_POINTS !== undefined ? res.REWARD_POINTS : (h ? h.rewardPoints : 0)
+            if (reward) {
+              try { useStatsStore().addApplesLocally(reward) } catch { /* ignore */ }
             }
           }
         } catch { remain.push(p) }

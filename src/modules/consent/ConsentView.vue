@@ -233,6 +233,7 @@ onBeforeUnmount(() => {
   font-size: 16px;
   line-height: 120%;
   text-wrap: balance;
+  text-transform: lowercase;
   color: var(--txt-black-dark-green);
 }
 .modal-backdrop-text p{

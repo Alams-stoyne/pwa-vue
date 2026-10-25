@@ -21,7 +21,7 @@
     <Mascot class="mascot_bottom" :body-src="`/maskot/wellcome_dop.png`" hide-face/>     
     <!-- <div class="bottom-action"></div> -->
     <button type="button" class="btn btn-primary btn-center btn-full" @click="start">
-      Начать тестирование
+      начать тестирование
     </button>    
   </div>    
 

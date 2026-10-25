@@ -136,11 +136,13 @@ function viewClick(event) {
 .field { display: grid; gap: 8px; }
 
 .field-label {
-  font-size: 15px;
-  font-weight: 700;
-  color: #015f01;
-  letter-spacing: -0.01em;
-  line-height: 1.3;
+  font-family: var(--font-family);
+  font-weight: 500;
+  font-size: 16px;
+  line-height: 100%;
+  text-transform: lowercase;
+  text-wrap: balance;
+  color: var(--txt-black-dark-green);
 }
 
 /* Новый стиль для описания */

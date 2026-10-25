@@ -18,7 +18,7 @@
         <h1>UID уже используется</h1>
         <p class="muted">Этот код доступа уже активирован на другом устройстве. Один UID — одно устройство.</p>
         <button type="button" class="btn btn-primary btn-center mt-12" @click="goToSupport('UID_TAKEN')">
-          Написать администратору
+          написать администратору
         </button>
         <button type="button" class="btn btn-secondary btn-center mt-8" @click="goAccessError">
           Понятно
@@ -77,7 +77,7 @@
           </svg>
         </div>
         <h1>Готово!</h1>
-        <p class="muted">Устройство зарегистрировано на сервере</p>
+        <p class="muted">устройство зарегистрировано на сервере</p>
         <br>
         <button type="button" class="btn btn-primary btn-center text-center m-auto" @click="proceed">
           Продолжить

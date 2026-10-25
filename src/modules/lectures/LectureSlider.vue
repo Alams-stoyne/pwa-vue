@@ -2,7 +2,7 @@
   <section class="slider" :class="{ 'is-empty': !loading && !list.length }">
     <header class="slider-head">
       <h2 class="slider-title">{{ title }}</h2>
-      <span class="slider-count">{{ list.length }}</span>
+      <span class="slider-count" v-if="list.length">{{ list.length }}</span>
     </header>
 
     <!-- Skeleton -->
@@ -19,8 +19,10 @@
     </div>
 
     <!-- Empty -->
-    <div v-else-if="!list.length" class="slider-empty muted">
-      Пока нет материалов в этом блоке
+    <div v-else-if="!list.length" class="empty-block">
+        <div class="empty-title">Пока нет материалов в этом блоке</div>
+        <!-- <div class="empty-text">здесь появятся материалы прошедших дней</div>
+        <div class="empty-help-text">Нажмите «Синхронизировать» — подтянем материалы за последнюю неделю.</div> -->
     </div>
 
     <!-- Swiper -->

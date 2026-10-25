@@ -337,6 +337,20 @@ input:focus, textarea:focus {
   background: var(--white);
   box-shadow: 0 4px 0 0 var(--black);  
 }
+.btn-link-white{
+  display: flex;
+  justify-content: space-between;
+  align-content: center;
+  align-items: center;
+  text-decoration: none;
+  color: var(--black);
+  background: var(--white);
+  box-shadow: none;
+  border: 2px solid var(--txt-black-dark-green);
+  border-radius: 14px;
+  padding: 16px;  
+}
+
 
 .btn .text{
   position: relative;
@@ -362,35 +376,6 @@ input:focus, textarea:focus {
 .btn.disabled .badge{
   display: none;
 }
-/* Вторичная "широкая" кнопка — например, «Пройти тест заново»
-.btn-secondary {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  max-width: 358px;
-  height: 56px;
-  padding: 0 24px;
-  border: 2px solid var(--btn-disabled-border);
-  border-radius: 120px;
-  background: #fff;
-  color: var(--accent);
-  font-family: var(--font-family);
-  font-weight: 500;
-  font-size: 18px;
-  line-height: 120%;
-  letter-spacing: -0.01em;
-  text-align: center;
-  cursor: pointer;
-  transition: background var(--t-fast), border-color var(--t-fast), transform var(--t-fast);
-}
-.btn-secondary:hover:not(:disabled) {
-  background: var(--bg-green-light);
-  border-color: var(--accent);
-  box-shadow: none;
-}
-.btn-secondary:active:not(:disabled) { transform: scale(.98); } */
-
 
 /* Модификатор: кнопка прижата к низу экрана (10px от края) */
 .bottom-action {
@@ -452,6 +437,7 @@ input:focus, textarea:focus {
   z-index: 1;
   transition: color var(--t-base);
   box-shadow: none;
+  text-transform: lowercase;
 }
 
 .tab:hover:not(:disabled) { 
@@ -559,6 +545,7 @@ input:focus, textarea:focus {
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
+  display: none;
 }
 
 ::-webkit-scrollbar-track {
@@ -666,6 +653,9 @@ input, textarea, [contenteditable] {
 .m-auto{
   margin: auto;
 }
+.w-100{
+  width: 100%;
+}
 
 .g2{ gap: 2px;}
 .g4{ gap: 4px;}
@@ -732,4 +722,37 @@ input, textarea, [contenteditable] {
 .head_white .subtitle{
   font-size: 18px;
   line-height: 120%;
+}
+.empty-block{
+  position: relative;
+  display: grid;
+  align-items: center;
+  border: 2px dashed #afe6dd;
+  border-radius: 14px;
+  padding: 14px;
+  font-family: var(--font-family);
+  text-transform: lowercase;
+  text-align: center;
+  color: var(--txt-black-dark-green);
+  gap: 14px
+}
+.empty-title{
+  font-family: var(--font-family);
+  font-weight: 500;
+  font-size: 20px;
+  line-height: 100%;
+  text-wrap: balance;
+}
+.empty-text{
+  font-family: var(--font-family);
+  font-weight: 400;
+  font-size: 14px;
+  line-height: 120%;
+}
+.empty-help-text{
+  font-family: var(--font-family);
+  font-weight: 400;
+  font-size: 14px;
+  line-height: 120%;
+  opacity: 0.5;
 }

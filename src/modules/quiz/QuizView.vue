@@ -5,7 +5,7 @@
     <transition name="fade" appear>
       <header class="head">
         <p class="muted head-label">
-          Вопрос {{ store.step + 1 }} из {{ store.total }}
+          вопрос {{ store.step + 1 }} из {{ store.total }}
         </p>
       </header>
     </transition>
@@ -97,7 +97,7 @@ function next() {
     theme.load()
 
     const recommendedId = store.recommended
-    toast.success('Тест завершён — открываем рекомендованную тематику')
+    // toast.success('Тест завершён — открываем рекомендованную тематику')
 
     if (recommendedId) {
       // сразу на детальную страницу рекомендованной темы
@@ -150,6 +150,7 @@ onMounted(async () => {
   line-height: 110%;
   letter-spacing: -0.01em;
   color: var(--black);
+  text-transform: lowercase;
 }
 /* .head h1 { margin: 0 0 8px; font-size: 24px; letter-spacing: -0.01em; }
 .head-sub { font-size: 14px; margin: 0; } */

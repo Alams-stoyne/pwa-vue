@@ -2,7 +2,7 @@
   <div class="page theme-page page--bottom-action">
     <transition name="fade" appear>
       <header>
-        <h1 class="color-text-stroke">{{ isChangeMode ? 'Смена направления' : 'Выберите направление' }}</h1>
+        <div class="theme-top-title color-text-stroke">{{ isChangeMode ? 'Смена направления' : 'Выберите направление' }}</div>
       </header>
     </transition>
 
@@ -18,13 +18,13 @@
           <span class="theme-check" aria-hidden="true"><AppIcon name="check" :size="16" /></span>
           <div class="theme-info">
             <span class="theme-name color-text-stroke">{{ t.name }}</span>
-            <div v-if="quiz.recommended === t.id && !isChangeMode" class="theme-badge">⭐ Рекомендуем</div>
+            <div v-if="quiz.recommended === t.id && !isChangeMode" class="theme-badge">⭐ рекомендуем</div>
             <span class="theme-subtitle muted">{{ t.subtitle }}</span>            
           </div>
         </button>
 
         <button class="theme-details" :disabled="busy" @click.stop="openRecomendation(t)">
-          <span>Подробнее</span>
+          <span>подробнее</span>
           <svg width="13" height="13" viewBox="0 0 13 13" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path fill-rule="evenodd" clip-rule="evenodd" d="M0 0.830603C-2.80058e-07 0.371874 0.371873 1.34778e-06 0.830601 1.55782e-06L11.794 0C12.0143 0 12.2255 0.0875097 12.3813 0.243278C12.5371 0.399046 12.6246 0.610312 12.6246 0.830601V11.794C12.6246 12.2527 12.2527 12.6246 11.794 12.6246C11.3352 12.6246 10.9634 12.2527 10.9634 11.794V2.83585L1.41793 12.3813C1.09356 12.7057 0.567648 12.7057 0.243278 12.3813C-0.0810918 12.0569 -0.0810921 11.531 0.243278 11.2067L9.78873 1.6612L0.830601 1.6612C0.371872 1.6612 -2.97561e-07 1.28933 0 0.830603Z" fill="#21271F" />
           </svg>           
@@ -47,9 +47,9 @@
         :disabled="!canConfirm || busy"
         @click="confirm"
       >
-        <template v-if="busy">Сохраняем…</template>
-        <template v-else-if="isChangeMode">Сохранить изменения</template>
-        <template v-else>Подтвердить выбор</template>
+        <template v-if="busy">сохраняем…</template>
+        <template v-else-if="isChangeMode">сохранить изменения</template>
+        <template v-else>подтвердить выбор</template>
       </button>
 
       <button
@@ -57,17 +57,17 @@
         class="btn btn-secondary btn-center"
         @click="retake"
       >       
-       Пройти тест заного
+       пройти тест заново
       </button>
     </div>
 
-    <VideoOverlay
+    <!-- <VideoOverlay
       v-model="videoOpen"
       :url="currentVideoTheme?.videoUrl || ''"
       :title="currentVideoTheme?.name || ''"
       breadcrumb="Направление"
       :description="currentVideoTheme?.videoDescription || ''"
-    />
+    /> -->
   </div>
 </template>
 
@@ -145,10 +145,12 @@ function retake() {
   position: relative;
   /* background: linear-gradient(180deg, #86d0fb -14.79%, rgba(134, 208, 251, 0) 100%); */
 }
-.theme-page h1{
+
+.theme-page .theme-top-title{
   font-weight: 400;
   font-size: 28px;
   line-height: 96%;
+  text-transform: lowercase;
 }
 .head-label { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; margin: 0 0 6px; color: var(--accent); }
 .recommend-note { display: inline-flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 13px; }

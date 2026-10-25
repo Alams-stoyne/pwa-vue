@@ -18,7 +18,7 @@
     </div>
 
     <p class="muted meta-line">
-      Материалов: {{ filteredItems.length }} из {{ pastItems.length }}
+      материалов: {{ filteredItems.length }} из {{ pastItems.length }}
     </p>
 
     <div v-if="loading" class="list">
@@ -34,31 +34,32 @@
       <div class="empty-help-text">Нажмите «Синхронизировать» — подтянем материалы за последнюю неделю.</div>
     </div>
 
-    <section v-for="g in groups" :key="g.date" class="group">
-      <h3 class="group-date">{{ formatDate(g.date) }}</h3>
-      <div class="list">
-        <router-link
-          v-for="l in g.items"
-          :key="l.dbKey"
-          :to="lectureLink(l.dbKey)"
-          class="card clickable lecture-row"
-        >
-          <!-- Обложка -->
-          <div class="lecture-cover" :style="getCoverStyle(l.dbKey)">
-            <span v-if="!coverUrls[l.dbKey] && !l.cover" class="cover-fallback">📖</span>
-            <span v-if="l.videoLink" class="video-badge">▶</span>
-          </div>
-
-          <div class="lecture-row-main">
-            <div class="lecture-row-head">
-              <span class="lecture-row-title">{{ l.title }}</span>
+    <div v-else-if="groups.length" class="group-list">
+      <section v-for="g in groups" :key="g.date" class="group">
+        <h3 class="group-date">{{ formatDate(g.date) }}</h3>
+        <div class="list">
+          <router-link
+            v-for="l in g.items"
+            :key="l.dbKey"
+            :to="lectureLink(l.dbKey)"
+            class="card clickable lecture-row"
+          >
+            <!-- Обложка -->
+            <div class="lecture-cover" :style="getCoverStyle(l.dbKey)">
+              <span v-if="!coverUrls[l.dbKey] && !l.cover" class="cover-fallback">📖</span>
+              <span v-if="l.videoLink" class="video-badge">▶</span>
             </div>
-            <span v-if="store.isRead(l.dbKey)" class="read-badge">просмотрено</span>
-          </div>
-        </router-link>
-      </div>
-    </section>
 
+            <div class="lecture-row-main">
+              <div class="lecture-row-head">
+                <span class="lecture-row-title">{{ l.title }}</span>
+              </div>
+              <span v-if="store.isRead(l.dbKey)" class="read-badge">просмотрено</span>
+            </div>
+          </router-link>
+        </div>
+      </section>      
+    </div>
     <div class="bottom-action d-grid g10">
       <button
         type="button"
@@ -73,12 +74,11 @@
 
       <p class="muted sync-hint">
         <template v-if="lastSyncText">
-          Последняя синхронизация: {{ lastSyncText }}
+          последняя синхронизация: {{ lastSyncText }}
         </template>
-        <template v-else>Синхронизация ещё не выполнялась</template>
+        <template v-else>синхронизация ещё не выполнялась</template>
       </p>
     </div>
-
   </div>
 </template>
 
@@ -262,15 +262,15 @@ async function syncAllThemes() {
 
   const res = await store.syncArchive({ days: 7, allThemes: true, force: true })
 
-  if (res.error === 'OFFLINE') { toast.warn('Нет сети'); return }
-  if (res.error) { toast.error('Не удалось синхронизировать'); return }
+  if (res.error === 'OFFLINE') { toast.warn('нет сети'); return }
+  if (res.error) { toast.error('не удалось синхронизировать'); return }
 
   await reload()
 
   if (res.added === 0) {
-    toast.info('Новых материалов не найдено')
+    toast.info('новых материалов не найдено')
   } else {
-    toast.success(`Загружено ${res.added} материалов за ${res.days} дн.`)
+    toast.success(`загружено ${res.added} материалов за ${res.days} дн.`)
   }
 }
 
@@ -302,6 +302,10 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.torage-page{
+  position: relative;
+  max-height: 100dvh;
+}
 .head {
   display: flex;
   align-items: center;
@@ -365,15 +369,16 @@ onBeforeUnmount(() => {
   cursor: pointer;
   white-space: nowrap;
   box-shadow: none;
+  text-transform: lowercase;
   transition: background var(--t-fast), border-color var(--t-fast), color var(--t-fast), transform var(--t-fast);
 }
 .chip:hover:not(:disabled) { background: #fafafa; box-shadow: none; transform: translateY(-1px); }
 .chip.active {
-  background: var(--accent);
-  color: #fff;
-  border-color: var(--accent);
+    background: var(--white);
+    color: var(--txt-green-dsrk);
+    border-color: var(--txt-green-dsrk);
 }
-.chip.active .chip-count { color: rgba(255,255,255,.8); }
+/* .chip.active .chip-count { color: rgba(255,255,255,.8); } */
 .chip-count {
   font-size: 11px;
   font-variant-numeric: tabular-nums;
@@ -381,7 +386,13 @@ onBeforeUnmount(() => {
 }
 
 .meta-line { font-size: 13px; margin: 0 0 12px; }
-
+.group-list{
+  position: relative;
+  max-height: calc(100dvh - 288px);
+  overflow: hidden;  
+  overflow-y: auto;
+  scrollbar-width: none;
+}
 .group { margin-bottom: 22px; }
 .group-date {
   margin: 0 0 8px;
@@ -450,40 +461,6 @@ onBeforeUnmount(() => {
   border: 1px solid transparent;
   font-weight: 600;
   background: transparent;
-}
-
-.empty {
-  position: relative;
-  display: grid;
-  align-items: center;
-  border: 2px dashed #afe6dd;
-  border-radius: 14px;
-  padding: 14px;
-  font-family: var(--font-family);
-  text-transform: lowercase;
-  text-align: center;
-  color: var(--txt-black-dark-green);
-  gap: 14px
-}
-.empty-title{
-  font-family: var(--font-family);
-  font-weight: 500;
-  font-size: 20px;
-  line-height: 100%;
-  text-wrap: balance;
-}
-.empty-text{
-  font-family: var(--font-family);
-  font-weight: 400;
-  font-size: 14px;
-  line-height: 120%;
-}
-.empty-help-text{
-  font-family: var(--font-family);
-  font-weight: 400;
-  font-size: 14px;
-  line-height: 120%;
-  opacity: 0.5;
 }
 
 .skeleton { padding: 14px; }

@@ -1,13 +1,13 @@
 <template>
   <div class="page support-tickets-page">
 
-    <div v-if="store.loadingTickets" class="loading">Загрузка…</div>
+    <div v-if="store.loadingTickets" class="loading">загрузка…</div>
     
     <div v-else-if="!store.tickets.length" class="empty">
       <div class="empty-icon">📭</div>
-      <p>У вас пока нет обращений</p>
+      <p>у вас пока нет обращений</p>
       <div class="bottom-action">
-        <router-link to="/support" class="btn btn-primary btn-center">Написать в поддержку</router-link>        
+        <router-link to="/support" class="btn btn-primary btn-center">написать в поддержку</router-link>        
       </div>
     </div>
 
@@ -20,11 +20,11 @@
       >
         <div class="ticket-header">
           <span class="ticket-date">{{ formatDate(ticket.CREATED_AT) }}</span>
-          <span v-if="ticket.STATUS === 'answered'" class="badge-reply">Есть ответ</span>
-          <span v-else-if="ticket.STATUS === 'closed'" class="badge-closed">Закрыто</span>
-          <span v-else class="badge-pending">На проверке</span>
+          <span v-if="ticket.STATUS === 'answered'" class="badge-reply">есть ответ</span>
+          <span v-else-if="ticket.STATUS === 'closed'" class="badge-closed">закрыто</span>
+          <span v-else class="badge-pending">на проверке</span>
         </div>
-        <p class="ticket-preview">{{ ticket.SUBJECT || 'Обращение в поддержку' }}</p>
+        <p class="ticket-preview">{{ ticket.SUBJECT || 'обращение в поддержку' }}</p>
         <span class="ticket-arrow">›</span>
       </router-link>
     </div>
@@ -131,6 +131,7 @@ onMounted(() => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  text-transform: lowercase;
   color: #21271f;
 }
 .ticket-arrow {

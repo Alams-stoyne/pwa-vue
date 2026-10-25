@@ -8,11 +8,11 @@
           :typewriter-speed="40"
         />        
         <div class="bottom_panel">
-          <router-link to="/support" class="btn-short btn-40">
+          <router-link to="/heart" class="btn-short btn-40">
             <AppIcon name="heart" :size="21" />
           </router-link>
           <!-- ▼ ЗАМЕНЕНО НА КОМПОНЕНТ ▼ -->
-          <ApplesBadge to="/stats" />
+          <ApplesBadge to="/stats/rules" />
         </div>             
       </div>
     </transition>
@@ -130,6 +130,7 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   bottom: 28px;
   align-items: flex-end;
+  z-index: 10;
 }
 .widgets_block{
     position: relative;

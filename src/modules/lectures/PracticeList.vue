@@ -12,10 +12,10 @@
       </div>
     </div>
 
-    <div v-else-if="!tasks.list.length" class="empty">
-      <span class="empty-emoji">🎯</span>
-      <h3>Пока нет заданий</h3>
-      <p class="muted">На сегодня для направления «{{ theme.currentTheme?.name }}» заданий нет.</p>
+    <div v-else-if="!tasks.list.length" class="empty-block">
+        <div class="empty-title">Пока нет заданий</div>
+        <div class="empty-text">На сегодня для направления «{{ theme.currentTheme?.name }}» заданий нет</div>
+        <!-- <div class="empty-help-text">Нажмите «Синхронизировать» — подтянем материалы за последнюю неделю.</div> -->
     </div>
 
     <div v-else class="list">

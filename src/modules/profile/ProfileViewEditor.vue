@@ -1,17 +1,16 @@
 <template>
   <div class="page profile-page">
-    <header class="head">
-      <h1>Профиль</h1>
+    <!-- <header class="head">
       <transition name="fade" mode="out-in">
         <span :key="status.key" class="status" :class="status.cls">
           <span class="status-dot" />
           {{ status.text }}
         </span>
       </transition>
-    </header>
+    </header> -->
 
     <form @submit.prevent="onSave" :class="{ 'is-disabled': !canEdit }">
-      <label>Никнейм
+      <label>никнейм
         <input
           v-model.trim="store.nickname"
           type="text"
@@ -21,9 +20,9 @@
         />
       </label>
 
-      <label>Место работы
+      <label>место работы
         <select v-model="store.workplace" class="select" :disabled="!canEdit">
-          <option value="" disabled>Выберите из списка…</option>
+          <option value="" disabled>выберите из списка…</option>
           <!-- ▼ ИСПОЛЬЗУЕМ id и name ▼ -->
           <option
             v-for="w in store.workplaces"
@@ -90,14 +89,14 @@ const status = computed(() => {
 
 watch(() => store.syncState, (n, o) => {
   if (o !== 'syncing') return
-  if (n === 'idle')    toast.success('Профиль сохранён')
-  if (n === 'pending') toast.warn('Нет сети — сохранено локально, отправим позже')
+  if (n === 'idle')    toast.success('профиль сохранён')
+  if (n === 'pending') toast.warn('нет сети — сохранено локально, отправим позже')
   if (n === 'error')   toast.error('Не удалось отправить. Нажмите «Повторить».')
 })
 
 async function onSave() {
   if (!canEdit.value) {
-    toast.warn('Нужно согласие на обработку персональных данных')
+    toast.warn('нужно согласие на обработку персональных данных')
     return
   }
   await store.save()
@@ -133,6 +132,7 @@ async function onSave() {
   width: 6px; height: 6px;
   border-radius: 50%;
   background: currentColor;
+  text-transform: lowercase;
 }
 
 .is-ok      { color: #2e7d32; background: rgba(46,125,50,.10); }

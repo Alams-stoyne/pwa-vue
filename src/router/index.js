@@ -8,6 +8,7 @@ import { resolveNextOnboardingRoute } from '../modules/onboarding/navigation'
 import { setDocumentTitle } from '../modules/core/composables/usePageTitle'
 
 import HomeView from '../modules/home/HomeView.vue'
+import HomeHeartView from '../modules/home/HomeHeartView.vue'
 import ConsentView from '../modules/consent/ConsentView.vue'
 import OnboardingProfileView from '../modules/profile/OnboardingProfileView.vue'
 import HabitsCatalogView from '../modules/habits/CatalogView.vue'
@@ -55,9 +56,9 @@ const routes = [
   { path: '/quiz/welcome', component: QuizWelcomeView, meta: { auth: true, title: 'Тест на направление', back: false } },
   { path: '/quiz', component: QuizView, meta: { auth: true, title: 'Тест на направление', back: false } },
   { path: '/themes/:id', component: RecommendationView, props: true, meta: { auth: true, title: (r) => `Направление: ${r.params.id}`, back: false, recommendationOnly: true } },
-  { path: '/themes', component: ThemeSelectView, meta: { auth: true, title: (r) => r.query.change === '1' ? 'Смена направления' : 'Выбор направления', back: false, backTo: (r) => r.query.change === '1' ? { path: '/home' } : null } },
+  { path: '/themes', component: ThemeSelectView, meta: { auth: true, title: (r) => r.query.change === '1' ? 'Смена направления' : 'Выбор направления', back: false, backTo: (r) => r.query.change === '1' ? { path: '/profile' } : null } },
   { path: '/profile', component: ProfileView, meta: { auth: true, title: 'Профиль', viewBackTitle: true, back: true, backTo: { path: '/home' } } },
-  { path: '/profile/edit', component: ProfileViewEditor, meta: { auth: true, title: 'Профиль', back: true, backTo: { path: '/profile' } } },
+  { path: '/profile/edit', component: ProfileViewEditor, meta: { auth: true, title: 'Редактировать профиль', viewBackTitle: true, back: true, backTo: { path: '/profile' } } },
   { path: '/training', component: TrainingView, meta: { auth: true, title: 'Обучение', viewBackTitle: true, back: true, backTo: { path: '/home' } } },
   { path: '/training/lectures/:dbKey', component: LectureDetailView, props: true, meta: { auth: true, title: 'Лекция', viewBackTitle: true, back: true, hideNav: true, backTo: (r) => r.query.from === 'storage' ? { path: '/training/storage' } : { path: '/training' } } },
   { path: '/training/practices/:id', name: 'PracticeDetail', component: () => import('../modules/tasks/TasksViewDetail.vue'), meta: { auth: true, title: 'Практика', viewBackTitle: true, back: true, backTo: { path: '/training', query: { tab: 'practice' } } } },
@@ -68,8 +69,24 @@ const routes = [
   
   { path: '/stats', component: StatsView, meta: { auth: true, title: 'Статистика', viewBackTitle: true, back: true, backTo: { path: '/home' } } },
 
+  { path: '/heart', component: HomeHeartView, meta: { auth: true, title: 'Донорство', hideNav: true, back: true, backTo: { path: '/home' } } },
+
   // Support routes — доступны всем, в том числе без установки (для жалобы на проблему установки)
-  { path: '/support', component: SupportView, meta: { public: true, title: 'Написать администратору', viewBackTitle: true, back: true, hideNav: true, backTo: { path: '/install' } } },
+  { 
+    path: '/support', 
+    component: SupportView, 
+    meta: { 
+      public: true, 
+      title: 'Написать администратору', 
+      viewBackTitle: true, 
+      back: true, 
+      hideNav: true, 
+      backTo: () => {
+        const { isInstalled } = useInstall()
+        return isInstalled.value ? { path: '/profile' } : { path: '/install' }
+      }
+    } 
+  },
   { path: '/support/tickets', component: SupportTicketsView, meta: { auth: true, title: 'Мои обращения', viewBackTitle: true, back: true, hideNav: true, backTo: { path: '/support' } } },
   { path: '/support/tickets/:id', component: SupportTicketDetailView, props: true, meta: { auth: true, title: 'Обращение', viewBackTitle: true, back: true, hideNav: true, backTo: { path: '/support/tickets' } } },
 

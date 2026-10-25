@@ -18,7 +18,7 @@
           :class="msg.SENDER === 'admin' ? 'admin-message' : 'user-message'"
         >
           <div class="message-meta">
-            <span>{{ msg.SENDER === 'admin' ? 'Поддержка' : 'Вы' }}</span>
+            <span>{{ msg.SENDER === 'admin' ? 'поддержка' : 'вы' }}</span>
             <span>{{ formatDate(msg.CREATED_AT) }}</span>
           </div>
           <div class="message-body">
@@ -28,7 +28,7 @@
                 v-for="(img, i) in msg.IMAGES" 
                 :key="i" 
                 :src="getImageUrl(img)" 
-                alt="Вложение" 
+                alt="вложение" 
                 @click="openImage(getImageUrl(img))"
               />
             </div>
@@ -38,12 +38,12 @@
 
       <!-- Форма ответа (скрываем, если тикет закрыт) -->
       <div v-if="store.currentTicket.STATUS !== 'closed'" class="reply-section">
-        <h3 class="reply-title">Ответить</h3>
+        <h3 class="reply-title">ответить</h3>
         
         <div class="reply-form">
           <textarea 
             v-model="replyText" 
-            placeholder="Напишите сообщение..." 
+            placeholder="напишите сообщение..." 
             rows="3"
             :maxlength="MAX_REPLY_TEXT"
           ></textarea>
@@ -128,7 +128,7 @@ async function sendReply() {
   if (ok) {
     replyText.value = ''
     replyImages.value = []
-    toast.success('Сообщение отправлено')
+    // toast.success('Сообщение отправлено')
   } else if (store.error) {
     toast.error(store.error)
   }

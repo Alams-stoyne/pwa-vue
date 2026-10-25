@@ -2,19 +2,15 @@
   <section class="leaderboard-widget">
     <!-- Заголовок и переключатель -->
     <header class="lb-header">
-      <div class="lb-title-wrap">
-        <h2 class="lb-title">топ-5</h2>
-        <span v-if="store.userWorkplace" class="lb-subtitle">· {{ store.userWorkplace }}</span>
-      </div>
-      
+      <div class="lb-title">топ-5</div>
       <div class="lb-tabs">
-        <button :class="{ active: store.leaderboardDate === 'all' }" @click="setDate('all')">Всё</button>
-        <button :class="{ active: store.leaderboardDate === 'today' }" @click="setDate('today')">Сегодня</button>
-      </div>
-    </header>
+        <button :class="{ active: store.leaderboardDate === 'all' }" @click="setDate('all')">всё</button>
+        <button :class="{ active: store.leaderboardDate === 'today' }" @click="setDate('today')">сегодня</button>
+      </div>      
+    </header>    
 
     <!-- Сводка (приоритет у компании пользователя, иначе общая) -->
-    <div v-if="summaryData" class="lb-summary">
+    <!-- <div v-if="summaryData" class="lb-summary">
       <div class="lbs-item">
         <span class="lbs-val">{{ summaryData.TOTAL_PARTICIPANTS }}</span>
         <span class="lbs-label">участников</span>
@@ -27,7 +23,7 @@
         <span class="lbs-val">{{ store.schoolStats.AVG_PROGRESS_PERCENT }}%</span>
         <span class="lbs-label">прогресс</span>
       </div>
-    </div>
+    </div> -->
 
     <!-- Скелетон -->
     <div v-if="store.loadingLeaderboard && !store.leaderboard" class="lb-list">
@@ -36,7 +32,7 @@
 
     <!-- Пустое состояние -->
     <div v-else-if="!top5.length" class="lb-empty">
-      <p>За этот период пока нет подтверждённых шагов.</p>
+      <p>за этот период пока нет подтверждённых шагов.</p>
       <button v-if="!store.online" class="btn btn-secondary mt-16" @click="refresh">Обновить</button>
     </div>
 
@@ -47,10 +43,10 @@
         :key="index" 
         class="lb-card"
       >
-        <div class="lb-rank">№{{ user.rank }}</div>
+        <div class="color-text-stroke lb-rank">№{{ user.rank }}</div>
         <div class="lb-user">
           <span class="lb-nick">{{ user.nickname }}</span>
-          <span v-if="user.workplace && !store.userWorkplace" class="lb-workplace">{{ user.workplace }}</span>
+          <!-- <span v-if="user.workplace && !store.userWorkplace" class="lb-workplace">{{ user.workplace }}</span> -->
         </div>
         <div class="lb-steps">{{ formatNum(user.steps) }} шагов</div>
       </div>
@@ -58,7 +54,7 @@
 
     <!-- Дата обновления -->
     <p v-if="store.leaderboardUpdatedAt" class="lb-updated">
-      Обновлено: {{ formatDate(store.leaderboardUpdatedAt) }}
+      обновлено: {{ formatDate(store.leaderboardUpdatedAt) }}
     </p>
   </section>
 </template>
@@ -111,11 +107,8 @@ onMounted(() => {
 
 <style scoped>
 .leaderboard-widget {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-top: 24px;
-  margin-bottom: 24px;
+  display: grid;
+  gap: 16px;
 }
 
 .lb-header {
@@ -132,11 +125,13 @@ onMounted(() => {
 }
 .lb-title {
   font-family: var(--font-family);
-  font-size: 20px;
   font-weight: 700;
+  font-size: 28px;
+  line-height: 87%;
+  letter-spacing: -0.02em;
   text-transform: lowercase;
-  color: var(--txt-dark-green);
-  margin: 0;
+  text-wrap: balance;
+  color: var(--txt-black-dark-green);
 }
 .lb-subtitle {
   font-size: 13px;
@@ -153,7 +148,7 @@ onMounted(() => {
   background: #fff;
   border-radius: 100px;
   padding: 2px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--dark);
   flex-shrink: 0;
 }
 .lb-tabs button {
@@ -163,12 +158,12 @@ onMounted(() => {
   border-radius: 100px;
   font-size: 12px;
   font-weight: 600;
-  color: #6b7268;
+  color: var(--dark);
   cursor: pointer;
 }
 .lb-tabs button.active {
-  background: var(--accent);
-  color: #015F01;
+  background: var(--dark);
+  color: var(--white);
 }
 
 .lb-summary {
@@ -201,33 +196,25 @@ onMounted(() => {
 }
 
 .lb-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  display: grid;
+  gap: 16px;
 }
 
 .lb-card {
-  background: #fff;
-  border-radius: 16px;
-  padding: 14px 16px;
+  position: relative;
+  border-radius: 14px;
+  padding: 16px 10px;
+  background: var(--white);
   display: flex;
   align-items: center;
-  gap: 12px;
-  min-height: 56px;
-}
-
-.lb-card.skeleton {
-  background: #eee;
-  height: 56px;
+  gap: 14px;
 }
 
 .lb-rank {
-  font-family: var(--second-family, inherit); 
-  font-weight: 800;
   font-size: 18px;
-  color: #D3FF4F;
-  -webkit-text-stroke: 1px #21271f;
-  min-width: 32px;
+  line-height: 150%;
+  text-transform: lowercase;
+  text-wrap: balance;
 }
 
 .lb-user {
@@ -239,12 +226,11 @@ onMounted(() => {
 }
 .lb-nick {
   font-family: var(--font-family);
-  font-weight: 500;
-  font-size: 15px;
-  color: #21271f;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-weight: 400;
+  font-size: 14px;
+  line-height: 120%;
+  text-transform: lowercase;
+  color: var(--txt-black-dark-green);
 }
 .lb-workplace {
   font-size: 11px;
@@ -257,7 +243,7 @@ onMounted(() => {
 .lb-steps {
   font-size: 12px;
   font-weight: 600;
-  color: #015F01;
+  color: var(--muted);
   white-space: nowrap;
 }
 

@@ -2,7 +2,7 @@
   <div class="page theme-page page--bottom-action">
     <transition name="fade" appear>
       <header>
-        <h1 class="color-text-stroke">Выберите привычку</h1>
+        <h1 class="color-text-stroke">выберите привычку</h1>
       </header>
     </transition>
 
@@ -18,9 +18,9 @@
     </div>
 
     <div v-else-if="!habits.catalog.length" class="empty">
-      <span class="empty-emoji">📭</span>
+      <!-- <span class="empty-emoji">📭</span>
       <h3>Привычки не найдены</h3>
-      <p class="muted">Для этого направления пока нет привычек.</p>
+      <p class="muted">Для этого направления пока нет привычек.</p> -->
     </div>
 
     <div v-else class="theme-grid">
@@ -67,7 +67,7 @@
         v-if="chosenId && !habits.notificationsEnabled"
         class="push-block"
       >
-        <h3 class="push-title">🔔 Напоминания</h3>
+        <h3 class="push-title">🔔 напоминания</h3>
         <p class="push-text muted">
           Включите напоминания, чтобы не забывать о привычке.
           Мы будем мягко напоминать в подходящее время.
@@ -77,7 +77,7 @@
           class="btn btn-secondary btn-center"
           @click="enableNotifications"
         >
-          Включить напоминания
+          включить напоминания
         </button>
       </section>
     </transition>
