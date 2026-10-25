@@ -1,3 +1,5 @@
+import { tzOffsetMin } from '../core/utils/date'
+
 const AUTH_URL = import.meta.env.VITE_AUTH_URL
 
 export async function registerRequest({ uid, deviceId }) {
@@ -15,7 +17,13 @@ export async function registerRequest({ uid, deviceId }) {
     const res = await fetch(AUTH_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ UID: uid, DEVICE_ID: deviceId }),
+      body: JSON.stringify({
+        UID: uid,
+        DEVICE_ID: deviceId,
+        // Сервер определяет LOCAL_DATE по этому смещению.
+        // МСК → +180, Новосибирск → +420 и т.д.
+        TZ_OFFSET_MIN: tzOffsetMin(),
+      }),
       signal: controller.signal,
     })
     console.log('[auth api] Response status:', res.status)

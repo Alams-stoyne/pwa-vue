@@ -13,18 +13,18 @@
       <!-- ── Блок видео ── -->
       <div v-if="video" class="practice-video">
         <FacecastPlayer v-if="video.type === 'facecast'" :url="video.src" />
-        
+
         <div v-else-if="video.type === 'iframe'" class="video-embed">
           <iframe :src="video.src" allowfullscreen frameborder="0" />
         </div>
-        
+
         <video v-else-if="video.type === 'video'" :src="video.src" controls class="video" />
-        
-        <a 
-          v-else 
-          :href="video.src" 
-          target="_blank" 
-          rel="noopener" 
+
+        <a
+          v-else
+          :href="video.src"
+          target="_blank"
+          rel="noopener"
           class="btn btn-secondary btn-center mt-16"
         >
           ▶ Смотреть видео
@@ -36,10 +36,21 @@
       <div class="detail-actions">
         <span v-if="isDone" class="badge-done">✓ Практика выполнена</span>
 
-        <p v-else-if="!hasConsent" class="consent-warning">
-          Чтобы отметить практику выполненной, необходимо
-          <router-link to="/onboarding/consent">согласие на обработку персональных данных</router-link>.
-        </p>
+        <template v-else>
+          <p v-if="!hasConsent" class="consent-warning">
+            Чтобы отметить практику выполненной, необходимо
+            <router-link to="/onboarding/consent">согласие на обработку персональных данных</router-link>.
+          </p>
+
+          <!-- ▼ ДОБАВЛЕНО: блок лимита по практикам ▼ -->
+          <p v-else-if="taskLimit.reached" class="limit-warning">
+            Лимит дня по практикам исчерпан.
+            Награда за действия начнёт начисляться завтра.
+          </p>
+          <p v-else-if="taskLimit.limit > 0" class="limit-hint">
+            Сегодня по практикам: {{ taskLimit.used }} из {{ taskLimit.limit }}.
+          </p>
+        </template>
 
         <p v-if="error" class="error-text">{{ error }}</p>
       </div>
@@ -53,8 +64,14 @@
           @click="markDone"
         >
           <span class="text">{{ marking ? 'Отправка…' : 'готово' }}</span>
-          <span class="badge" v-if="task.REWARD_POINTS">+{{ task.REWARD_POINTS }} <AppIcon name="apple" :size="21" /></span>         
-        </button>  
+          <!-- ▼ Бейдж скрываем, если лимит исчерпан ▼ -->
+          <span
+            class="badge"
+            v-if="task.REWARD_POINTS && !taskLimit.reached"
+          >
+            +{{ task.REWARD_POINTS }} <AppIcon name="apple" :size="21" />
+          </span>
+        </button>
       </div>
 
     </template>
@@ -66,6 +83,8 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useTasksStore } from './store'
 import { useConsentStore } from '../consent/store'
+import { useLimits } from '../core/limits'
+import { useToast } from '../core/composables/useToast'
 import { fetchTasksByThemeDate } from './api'
 import AppIcon from '../../components/AppIcon.vue'
 import FacecastPlayer from '../../components/FacecastPlayer.vue'
@@ -75,6 +94,8 @@ const { setBackground, clearBackground } = useAppBackground()
 const route = useRoute()
 const tasksStore = useTasksStore()
 const consent = useConsentStore()
+const limitsApi = useLimits()
+const toast = useToast()
 
 const task = ref(null)
 const loading = ref(false)
@@ -83,7 +104,6 @@ const error = ref('')
 
 const taskId = String(route.params.id)
 
-// ID в JSON имеет вид "{theme}-{date}", например "5-2026-10-20".
 function parseId(id) {
   const i = id.indexOf('-')
   if (i === -1) return { theme: '', date: '' }
@@ -99,44 +119,28 @@ const isDone = computed(() => {
 
 const hasConsent = computed(() => consent.isGranted)
 
-// ── Логика видео ──────────────────────────────────────────────
+// ▼ Лимит по практикам ▼
+const taskLimit = computed(
+  () => limitsApi.asMap.value.task || { limit: 0, used: 0, reached: false, remaining: null },
+)
+
 const video = computed(() => {
   const raw = task.value?.VIDEO_LINK
   if (!raw) return null
-
   const url = String(raw).trim()
   if (!url) return null
-
-  // Facecast
-  if (url.includes('facecast.net')) {
-    return { type: 'facecast', src: url }
-  }
-
-  // YouTube
+  if (url.includes('facecast.net')) return { type: 'facecast', src: url }
   const ytMatch = url.match(
     /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/,
   )
-  if (ytMatch) {
-    return {
-      type: 'iframe',
-      src: `https://www.youtube.com/embed/${ytMatch[1]}?rel=0`,
-    }
-  }
-
-  // Прямая ссылка на видеофайл
-  if (/\.(mp4|webm|ogg|ogv|mov|m4v)(\?|#|$)/i.test(url)) {
-    return { type: 'video', src: url }
-  }
-
-  // Обычная ссылка
+  if (ytMatch) return { type: 'iframe', src: `https://www.youtube.com/embed/${ytMatch[1]}?rel=0` }
+  if (/\.(mp4|webm|ogg|ogv|mov|m4v)(\?|#|$)/i.test(url)) return { type: 'video', src: url }
   return { type: 'link', src: url }
 })
 
-// ─────────────────────────────────────────────────────────────
-
 async function loadTask() {
   setBackground({ url: '/backgrounds/bg_frame.jpg' })
-  const found = tasksStore.list.find(t => String(t.ID_TASK) === taskId)
+  const found = tasksStore.list.find((t) => String(t.ID_TASK) === taskId)
   if (found) { task.value = found; return }
 
   const { theme, date } = parseId(taskId)
@@ -145,7 +149,7 @@ async function loadTask() {
   loading.value = true
   try {
     const list = await fetchTasksByThemeDate(theme, date)
-    task.value = list.find(t => String(t.ID) === taskId) || null
+    task.value = list.find((t) => String(t.ID) === taskId) || null
     if (!task.value) error.value = 'Практика не найдена'
   } catch {
     error.value = 'Не удалось загрузить практику'
@@ -154,12 +158,33 @@ async function loadTask() {
   }
 }
 
+// ▼ ДОБАВЛЕНО: обработка нового формата результата complete ▼
 async function markDone() {
   if (!task.value || !hasConsent.value || isDone.value) return
   marking.value = true
   error.value = ''
   try {
-    await tasksStore.complete(task.value)
+    const result = await tasksStore.complete(task.value)
+    if (!result?.done) {
+      if (result?.reason === 'ALREADY_DONE') toast.info('Уже отмечено')
+      return
+    }
+    if (result.queued) {
+      toast.info('Отмечено. Награда будет зачислена после подключения к сети.')
+      return
+    }
+    if (result.limitReached) {
+      toast.warn(
+        'Дневной лимит наград по практикам исчерпан. Награда за действия начнёт начисляться завтра.',
+        { duration: 6000 },
+      )
+      return
+    }
+    if (result.rewardPoints > 0) {
+      toast.success(`+${result.rewardPoints} яблок`)
+      return
+    }
+    toast.success('Практика отмечена выполненной')
   } catch (e) {
     error.value = e?.message === 'CONSENT_REQUIRED'
       ? 'Необходимо согласие на обработку персональных данных'
@@ -172,96 +197,46 @@ async function markDone() {
 onMounted(loadTask)
 
 function viewClick(event) {
-  console.log(event);
+  console.log(event)
 }
 </script>
 
 <style scoped>
-.practice-detail {
-  padding-bottom: 24px;
-}
+.practice-detail { padding-bottom: 24px; }
+.state { text-align: center; padding: 24px; color: var(--muted); }
+.state.error { color: #B91D0C; }
 
-.state {
-  text-align: center;
-  padding: 24px;
-  color: var(--muted);
-}
-.state.error {
-  color: #B91D0C;
-}
-
-.detail-head {
-  margin-bottom: 16px;
-}
-
+.detail-head { margin-bottom: 16px; }
 .detail-head h1 {
-  font-family: var(--font-family);
-  font-weight: 700;
-  font-size: 20px;
-  line-height: 120%;
-  letter-spacing: -0.01em;
-  text-wrap: balance;
-  color: #21271f;
-  margin: 0 0 8px;
+  font-family: var(--font-family); font-weight: 700;
+  font-size: 20px; line-height: 120%; letter-spacing: -0.01em;
+  text-wrap: balance; color: #21271f; margin: 0 0 8px;
 }
-
 .detail-desc {
-  margin: 0 0 12px;
-  font-size: 14px;
-  line-height: 1.4;
-  color: #6b7268;
+  margin: 0 0 12px; font-size: 14px; line-height: 1.4; color: #6b7268;
 }
-
 .detail-cover {
-  width: 100%;
-  border-radius: var(--radius);
-  display: block;
-  margin: 12px 0;
+  width: 100%; border-radius: var(--radius);
+  display: block; margin: 12px 0;
 }
 
-/* ── Блок видео ── */
-.practice-video {
-  margin: 16px 0;
-}
-
+.practice-video { margin: 16px 0; }
 .video-embed {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  background: #000;
-  border-radius: 16px;
-  overflow: hidden;
+  position: relative; width: 100%; aspect-ratio: 16 / 9;
+  background: #000; border-radius: 16px; overflow: hidden;
   border: 1px solid var(--border);
 }
-.video-embed iframe {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  border: 0;
-}
-
+.video-embed iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
 .video {
-  width: 100%;
-  display: block;
-  background: #000;
-  border-radius: 16px;
-  border: 1px solid var(--border);
+  width: 100%; display: block; background: #000;
+  border-radius: 16px; border: 1px solid var(--border);
 }
+.mt-16 { margin-top: 16px; }
 
-.mt-16 {
-  margin-top: 16px;
-}
-
-/* ── Текст ── */
 .detail-content {
-  font-family: var(--font-family);
-  font-weight: 400;
-  font-size: 14px;
-  line-height: 130%;
-  letter-spacing: -0.01em;
-  color: #21271f;
-  margin-bottom: 24px;
+  font-family: var(--font-family); font-weight: 400;
+  font-size: 14px; line-height: 130%; letter-spacing: -0.01em;
+  color: #21271f; margin-bottom: 24px;
 }
 .detail-content :deep(p) { margin: 0 0 12px; }
 .detail-content :deep(p:last-child) { margin-bottom: 0; }
@@ -269,41 +244,34 @@ function viewClick(event) {
 .detail-content :deep(ol) { margin: 0 0 12px; padding-left: 22px; }
 .detail-content :deep(a) { color: var(--accent); text-decoration: underline; }
 
-/* ── Действия и футер ── */
-.detail-actions {
-  margin-top: 24px;
-}
+.detail-actions { margin-top: 24px; }
 
 .badge-done {
-  display: inline-block;
-  padding: 8px 14px;
-  border-radius: 8px;
-  background: #EEF7E5;
-  color: #015F01;
-  font-size: 14px;
-  font-weight: 600;
+  display: inline-block; padding: 8px 14px;
+  border-radius: 8px; background: #EEF7E5; color: #015F01;
+  font-size: 14px; font-weight: 600;
 }
 
 .consent-warning {
-  margin-top: 12px;
-  padding: 12px 14px;
-  border-radius: 10px;
-  background: #FFF8EC;
-  border: 1px solid #FBE5C6;
-  font-size: 13px;
-  line-height: 1.5;
-  color: #21271f;
+  margin-top: 12px; padding: 12px 14px;
+  border-radius: 10px; background: #FFF8EC;
+  border: 1px solid #FBE5C6; font-size: 13px;
+  line-height: 1.5; color: #21271f;
 }
 .consent-warning a {
-  color: var(--accent);
-  font-weight: 600;
-  text-decoration: underline;
-  text-underline-offset: 2px;
+  color: var(--accent); font-weight: 600;
+  text-decoration: underline; text-underline-offset: 2px;
 }
 
-.error-text {
-  color: #B91D0C;
-  font-size: 13px;
-  margin-top: 12px;
+.limit-warning {
+  margin-top: 12px; padding: 12px 14px;
+  border-radius: 10px; background: #FFF1F0;
+  border: 1px solid #FCD9D6; font-size: 13px;
+  line-height: 1.5; color: #7a1710;
 }
+.limit-hint {
+  margin-top: 12px; font-size: 13px; color: var(--muted);
+}
+
+.error-text { color: #B91D0C; font-size: 13px; margin-top: 12px; }
 </style>

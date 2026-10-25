@@ -19,7 +19,7 @@
           <div class="theme-info">
             <span class="theme-name color-text-stroke">{{ t.name }}</span>
             <div v-if="quiz.recommended === t.id && !isChangeMode" class="theme-badge">⭐ рекомендуем</div>
-            <span class="theme-subtitle muted">{{ t.subtitle }}</span>            
+            <span class="theme-subtitle muted">{{ t.subtitle }}</span>
           </div>
         </button>
 
@@ -27,20 +27,18 @@
           <span>подробнее</span>
           <svg width="13" height="13" viewBox="0 0 13 13" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path fill-rule="evenodd" clip-rule="evenodd" d="M0 0.830603C-2.80058e-07 0.371874 0.371873 1.34778e-06 0.830601 1.55782e-06L11.794 0C12.0143 0 12.2255 0.0875097 12.3813 0.243278C12.5371 0.399046 12.6246 0.610312 12.6246 0.830601V11.794C12.6246 12.2527 12.2527 12.6246 11.794 12.6246C11.3352 12.6246 10.9634 12.2527 10.9634 11.794V2.83585L1.41793 12.3813C1.09356 12.7057 0.567648 12.7057 0.243278 12.3813C-0.0810918 12.0569 -0.0810921 11.531 0.243278 11.2067L9.78873 1.6612L0.830601 1.6612C0.371872 1.6612 -2.97561e-07 1.28933 0 0.830603Z" fill="#21271F" />
-          </svg>           
+          </svg>
         </button>
-
-        <!-- <button class="theme-details" :disabled="busy" @click.stop="openVideo(t)">
-          <span>Подробнее</span>
-          <svg width="13" height="13" viewBox="0 0 13 13" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path fill-rule="evenodd" clip-rule="evenodd" d="M0 0.830603C-2.80058e-07 0.371874 0.371873 1.34778e-06 0.830601 1.55782e-06L11.794 0C12.0143 0 12.2255 0.0875097 12.3813 0.243278C12.5371 0.399046 12.6246 0.610312 12.6246 0.830601V11.794C12.6246 12.2527 12.2527 12.6246 11.794 12.6246C11.3352 12.6246 10.9634 12.2527 10.9634 11.794V2.83585L1.41793 12.3813C1.09356 12.7057 0.567648 12.7057 0.243278 12.3813C-0.0810918 12.0569 -0.0810921 11.531 0.243278 11.2067L9.78873 1.6612L0.830601 1.6612C0.371872 1.6612 -2.97561e-07 1.28933 0 0.830603Z" fill="#21271F" />
-          </svg>           
-        </button> -->
-
       </article>
     </div>
 
     <div class="bottom-action d-grid g8">
+      <!-- ▼ НОВОЕ: подсказка при смене направления ▼ -->
+      <div v-if="isChangeMode && themeLimitReached" class="limit-banner">
+        На сегодня награды за направление получены — смена направления
+        сегодня не принесёт новых наград.
+      </div>
+
       <button
         type="button"
         class="btn btn-primary btn-center"
@@ -56,18 +54,10 @@
         type="button"
         class="btn btn-secondary btn-center"
         @click="retake"
-      >       
+      >
        пройти тест заново
       </button>
     </div>
-
-    <!-- <VideoOverlay
-      v-model="videoOpen"
-      :url="currentVideoTheme?.videoUrl || ''"
-      :title="currentVideoTheme?.name || ''"
-      breadcrumb="Направление"
-      :description="currentVideoTheme?.videoDescription || ''"
-    /> -->
   </div>
 </template>
 
@@ -76,6 +66,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useThemeStore } from './store'
 import { useQuizStore } from '../quiz/store'
+import { useLimits } from '../core/limits'
 import AppIcon from '../../components/AppIcon.vue'
 import VideoOverlay from '../../components/VideoOverlay.vue'
 import { getTheme } from '../theme/themes'
@@ -85,6 +76,7 @@ import { resolveNextOnboardingRoute } from '../onboarding/navigation'
 
 const store = useThemeStore()
 const quiz = useQuizStore()
+const limitsApi = useLimits()
 const route = useRoute()
 const router = useRouter()
 const toast = useToast()
@@ -102,9 +94,16 @@ const currentVideoTheme = ref(null)
 const canConfirm = computed(() => !!store.draft && store.draft !== store.selected)
 const recommendedName = computed(() => getTheme(quiz.recommended)?.name || '')
 
-onMounted(() => { 
+// ▼ НОВОЕ: смена направления не принесёт наград, только если ОБА
+//   лимита по направлению (лекции + практики) исчерпаны. ▼
+const themeLimitReached = computed(() => {
+  const t = limitsApi.asMap.value
+  return Boolean(t.lecture_theme?.reached) && Boolean(t.task?.reached)
+})
+
+onMounted(() => {
   setBackground({ url: '/backgrounds/bg_frame.jpg' })
-  store.load(); 
+  store.load();
   quiz.load()
 })
 
@@ -125,6 +124,13 @@ async function confirm() {
   if (!store.commitDraft()) { busy.value = false; return }
 
   if (isChangeMode.value) {
+    // ▼ НОВОЕ: напоминаем о лимите ▼
+    if (themeLimitReached.value) {
+      toast.warn(
+        'На сегодня награды за направление получены — смена направления сегодня не принесёт новых наград.',
+        { duration: 6000 },
+      )
+    }
     router.back()
     return
   }
@@ -141,9 +147,8 @@ function retake() {
 </script>
 
 <style scoped>
-.theme-page { 
+.theme-page {
   position: relative;
-  /* background: linear-gradient(180deg, #86d0fb -14.79%, rgba(134, 208, 251, 0) 100%); */
 }
 
 .theme-page .theme-top-title{
@@ -160,31 +165,31 @@ function retake() {
 @media (max-width: 420px) { .theme-grid { grid-template-columns: 1fr; } }
 
 .theme-card {
-  position: relative; 
-  display: flex; 
+  position: relative;
+  display: flex;
   flex-direction: column;
-  border: 1.5px solid var(--border); 
+  border: 1.5px solid var(--border);
   border-radius: var(--radius);
-  background: var(--bg, #fff); 
+  background: var(--bg, #fff);
   overflow: hidden;
   transition: transform var(--t-base), border-color var(--t-base),
               box-shadow var(--t-base), background var(--t-base), opacity var(--t-base);
 }
-.theme-card:hover { 
-  transform: translateY(-3px); 
-  box-shadow: var(--shadow-1); 
+.theme-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-1);
 }
 .theme-card.selected {
-   border-color: #015f01; 
-   box-shadow: 0 0 0 1px var(--accent-soft); 
+   border-color: #015f01;
+   box-shadow: 0 0 0 1px var(--accent-soft);
 }
 .theme-card.busy { opacity: .6; pointer-events: none; }
 
 .theme-main {
-  position: relative; 
-  display: flex; 
-  gap: 16px; 
-  padding: 18px 15px; 
+  position: relative;
+  display: flex;
+  gap: 16px;
+  padding: 18px 15px;
   text-align: left;
   background: transparent; color: var(--text); font-weight: 500;
   border: none; border-radius: 0; box-shadow: none; cursor: pointer;
@@ -193,13 +198,13 @@ function retake() {
 .theme-main:active:not(:disabled) { transform: none; }
 .theme-info{
   position: relative;
-  display: flex; 
-  flex-direction: column; 
+  display: flex;
+  flex-direction: column;
   align-items: flex-start;
-  gap: 6px; 
+  gap: 6px;
 }
 .theme-emoji { font-size: 26px; line-height: 1; }
-.theme-name { 
+.theme-name {
   font-weight: 400;
   font-size: 17px;
   line-height: 159%;
@@ -222,15 +227,15 @@ function retake() {
 }
 .theme-check {
   background: #d1efea;
-  width: 24px; 
-  height: 24px; 
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
-  display: grid; 
-  place-items: center; 
-  color: #fff; 
+  display: grid;
+  place-items: center;
+  color: #fff;
   transition: opacity var(--t-base), transform var(--t-base);
 }
-.theme-card.selected .theme-check{ 
+.theme-card.selected .theme-check{
   background: #015f01;
   color: #D3FF4F;
 }
@@ -265,4 +270,17 @@ function retake() {
   justify-content: center;
 }
 .retake-btn { max-width: 358px; }
+
+/* ▼ НОВОЕ: баннер лимита ▼ */
+.limit-banner {
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #FFF8EC;
+  border: 1px solid #FBE5C6;
+  color: #7a4b00;
+  font-family: var(--font-family);
+  font-size: 13px;
+  line-height: 1.4;
+  text-wrap: balance;
+}
 </style>

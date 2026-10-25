@@ -18,6 +18,7 @@ import { useAuthStore } from '../auth/store'
 import { useThemeStore } from '../theme/store'
 import { useStatsStore } from '../stats/store'
 import { useHomeStore } from '../home/store'
+import { useLimits, bucketToRewardType, bucketFromDbKey } from '../core/limits'
 import { themesComputed } from '../theme/themes'
 import { isOffline } from '../core/utils/network'
 
@@ -169,13 +170,10 @@ export const useLecturesStore = defineStore('lectures', {
       await Promise.all(jobs.map(async ({ bucket, fetcher }) => {
         try {
           const items = await fetcher()
-          // ▼ ОЧИСТКА СТАРЫХ ДАННЫХ ▼
           await cleanupLectures(bucket, today, items)
-          
           for (const it of items) await persistLecture(bucket, it, today)
           anySuccess = true
         } catch (err) {
-          // Если 404 (нет лекций за сегодня) — чистим кэш
           if (err?.message?.includes('404')) {
             await deleteLecturesByBucketDate(bucket, today)
             anySuccess = true
@@ -244,14 +242,11 @@ export const useLecturesStore = defineStore('lectures', {
           await Promise.all(jobs.map(async ({ bucket, fetcher }) => {
             try {
               const items = await fetcher()
-              // ▼ ОЧИСТКА СТАРЫХ ДАННЫХ ЗА ДЕНЬ ▼
               await cleanupLectures(bucket, date, items)
-
               for (const it of items) await persistLecture(bucket, it, date)
               added += items.length
               dayOk = true
             } catch (err) {
-              // Если 404 — значит файла за этот день больше нет, чистим кэш
               if (err?.message?.includes('404')) {
                 await deleteLecturesByBucketDate(bucket, date)
                 dayOk = true
@@ -355,15 +350,29 @@ export const useLecturesStore = defineStore('lectures', {
       return getLecture(dbKey)
     },
 
+    /**
+     * Отметить лекцию прочитанной.
+     *
+     * @returns {{
+     *   done: boolean,                 // действие засчитано
+     *   reason?: string,               // причина отказа (ALREADY_READ | NOT_TODAY | NO_LECTURE)
+     *   rewardPoints?: number,         // сколько яблок реально начислено (0 если нет)
+     *   limitReached?: boolean,        // сервер сообщил REWARD_LIMIT_REACHED
+     *   limitInfo?: object|null,       // { type?, limit, count }
+     *   rewardType?: string|null,      // lecture_theme | lecture_general | charging
+     *   queued?: boolean,              // true если ушло в офлайн-очередь
+     * }}
+     */
     async markRead(lecture) {
-      if (!lecture) return false
+      if (!lecture) return { done: false, reason: 'NO_LECTURE' }
       const { dbKey, publishedDate, bucket } = lecture
-      if (this.readKeys.includes(dbKey)) return false
-      if (publishedDate !== localDate()) return false
+      if (this.readKeys.includes(dbKey)) return { done: false, reason: 'ALREADY_READ' }
+      if (publishedDate !== localDate()) return { done: false, reason: 'NOT_TODAY' }
 
       this.readKeys.push(dbKey)
       localStorage.setItem(LS_READ, JSON.stringify(this.readKeys))
 
+      const rewardType = bucketToRewardType(bucket)
       const themeKey = String(bucket || '').replace(/^lecture-/, '') || 'general'
       try { useStatsStore().bumpLecturesRead(themeKey) } catch { /* ignore */ }
 
@@ -375,26 +384,37 @@ export const useLecturesStore = defineStore('lectures', {
       }
 
       if (isOffline()) {
-        const q = queueFromLS(); q.push(payload)
+        const q = queueFromLS()
+        q.push({ ...payload, _rewardType: rewardType })
         localStorage.setItem(LS_QUEUE, JSON.stringify(q))
         try { useHomeStore().refreshToday() } catch { /* ignore */ }
-        return true
+        return {
+          done: true, rewardPoints: 0, limitReached: false,
+          limitInfo: null, rewardType, queued: true,
+        }
       }
+
       try {
         const res = await sendLectureRead(payload)
         if (!isSuccess(res)) throw new Error('not ok')
-        
-        if (res.REWARD_POINTS) {
-          try { useStatsStore().addApplesLocally(res.REWARD_POINTS) } catch { /* ignore */ }
-        }
 
+        const outcome = useLimits().handleRewardResponse(res, rewardType)
+        if (outcome.rewardPoints > 0) {
+          try { useStatsStore().addApplesLocally(outcome.rewardPoints) } catch { /* ignore */ }
+        }
         try { useHomeStore().refreshToday() } catch { /* ignore */ }
+
+        return { done: true, ...outcome, queued: false }
       } catch {
-        const q = queueFromLS(); q.push(payload)
+        const q = queueFromLS()
+        q.push({ ...payload, _rewardType: rewardType })
         localStorage.setItem(LS_QUEUE, JSON.stringify(q))
         try { useHomeStore().refreshToday() } catch { /* ignore */ }
+        return {
+          done: true, rewardPoints: 0, limitReached: false,
+          limitInfo: null, rewardType, queued: true,
+        }
       }
-      return true
     },
 
     async flushReadQueue() {
@@ -402,14 +422,20 @@ export const useLecturesStore = defineStore('lectures', {
       const q = queueFromLS()
       if (!q.length) return
       const remain = []
+      const limits = useLimits()
       for (const p of q) {
+        // Отделяем клиентское поле _rewardType, чтобы не отправлять его на сервер.
+        const { _rewardType, ...cleanPayload } = p
+        // Fallback для старых записей очереди без _rewardType.
+        const fallbackType = _rewardType || bucketToRewardType(bucketFromDbKey(cleanPayload.ID_LECTURE))
         try {
-          const res = await sendLectureRead(p)
+          const res = await sendLectureRead(cleanPayload)
           if (!isSuccess(res)) {
             remain.push(p)
           } else {
-            if (res.REWARD_POINTS) {
-              try { useStatsStore().addApplesLocally(res.REWARD_POINTS) } catch { /* ignore */ }
+            const outcome = limits.handleRewardResponse(res, fallbackType)
+            if (outcome.rewardPoints > 0) {
+              try { useStatsStore().addApplesLocally(outcome.rewardPoints) } catch { /* ignore */ }
             }
           }
         } catch { remain.push(p) }

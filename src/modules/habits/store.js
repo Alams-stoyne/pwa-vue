@@ -311,8 +311,7 @@ export const useHabitsStore = defineStore('habits', {
             const raw = await fetchHabitsConfig()
             const configs = extractHabitsForTheme(raw, themeId)
               || getFallbackHabitsForTheme(themeId)
-            
-            // ▼ ДОБАВЛЕНЫ description, picture и rewardPoints ▼
+
             const normalized = configs.map((h) => ({
               id: h.id,
               icon: h.icon || h.id,
@@ -321,12 +320,12 @@ export const useHabitsStore = defineStore('habits', {
               hint: h.hint || '',
               description: h.description || h.hint || '',
               picture: h.picture || h.image || h.cover || '',
-              rewardPoints: h.rewardPoints || h.reward_points || 0, // <-- Подстраховка
+              rewardPoints: h.rewardPoints || h.reward_points || 0,
               timesPerDay: Number(h.timesPerDay) || 1,
               minIntervalMin: Number(h.minIntervalMin) || 60,
               themeId,
             }))
-            
+
             this.catalogList = normalized
             writeLS(LS_CACHE, normalized)
             localStorage.setItem(LS_CACHE_AT, String(Date.now()))
@@ -430,10 +429,14 @@ export const useHabitsStore = defineStore('habits', {
       try {
         const res = await sendHabitComplete(payload)
         if (!isSuccess(res)) throw new Error('not ok')
-        
-        // ▼ ДОБАВЛЕНА ПОДСТРАХОВКА: если сервер не прислал REWARD_POINTS, берем из конфига ▼
-        const reward = res.REWARD_POINTS !== undefined ? res.REWARD_POINTS : h.rewardPoints
-        if (reward) {
+
+        // ▼ Защита: если сервер когда-нибудь пришлёт REWARD_LIMIT_REACHED
+        //   для привычки — не начисляем fallback из конфига ▼
+        const limitReached = res.REWARD_LIMIT_REACHED === true
+        const reward = limitReached
+          ? 0
+          : (res.REWARD_POINTS !== undefined ? res.REWARD_POINTS : h.rewardPoints)
+        if (reward > 0) {
           try { useStatsStore().addApplesLocally(reward) } catch { /* ignore */ }
         }
 
@@ -467,8 +470,13 @@ export const useHabitsStore = defineStore('habits', {
           } else {
             const habitId = p.HABIT_ID
             const h = getHabit(habitId)
-            const reward = res.REWARD_POINTS !== undefined ? res.REWARD_POINTS : (h ? h.rewardPoints : 0)
-            if (reward) {
+            const limitReached = res.REWARD_LIMIT_REACHED === true
+            const reward = limitReached
+              ? 0
+              : (res.REWARD_POINTS !== undefined
+                  ? res.REWARD_POINTS
+                  : (h ? h.rewardPoints : 0))
+            if (reward > 0) {
               try { useStatsStore().addApplesLocally(reward) } catch { /* ignore */ }
             }
           }

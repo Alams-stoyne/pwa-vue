@@ -1,3 +1,4 @@
+import { tzOffsetMin } from '../core/utils/date'
 import { fetchWithTimeout, isOffline, OfflineError } from '../core/utils/network'
 
 const CDN = import.meta.env.VITE_CDN_URL
@@ -24,7 +25,12 @@ export async function sendHabitComplete({ ID_USER, HABIT_ID, LOCAL_DATETIME }) {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ID_USER, HABIT_ID, LOCAL_DATETIME }),
+    body: JSON.stringify({
+      ID_USER,
+      HABIT_ID,
+      LOCAL_DATETIME,
+      TZ_OFFSET_MIN: tzOffsetMin(),
+    }),
   })
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
   return res.json()
@@ -43,11 +49,6 @@ export async function fetchHabits({ ID_USER }) {
   return res.json()
 }
 
-/**
- * Загрузить выбранную пользователем привычку.
- * POST {API}/habits/selection { ID_USER }
- * → { RESULT: 'OK', HABIT_ID: 'water-energy' | null }
- */
 export async function fetchHabitSelection({ ID_USER }) {
   if (isOffline()) throw new OfflineError()
 
@@ -63,10 +64,6 @@ export async function fetchHabitSelection({ ID_USER }) {
   catch { throw new Error('Некорректный ответ сервера') }
 }
 
-/**
- * Сохранить выбор привычки.
- * POST {API}/habits/select { ID_USER, HABIT_ID }
- */
 export async function saveHabitSelection({ ID_USER, HABIT_ID }) {
   if (isOffline()) throw new OfflineError()
 

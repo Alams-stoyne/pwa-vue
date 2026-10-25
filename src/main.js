@@ -11,6 +11,7 @@ import { useAuthStore } from './modules/auth/store'
 import { useThemeStore } from './modules/theme/store'
 import { useConsentStore } from './modules/consent/store'
 import { useHabitsStore } from './modules/habits/store'
+import { useLimits } from './modules/core/limits'
 import { subscribeToPush, getSubscription } from './modules/push/push'
 
 const pinia = createPinia()
@@ -39,6 +40,7 @@ const app = createApp(App)
 app.use(pinia)
 app.use(router)
 
+// auth.load() синхронный и идемпотентный — вызываем один раз.
 const auth = useAuthStore()
 auth.load()
 
@@ -59,8 +61,13 @@ if (shift) {
   console.log('[debug] сдвиг даты:', shift / 86400000, 'дн.')
 }
 
-// const auth = useAuthStore()
-auth.load()
+// ── Лимиты дневных наград ────────────────────────────────────
+// init() запускается внутри useLimits(): читает used из LS,
+// подтягивает rules с CDN (кэш 1 час). startDayWatcher() ставит
+// setInterval(60с) + visibilitychange → сверка с /config/limits.
+const limits = useLimits()
+limits.startDayWatcher()
+limits.refreshUsed().catch(() => {})
 
 // Согласие ПД — загружаем при старте, если пользователь авторизован
 const consent = useConsentStore()
@@ -74,9 +81,6 @@ theme.load()
 theme.loadThemes().catch(() => {})
 
 // Привычка — не меняется, восстанавливается через STATE.HABIT_SELECTED
-// при POST /auth. Если она уже в LS — loadSelection() с guard'ом
-// вернётся мгновенно, без сетевого запроса. Запрос уйдёт только
-// как fallback, если LS частично потерян, но пользователь авторизован.
 if (auth.idUser) {
   const habits = useHabitsStore()
   habits.reload()
@@ -200,5 +204,6 @@ console.log('[bootstrap]', {
   iosStandalone: window.navigator.standalone,
   displayStandalone: window.matchMedia('(display-mode: standalone)').matches,
   apiBase: API_BASE,
+  limits: limits.asMap.value,
   url: location.href,
 })

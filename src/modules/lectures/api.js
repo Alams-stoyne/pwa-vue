@@ -1,4 +1,4 @@
-import { localDate } from '../core/utils/date'
+import { localDate, tzOffsetMin } from '../core/utils/date'
 import { fetchWithTimeout, isOffline, OfflineError } from '../core/utils/network'
 
 const CDN = import.meta.env.VITE_CDN_URL
@@ -34,13 +34,18 @@ export async function sendLectureRead({ ID_USER, ID_LECTURE, LOCAL_DATETIME }) {
   const res = await fetchWithTimeout(`${API}/lecture/read`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ID_USER, ID_LECTURE, LOCAL_DATETIME }),
+    body: JSON.stringify({
+      ID_USER,
+      ID_LECTURE,
+      LOCAL_DATETIME,
+      // Сервер определяет LOCAL_DATE по смещению. МСК → +180.
+      TZ_OFFSET_MIN: tzOffsetMin(),
+    }),
   })
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
   return res.json()
 }
 
-/** Запрос списка отмеченных материалов с сервера. */
 export async function fetchReads({ ID_USER }) {
   if (isOffline()) throw new OfflineError()
   const res = await fetchWithTimeout(`${API}/reads`, {

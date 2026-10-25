@@ -11,15 +11,11 @@
 
       <!-- ── Медиа-превью ── -->
       <template v-if="hasVideo">
-        <!-- Facecast плеер -->
         <div v-if="video.type === 'facecast'" class="facecast-wrap">
           <FacecastPlayer :url="video.src" />
-          <p v-if="!store.online" class="media-offline">
-            Видео недоступно офлайн
-          </p>
+          <p v-if="!store.online" class="media-offline">Видео недоступно офлайн</p>
         </div>
 
-        <!-- Остальные типы видео (YouTube, MP4, ссылки) -->
         <div v-else class="media-hero">
           <div v-if="video.type === 'iframe'" class="video-embed">
             <iframe
@@ -49,9 +45,7 @@
             ▶ Открыть видео
           </a>
 
-          <p v-if="!store.online" class="media-offline">
-            Видео недоступно офлайн
-          </p>
+          <p v-if="!store.online" class="media-offline">Видео недоступно офлайн</p>
         </div>
       </template>
 
@@ -94,9 +88,23 @@
       </template>
 
       <div class="footer">
-        <transition name="fade" mode="out-in" v-if="isToday">
-          <div v-if="!isRead" key="read" class="read-state">
-            <b>Внимание!</b> <span>Доступна награда за выполнение.</span>
+        <!-- ▼ ДОБАВЛЕНО: учёт лимита дня ▼ -->
+        <transition name="fade" mode="out-in" v-if="isToday && !isRead">
+          <div key="read" class="read-state">
+            <template v-if="lectureLimit.reached">
+              <b>Лимит дня исчерпан.</b>
+              <span>Награда за действия по этому типу начнёт начисляться завтра.</span>
+            </template>
+            <template v-else-if="lectureLimit.limit > 0">
+              <b>Внимание!</b>
+              <span>
+                Доступна награда за выполнение.
+                Сегодня по этому типу: {{ lectureLimit.used }} из {{ lectureLimit.limit }}.
+              </span>
+            </template>
+            <template v-else>
+              <b>Внимание!</b> <span>Доступна награда за выполнение.</span>
+            </template>
           </div>
         </transition>
 
@@ -107,10 +115,10 @@
                 <path d="M0 7C0 3.13401 3.13401 0 7 0C10.866 0 14 3.13401 14 7C14 10.866 10.866 14 7 14C3.13401 14 0 10.866 0 7Z" fill="#015F01"/>
                 <path d="M10.3052 4.66663L6.02745 8.9444L4.08301 6.99996" stroke="#D3FF4F" stroke-width="1.45833" stroke-linecap="round" stroke-linejoin="round"/>
               </svg>
-              <span>Награда получена</span>
+              <span>Просмотрено</span>
             </div>
             <div class="read-state-ok">
-              <div class="read-state-ok-title">Готово • Награда получена</div>
+              <div class="read-state-ok-title">Готово • Просмотрено</div>
               <div class="read-state-ok-text">Результат сохранён</div>
             </div>
           </div>
@@ -125,7 +133,11 @@
 
       <transition name="fade" mode="out-in">
         <div class="bottom-action">
-          <ConsentBanner v-if="!canMarkRead && isToday" :class="'relative'" text="Отметить просмотрено можно только после согласия на обработку персональных данных." />
+          <ConsentBanner
+            v-if="!canMarkRead && isToday"
+            :class="'relative'"
+            text="Отметить просмотрено можно только после согласия на обработку персональных данных."
+          />
           <button
             v-if="!isRead && isToday"
             key="btn"
@@ -134,9 +146,14 @@
             @click="onRead"
           >
             <span class="text">Просмотрено</span>
-            <span class="badge" v-if="lecture.rewardPoints">+{{ lecture.rewardPoints }} <AppIcon name="apple" :size="21" /></span>
-
-          </button>          
+            <!-- ▼ Бейдж скрываем, если лимит уже исчерпан ▼ -->
+            <span
+              class="badge"
+              v-if="lecture.rewardPoints && !lectureLimit.reached"
+            >
+              +{{ lecture.rewardPoints }} <AppIcon name="apple" :size="21" />
+            </span>
+          </button>
         </div>
       </transition>
 
@@ -158,6 +175,7 @@ import ConsentBanner from '../consent/ConsentBanner.vue'
 import { idbGet } from '../core/db'
 import { useToast } from '../core/composables/useToast'
 import { localDate } from '../core/utils/date'
+import { useLimits } from '../core/limits'
 import FacecastPlayer from '../../components/FacecastPlayer.vue'
 import { useAppBackground } from '../core/composables/useAppBackground'
 const { setBackground, clearBackground } = useAppBackground()
@@ -168,6 +186,7 @@ const store = useLecturesStore()
 const theme = useThemeStore()
 const consent = useConsentStore()
 const toast = useToast()
+const limitsApi = useLimits()
 
 const photoModules = [Pagination, A11y]
 
@@ -176,19 +195,15 @@ const coverUrl = ref('')
 const photoObjectUrls = ref([])
 
 const canMarkRead = computed(() => consent.isGranted)
-
 const isRead = computed(() => lecture.value && store.isRead(lecture.value.dbKey))
+const isToday = computed(() => lecture.value?.publishedDate === localDate())
 
-const isToday = computed(() =>
-  lecture.value?.publishedDate === localDate()
-)
-
-const bucketLabel = computed(() => {
-  if (!lecture.value) return ''
-  const b = lecture.value.bucket
-  if (b === 'lecture-general') return 'Общие'
-  if (b === 'lecture-charging') return 'Зарядка'
-  return theme.currentTheme?.name || 'Направление'
+// ▼ Лимит по типу текущей лекции (lecture_theme | lecture_general | charging) ▼
+const lectureLimit = computed(() => {
+  if (!lecture.value) return { limit: 0, used: 0, reached: false, remaining: null }
+  const type = limitsApi.bucketToRewardType(lecture.value.bucket)
+  if (!type) return { limit: 0, used: 0, reached: false, remaining: null }
+  return limitsApi.asMap.value[type] || { limit: 0, used: 0, reached: false, remaining: null }
 })
 
 // ── Текст ─────────────────────────────────────────────────────
@@ -210,13 +225,10 @@ function sanitizeHtml(html) {
 }
 
 const safeText = computed(() => {
-  // ▼ ИСПРАВЛЕНО: lecture-text -> text
   const raw = lecture.value?.text || ''
   if (!raw) return ''
-
   const hasHtml = /<\/?[a-z][^>]*>/i.test(raw)
   if (hasHtml) return sanitizeHtml(raw)
-
   return raw
     .split(/\n{2,}/)
     .map((block) => {
@@ -230,16 +242,9 @@ const safeText = computed(() => {
 const video = computed(() => {
   const raw = lecture.value?.videoLink
   if (!raw) return null
-
   const url = String(raw).trim()
   if (!url) return null
-
-  // Facecast
-  if (url.includes('facecast.net')) {
-    return { type: 'facecast', src: url }
-  }
-
-  // YouTube
+  if (url.includes('facecast.net')) return { type: 'facecast', src: url }
   const ytMatch = url.match(
     /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/,
   )
@@ -251,13 +256,7 @@ const video = computed(() => {
         'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share',
     }
   }
-
-  // Прямая ссылка на видеофайл
-  if (/\.(mp4|webm|ogg|ogv|mov|m4v)(\?|#|$)/i.test(url)) {
-    return { type: 'video', src: url }
-  }
-
-  // Обычная ссылка
+  if (/\.(mp4|webm|ogg|ogv|mov|m4v)(\?|#|$)/i.test(url)) return { type: 'video', src: url }
   return { type: 'link', src: url }
 })
 
@@ -297,35 +296,23 @@ async function load() {
 
   const urls = []
   const sourcePhotos = Array.isArray(l.photos) ? l.photos : []
-
   for (const p of sourcePhotos) {
-    if (typeof p === 'string') {
-      urls.push(p)
-      continue
-    }
+    if (typeof p === 'string') { urls.push(p); continue }
     if (!p || typeof p !== 'object') continue
-
     const photoKey = p.key || p.idbKey || p.name
     const photoUrl = p.url || p.src || p.link
-
     if (photoKey) {
       const blob = await idbGet('photos', photoKey)
-      if (blob) {
-        urls.push(URL.createObjectURL(blob))
-        continue
-      }
+      if (blob) { urls.push(URL.createObjectURL(blob)); continue }
     }
-    if (photoUrl) {
-      urls.push(photoUrl)
-      continue
-    }
+    if (photoUrl) { urls.push(photoUrl); continue }
     if (!store.online) urls.push(null)
   }
-
   photoObjectUrls.value = urls
 }
 
-function onRead() {
+// ▼ ДОБАВЛЕНО: обработка нового формата результата markRead ▼
+async function onRead() {
   if (!lecture.value) return
   if (!canMarkRead.value) {
     toast.warn('Отметить прочитанное можно только после согласия на обработку данных')
@@ -335,8 +322,28 @@ function onRead() {
     toast.warn('Отметить можно только в день публикации')
     return
   }
-  const ok = store.markRead(lecture.value)
-  if (ok) toast.success('Отмечено как прочитанное')
+
+  const result = await store.markRead(lecture.value)
+  if (!result?.done) {
+    if (result?.reason === 'ALREADY_READ') toast.info('Уже отмечено')
+    return
+  }
+  if (result.queued) {
+    toast.info('Отмечено. Награда будет зачислена после подключения к сети.')
+    return
+  }
+  if (result.limitReached) {
+    toast.warn(
+      'Дневной лимит наград по этому типу исчерпан. Награда за действия начнёт начисляться завтра.',
+      { duration: 6000 },
+    )
+    return
+  }
+  if (result.rewardPoints > 0) {
+    toast.success(`+${result.rewardPoints} яблок`)
+    return
+  }
+  toast.success('Отмечено как прочитанное')
 }
 
 onMounted(load)
@@ -348,11 +355,12 @@ onBeforeUnmount(() => {
 })
 
 function viewClick(event) {
-  console.log(event);
+  console.log(event)
 }
 </script>
 
 <style scoped>
+/* … стили из оригинала без изменений … */
 .crumb { margin: 6px 0 6px; font-size: 13px; }
 .lecture h1 {
   font-family: var(--font-family);
@@ -365,136 +373,70 @@ function viewClick(event) {
 }
 .lead { font-size: 15px; margin: 0 0 14px; }
 
-/* ── Медиа-превью ── */
-.facecast-wrap {
-  margin: 0 0 16px;
-}
-
+.facecast-wrap { margin: 0 0 16px; }
 .media-hero {
   margin: 0 0 16px;
   border-radius: var(--radius);
   overflow: hidden;
   background: #000;
 }
-
-.media-hero.cover-wrap {
-  background: #f2f2f2;
-  aspect-ratio: 16 / 10;
-}
-.cover-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-.video-embed {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  background: #000;
-}
-.video-embed iframe {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  border: 0;
-}
-
-.video {
-  width: 100%;
-  display: block;
-  background: #000;
-}
-
+.media-hero.cover-wrap { background: #f2f2f2; aspect-ratio: 16 / 10; }
+.cover-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.video-embed { position: relative; width: 100%; aspect-ratio: 16 / 9; background: #000; }
+.video-embed iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.video { width: 100%; display: block; background: #000; }
 .video-link {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 40px 20px;
-  background: #21271f;
-  color: #fff;
-  font-weight: 600;
-  text-decoration: none;
-  font-size: 16px;
+  display: flex; align-items: center; justify-content: center;
+  padding: 40px 20px; background: #21271f; color: #fff;
+  font-weight: 600; text-decoration: none; font-size: 16px;
 }
 .video-link:hover { background: #2c332a; }
-
 .media-offline {
-  margin: 0;
-  padding: 10px 14px;
-  background: #FFF8EC;
-  color: #b58500;
-  font-size: 13px;
-  text-align: center;
+  margin: 0; padding: 10px 14px; background: #FFF8EC;
+  color: #b58500; font-size: 13px; text-align: center;
 }
 
-/* ── Текст ── */
 .lecture-text {
-  font-family: var(--font-family);
-  font-weight: 400;
-  font-size: 14px;
-  line-height: 130%;
-  letter-spacing: -0.01em;
+  font-family: var(--font-family); font-weight: 400;
+  font-size: 14px; line-height: 130%; letter-spacing: -0.01em;
   color: #21271f;
 }
-
-/* ▼ ИСПРАВЛЕНО: добавлен пробел перед :deep() */
 .lecture-text :deep(p) { margin: 0 0 12px; }
 .lecture-text :deep(p:last-child) { margin-bottom: 0; }
-
 .lecture-text :deep(h2) {
-  font-size: 19px; font-weight: 700;
-  margin: 18px 0 8px; line-height: 1.25;
-  letter-spacing: -0.01em;
+  font-size: 19px; font-weight: 700; margin: 18px 0 8px;
+  line-height: 1.25; letter-spacing: -0.01em;
 }
 .lecture-text :deep(h3) {
-  font-size: 16px; font-weight: 700;
-  margin: 14px 0 6px; line-height: 1.3;
+  font-size: 16px; font-weight: 700; margin: 14px 0 6px; line-height: 1.3;
 }
 .lecture-text :deep(h2:first-child),
 .lecture-text :deep(h3:first-child) { margin-top: 0; }
-
 .lecture-text :deep(ul),
 .lecture-text :deep(ol) { margin: 0 0 12px; padding-left: 22px; }
 .lecture-text :deep(li) { margin-bottom: 4px; }
 .lecture-text :deep(li:last-child) { margin-bottom: 0; }
-
 .lecture-text :deep(a) {
-  color: var(--accent);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-  overflow-wrap: anywhere;
+  color: var(--accent); text-decoration: underline;
+  text-underline-offset: 2px; overflow-wrap: anywhere;
 }
-
 .lecture-text :deep(strong),
 .lecture-text :deep(b) { font-weight: 700; }
 .lecture-text :deep(em),
 .lecture-text :deep(i) { font-style: italic; }
-
 .lecture-text :deep(img) {
-  max-width: 100%;
-  height: auto;
-  border-radius: var(--radius);
-  margin: 12px 0;
-  display: block;
+  max-width: 100%; height: auto; border-radius: var(--radius);
+  margin: 12px 0; display: block;
 }
-
 .lecture-text :deep(blockquote) {
-  margin: 12px 0;
-  padding: 4px 0 4px 12px;
+  margin: 12px 0; padding: 4px 0 4px 12px;
   border-left: 3px solid var(--accent);
-  color: var(--muted);
-  font-style: italic;
+  color: var(--muted); font-style: italic;
 }
-
 .lecture-text :deep(code) {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.9em;
-  background: #f2f2f2;
-  padding: 2px 6px;
-  border-radius: 4px;
+  font-size: 0.9em; background: #f2f2f2;
+  padding: 2px 6px; border-radius: 4px;
 }
 .lecture-text :deep(pre) {
   background: #f2f2f2; padding: 12px; border-radius: 8px;
@@ -502,27 +444,12 @@ function viewClick(event) {
 }
 .lecture-text :deep(pre code) { background: transparent; padding: 0; }
 .lecture-text :deep(hr) {
-  border: none;
-  border-top: 1px solid var(--border);
-  margin: 16px 0;
+  border: none; border-top: 1px solid var(--border); margin: 16px 0;
 }
 
-.photos {
-  margin: 16px 0;
-  display: grid;
-  gap: 10px;
-}
-.photo {
-  width: 100%;
-  border-radius: var(--radius);
-  display: block;
-}
-
-.photos-slider {
-  margin: 16px 0;
-  border-radius: var(--radius);
-  overflow: hidden;
-}
+.photos { margin: 16px 0; display: grid; gap: 10px; }
+.photo { width: 100%; border-radius: var(--radius); display: block; }
+.photos-slider { margin: 16px 0; border-radius: var(--radius); overflow: hidden; }
 .photo-swiper {
   --swiper-pagination-color: #fff;
   --swiper-pagination-bullet-inactive-color: rgba(255, 255, 255, .55);
@@ -534,66 +461,40 @@ function viewClick(event) {
   background: #f2f2f2;
 }
 .photo-slide {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: flex; align-items: center; justify-content: center;
   background: #f2f2f2;
 }
 .photo-slide .photo {
-  width: 100%;
-  height: auto;
-  max-height: 70vh;
-  object-fit: contain;
-  border-radius: 0;
+  width: 100%; height: auto; max-height: 70vh;
+  object-fit: contain; border-radius: 0;
 }
 .photo-swiper :deep(.swiper-pagination) {
   text-shadow: 0 1px 3px rgba(0,0,0,.5);
 }
 
-.footer { 
-  margin-top: 24px; 
-  text-transform: lowercase;
-}
+.footer { margin-top: 24px; text-transform: lowercase; }
 .read-state {
-  font-family: var(--second-family);
-  font-weight: 700;
-  font-size: 14px;
-  line-height: 100%;
-  color: #21271f;
-  margin-bottom: 8px;
+  font-family: var(--second-family); font-weight: 700;
+  font-size: 14px; line-height: 100%; color: #21271f; margin-bottom: 8px;
 }
 .read-state-done {
-  display: flex;
-  gap: 4px;
-  font-family: var(--second-family);
-  font-weight: 700;
-  font-size: 14px;
-  line-height: 100%;
-  color: #21271f;
-  margin-bottom: 8px;
+  display: flex; gap: 4px;
+  font-family: var(--second-family); font-weight: 700;
+  font-size: 14px; line-height: 100%; color: #21271f; margin-bottom: 8px;
 }
 .read-state-ok {
-  display: grid;
-  gap: 4px;
-  border-radius: 14px;
-  padding: 14px;
-  background: #f1fbd6;
+  display: grid; gap: 4px; border-radius: 14px;
+  padding: 14px; background: #f1fbd6;
 }
 .read-state-ok-title {
-  font-family: var(--font-family);
-  font-weight: 500;
-  font-size: 14px;
-  line-height: 130%;
-  letter-spacing: -0.01em;
-  color: #015f01;
+  font-family: var(--font-family); font-weight: 500;
+  font-size: 14px; line-height: 130%;
+  letter-spacing: -0.01em; color: #015f01;
 }
 .read-state-ok-text {
-  font-family: var(--font-family);
-  font-weight: 400;
-  font-size: 12px;
-  line-height: 130%;
-  letter-spacing: -0.01em;
-  color: #015f01;
+  font-family: var(--font-family); font-weight: 400;
+  font-size: 12px; line-height: 130%;
+  letter-spacing: -0.01em; color: #015f01;
 }
 .read-btn { width: 100%; max-width: unset; }
 .old-note { font-size: 13px; }

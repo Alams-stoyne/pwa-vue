@@ -1,7 +1,6 @@
 <template>
   <div class="page stats-page page--bottom-action-one">
     <!-- Табы -->
-
     <div class="tabs" role="tablist">
         <button class="tab" :class="{ active: tab === 'personal' }" role="tab" :aria-selected="tab === 'personal'" @click="tab = 'personal'">личная</button>
         <button class="tab" :class="{ active: tab === 'global' }" role="tab" :aria-selected="tab === 'global'" @click="tab = 'global'">общая</button>
@@ -12,7 +11,6 @@
     <section v-show="tab === 'personal'" class="pane personal">
       <div class="head">
         <div class="title">ваш прогресс</div>
-        <!-- <div class="subtitle">ваши действия добавляют вклад в результат команды на протяжении всей недели</div>         -->
       </div>
 
       <div class="grid-stat">
@@ -25,17 +23,17 @@
         <div class="card stat-card">
           <div class="info">
             <div class="sc-icon"><AppIcon name="crown" :size="24" /></div>
-            <div class="sc-value">{{  formatNum(personal.RANK) }}</div>            
+            <div class="sc-value">{{  formatNum(personal.RANK) }}</div>
           </div>
           <div class="sc-label">ваше место среди всех участников</div>
-        </div>  
+        </div>
         <!-- Сетка 2х2 -->
         <div class="grid-2x2">
 
           <div class="card stat-card">
             <div class="info">
               <div class="sc-icon"><AppIcon name="book" :size="24" /></div>
-              <div class="sc-value">{{ formatNum(personal.LECTURES_READ) }}</div>              
+              <div class="sc-value">{{ formatNum(personal.LECTURES_READ) }}</div>
             </div>
             <div class="sc-label">просмотрено лекций</div>
           </div>
@@ -43,7 +41,7 @@
           <div class="card stat-card">
             <div class="info">
               <div class="sc-icon"><AppIcon name="tasks" :size="24" /></div>
-              <div class="sc-value">{{ formatNum(personal.TASKS_DONE) }}</div>              
+              <div class="sc-value">{{ formatNum(personal.TASKS_DONE) }}</div>
             </div>
             <div class="sc-label">просмотрено практик</div>
           </div>
@@ -51,7 +49,7 @@
           <div class="card stat-card">
             <div class="info">
               <div class="sc-icon"><AppIcon name="juice" :size="24" /></div>
-              <div class="sc-value">{{ formatNum(personal.HABITS_DAYS) }}</div>              
+              <div class="sc-value">{{ formatNum(personal.HABITS_DAYS) }}</div>
             </div>
             <div class="sc-label">дней выполнена привычка</div>
           </div>
@@ -59,11 +57,27 @@
           <div class="card stat-card">
             <div class="info">
               <div class="sc-icon"><AppIcon name="steps" :size="24" /></div>
-              <div class="sc-value">{{ formatNum(personal.STEPS_CONFIRMED) }}</div>              
+              <div class="sc-value">{{ formatNum(personal.STEPS_CONFIRMED) }}</div>
             </div>
             <div class="sc-label">подтверждено шагов</div>
           </div>
-        </div>        
+        </div>
+
+        <!-- ▼ НОВОЕ: лимиты наград на сегодня ▼ -->
+        <section v-if="anyLimitVisible" class="limits-block">
+          <div class="limits-title">лимиты наград на сегодня</div>
+          <div class="limits-list">
+            <div v-for="item in limitsList" :key="item.type" class="limit-item">
+              <span class="li-label">{{ item.label }}</span>
+              <span class="li-value" :class="{ reached: item.reached }">
+                <template v-if="item.limit > 0">
+                  {{ item.used }} из {{ item.limit }}<template v-if="item.reached"> — исчерпан</template>
+                </template>
+                <template v-else>без ограничений</template>
+              </span>
+            </div>
+          </div>
+        </section>
       </div>
     </section>
 
@@ -71,7 +85,7 @@
     <section v-show="tab === 'global'" class="pane global">
       <div class="head">
         <div class="title">общий зачёт компаний х5</div>
-        <div class="subtitle">ваши действия добавляют вклад в результат команды на протяжении всей недели</div>        
+        <div class="subtitle">ваши действия добавляют вклад в результат команды на протяжении всей недели</div>
       </div>
 
       <!-- Сетка 2х2 для общей статистики -->
@@ -81,20 +95,20 @@
           <div class="btn-badge">
             {{ formatNum(globalProgress.TOTAL_APPLES) }} <AppIcon name="apple" :size="24" />
           </div>
-        </div>       
+        </div>
         <div class="card stat-card">
           <div class="info">
             <div class="sc-icon"><AppIcon name="user" :size="24" /></div>
-            <div class="sc-value">+{{ formatNum(globalProgress.TOTAL_USERS) }}</div>            
+            <div class="sc-value">+{{ formatNum(globalProgress.TOTAL_USERS) }}</div>
           </div>
           <div class="sc-label">участников присоединилось</div>
-        </div>    
+        </div>
 
         <div class="grid-2x2">
           <div class="card stat-card">
             <div class="info">
               <div class="sc-icon"><AppIcon name="book" :size="24" /></div>
-              <div class="sc-value">{{ formatNum(globalProgress.LECTURES_READ) }}</div>              
+              <div class="sc-value">{{ formatNum(globalProgress.LECTURES_READ) }}</div>
             </div>
             <div class="sc-label">просмотрено лекций</div>
           </div>
@@ -102,7 +116,7 @@
           <div class="card stat-card">
             <div class="info">
               <div class="sc-icon"><AppIcon name="tasks" :size="24" /></div>
-              <div class="sc-value">{{ formatNum(globalProgress.TASKS_DONE) }}</div>              
+              <div class="sc-value">{{ formatNum(globalProgress.TASKS_DONE) }}</div>
             </div>
             <div class="sc-label">выполнено практик</div>
           </div>
@@ -110,7 +124,7 @@
           <div class="card stat-card">
             <div class="info">
               <div class="sc-icon"><AppIcon name="juice" :size="24" /></div>
-              <div class="sc-value">{{ formatNum(globalProgress.HABITS_DAYS) }}</div>              
+              <div class="sc-value">{{ formatNum(globalProgress.HABITS_DAYS) }}</div>
             </div>
             <div class="sc-label">общее кол-во дней привычки</div>
           </div>
@@ -118,10 +132,10 @@
           <div class="card stat-card">
             <div class="info">
               <div class="sc-icon"><AppIcon name="steps" :size="24" /></div>
-              <div class="sc-value">{{ formatNum(globalProgress.STEPS_CONFIRMED) }}</div>              
+              <div class="sc-value">{{ formatNum(globalProgress.STEPS_CONFIRMED) }}</div>
             </div>
             <div class="sc-label">подтверждено шагов за период марафона</div>
-          </div>        
+          </div>
         </div>
       </div>
 
@@ -134,19 +148,17 @@
             <div class="cpb-track">
               <div class="cpb-fill" :style="{ width: companyPercent + '%' }" />
             </div>
-          </div>          
+          </div>
         </div>
-        <!-- <div class="page-title mt-32">ваша эффективность</div>       -->
 
         <div class="companies-list">
-          <!-- ▼ ИСПОЛЬЗУЕМ companiesList ▼ -->
           <div v-for="comp in companiesList" :key="comp.ID" class="company-item">
             <div class="ci-header">
               <div class="ci-name">
                 <span class="ci-logo">
                   <img v-if="comp.LOGO" :src="comp.LOGO" :alt="comp.NAME" class="ci-logo-img" />
                   <template v-else>{{ comp.NAME }}</template>
-                </span>              
+                </span>
               </div>
               <span class="ci-percent">{{ comp.PERCENT }}%</span>
             </div>
@@ -159,8 +171,8 @@
     </section>
     <div class="bottom-action">
       <router-link to="/stats/rules" class="btn btn-primary btn-center">
-        <div class="text">правила</div>        
-      </router-link>      
+        <div class="text">правила</div>
+      </router-link>
     </div>
   </div>
 </template>
@@ -168,11 +180,13 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { useStatsStore } from './store'
+import { useLimits } from '../core/limits'
 import AppIcon from '../../components/AppIcon.vue'
 import { useAppBackground } from '../core/composables/useAppBackground'
 
 const { setBackground } = useAppBackground()
 const store = useStatsStore()
+const limitsApi = useLimits()
 const tab = ref('personal')
 
 // Дефолтные значения для личной статистики
@@ -202,6 +216,27 @@ const companyPercent = computed(() => {
   return 0
 })
 
+// ▼ НОВОЕ: лимиты ▼
+const LIMIT_LABELS = {
+  lecture_theme:   'Лекции по направлению',
+  lecture_general: 'Общие лекции',
+  charging:        'Зарядка',
+  task:            'Практики',
+}
+
+const limitsList = computed(() => {
+  const map = limitsApi.asMap.value
+  return limitsApi.TYPES.map((type) => ({
+    type,
+    label: LIMIT_LABELS[type] || type,
+    ...map[type],
+  }))
+})
+
+const anyLimitVisible = computed(() =>
+  limitsList.value.some((l) => l.limit > 0 || l.used > 0)
+)
+
 function formatNum(n) {
   return Number(n || 0).toLocaleString('ru-RU')
 }
@@ -213,7 +248,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* Стили остаются без изменений (как в предыдущем файле) */
 .stats-page {
   position: relative;
   display: grid;
@@ -232,9 +266,9 @@ onMounted(() => {
   position: relative;
   display: grid;
   gap: 16px;
-  font-family: var(--font-family);  
+  font-family: var(--font-family);
   text-transform: lowercase;
-  color: var(--txt-black-dark-green);  
+  color: var(--txt-black-dark-green);
 }
 .pane .head .title{
   font-weight: 500;
@@ -255,7 +289,6 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
-  /* margin-bottom: 16px; */
 }
 .apples-label {
   font-family: var(--font-family);
@@ -266,21 +299,6 @@ onMounted(() => {
   text-wrap: balance;
   color: var(--txt-black-dark-green);
 }
-/* .apples-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: #fff;
-  border: 1.5px solid #21271f;
-  border-radius: 100px;
-  padding: 6px 12px;
-  font-weight: 700;
-  font-size: 16px;
-}
-.apples-badge.big {
-  font-size: 20px;
-  padding: 8px 16px;
-} */
 
 /* Карточка рейтинга */
 .rating-card {
@@ -471,5 +489,45 @@ onMounted(() => {
 }
 .grid-stat .card {
   margin: 0;
+}
+
+/* ▼ НОВОЕ: блок лимитов ▼ */
+.limits-block {
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+  background: var(--white);
+  border-radius: 14px;
+}
+.limits-title {
+  font-family: var(--font-family);
+  font-weight: 500;
+  font-size: 14px;
+  line-height: 100%;
+  text-transform: lowercase;
+  color: var(--txt-black-dark-green);
+}
+.limits-list {
+  display: grid;
+  gap: 6px;
+}
+.limit-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+.li-label {
+  color: var(--txt-black-dark-green);
+}
+.li-value {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.li-value.reached {
+  color: #b91d0c;
+  font-weight: 600;
 }
 </style>

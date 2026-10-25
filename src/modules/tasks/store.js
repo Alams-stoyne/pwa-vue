@@ -9,6 +9,7 @@ import { useThemeStore } from '../theme/store'
 import { useStatsStore } from '../stats/store'
 import { useHomeStore } from '../home/store'
 import { useConsentStore } from '../consent/store'
+import { useLimits } from '../core/limits'
 import { isOffline, OfflineError } from '../core/utils/network'
 
 const LS_DONE = 'tasks.doneKeys'
@@ -108,6 +109,19 @@ export const useTasksStore = defineStore('tasks', {
       }
     },
 
+    /**
+     * Отметить задачу выполненной.
+     *
+     * @returns {{
+     *   done: boolean,
+     *   reason?: string,               // ALREADY_DONE
+     *   rewardPoints?: number,
+     *   limitReached?: boolean,
+     *   limitInfo?: object|null,
+     *   rewardType?: 'task',
+     *   queued?: boolean,
+     * }}
+     */
     async complete(task) {
       const consent = useConsentStore()
       if (!consent.isGranted) {
@@ -116,11 +130,12 @@ export const useTasksStore = defineStore('tasks', {
 
       const date = task.DATE || localDate()
       const key = `${date}:${task.ID_TASK}`
-      if (this.doneKeys.includes(key)) return false
+      if (this.doneKeys.includes(key)) return { done: false, reason: 'ALREADY_DONE' }
 
       this.doneKeys.push(key)
       localStorage.setItem(LS_DONE, JSON.stringify(this.doneKeys))
 
+      const rewardType = 'task'
       try { useStatsStore().bumpTaskDone() } catch { /* ignore */ }
 
       const auth = useAuthStore()
@@ -131,27 +146,37 @@ export const useTasksStore = defineStore('tasks', {
       }
 
       if (isOffline()) {
-        const q = queueFromLS(); q.push(payload)
+        const q = queueFromLS()
+        q.push({ ...payload, _rewardType: rewardType })
         localStorage.setItem(LS_QUEUE, JSON.stringify(q))
         try { useHomeStore().refreshToday() } catch { /* ignore */ }
-        return true
+        return {
+          done: true, rewardPoints: 0, limitReached: false,
+          limitInfo: null, rewardType, queued: true,
+        }
       }
+
       try {
         const res = await sendTaskComplete(payload)
         if (!isSuccess(res)) throw new Error('not ok')
-        
-        // ▼ ОПТИМИСТИЧНОЕ НАЧИСЛЕНИЕ ▼
-        if (res.REWARD_POINTS) {
-          try { useStatsStore().addApplesLocally(res.REWARD_POINTS) } catch { /* ignore */ }
-        }
 
+        const outcome = useLimits().handleRewardResponse(res, rewardType)
+        if (outcome.rewardPoints > 0) {
+          try { useStatsStore().addApplesLocally(outcome.rewardPoints) } catch { /* ignore */ }
+        }
         try { useHomeStore().refreshToday() } catch { /* ignore */ }
+
+        return { done: true, ...outcome, queued: false }
       } catch {
-        const q = queueFromLS(); q.push(payload)
+        const q = queueFromLS()
+        q.push({ ...payload, _rewardType: rewardType })
         localStorage.setItem(LS_QUEUE, JSON.stringify(q))
         try { useHomeStore().refreshToday() } catch { /* ignore */ }
+        return {
+          done: true, rewardPoints: 0, limitReached: false,
+          limitInfo: null, rewardType, queued: true,
+        }
       }
-      return true
     },
 
     async flushQueue() {
@@ -159,15 +184,18 @@ export const useTasksStore = defineStore('tasks', {
       const q = queueFromLS()
       if (!q.length) return
       const remain = []
+      const limits = useLimits()
       for (const p of q) {
+        const { _rewardType, ...cleanPayload } = p
+        const fallbackType = _rewardType || 'task'
         try {
-          const res = await sendTaskComplete(p)
+          const res = await sendTaskComplete(cleanPayload)
           if (!isSuccess(res)) {
             remain.push(p)
           } else {
-            // ▼ НАЧИСЛЕНИЕ ИЗ ОЧЕРЕДИ ▼
-            if (res.REWARD_POINTS) {
-              try { useStatsStore().addApplesLocally(res.REWARD_POINTS) } catch { /* ignore */ }
+            const outcome = limits.handleRewardResponse(res, fallbackType)
+            if (outcome.rewardPoints > 0) {
+              try { useStatsStore().addApplesLocally(outcome.rewardPoints) } catch { /* ignore */ }
             }
           }
         } catch { remain.push(p) }

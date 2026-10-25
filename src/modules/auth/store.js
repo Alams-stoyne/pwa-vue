@@ -3,6 +3,7 @@ import { registerRequest } from './api'
 import { isSuccess } from '../core/utils/response'
 import { useThemeStore } from '../theme/store'
 import { useHomeStore } from '../home/store'
+import { useLimits } from '../core/limits'
 import {
   readUid,
   readDeviceId,
@@ -184,6 +185,13 @@ export const useAuthStore = defineStore('auth', {
           try { applyHabits(data.HABITS) } catch {}
         }
 
+        // ▼ НОВОЕ: лимиты из ответа /auth ▼
+        if (data.LIMITS_USED) {
+          try { useLimits().applyAuthLimits(data.LIMITS_USED) } catch (e) {
+            console.warn('[auth] applyAuthLimits failed:', e)
+          }
+        }
+
         this.idUser = String(data.ID_USER)
         this.isAuthed = true
         localStorage.setItem(LS_ID, this.idUser)
@@ -220,6 +228,11 @@ export const useAuthStore = defineStore('auth', {
       localStorage.removeItem(LS_CONFIRMED)
       resetAttempts()
 
+      // ▼ Сброс лимитов на диск (in-memory сбросится при следующем useLimits-init) ▼
+      try {
+        localStorage.removeItem('limits.used')
+      } catch {}
+
       useThemeStore().reset()
       try { useHomeStore().resetToday() } catch { /* ignore */ }
       try {
@@ -239,6 +252,8 @@ export const useAuthStore = defineStore('auth', {
         'habits.cache', 'habits.cacheAt', 'habits.cacheTheme',
         'habits.selectedHabitId', 'habits.selectedHabitData', 
         'stats.local', 'stats.server', 'stats.global', 'stats.times',
+        'stats.personal.v3', 'stats.global.v3', 'stats.times.v3',
+        'stats.pendingApples',
         'home.lastSendDate', 'home.lastSyncAt', 'home.queue',
         'home.today', 'home.todayAt', 'home.today.snapshot',
         'theme.selected', 'theme.themesCache', 'theme.themesCacheAt',
