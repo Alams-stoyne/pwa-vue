@@ -27,7 +27,7 @@ registerRoute(
   new NavigationRoute(
     createHandlerBoundToURL('/index.html'),
     {
-      denylist: [/^\/mock/, /^\/api/, /^\/cdn/],
+      denylist: [/^\/mock/, /^\/api/, /^\/cdn/, /^\/lottie\//],
     },
   ),
 )
@@ -66,7 +66,6 @@ registerRoute(
 registerRoute(
   ({ url }) =>
     url.origin === 'https://cdn.x5hd.ru' &&
-    // ДОБАВЛЕНЫ events
     /\/(article|general|useful|archive|tasks|lectures|config|events)\/.*\.json$/.test(url.pathname),
   new NetworkFirst({
     cacheName: 'cdn-json',
@@ -109,6 +108,47 @@ registerRoute(
   }),
 )
 
+// ─────────────────────────────────────────────────────────────
+// LOTTIE-СЦЕНЫ МАСКОТА
+// ─────────────────────────────────────────────────────────────
+// Сцены — большие JSON (1–2 МБ каждая, с inline base64-картинками).
+// НЕ прекешируются (globPatterns в vite.config.js не включает .json),
+// но попадают в runtime-кэш при первом playScene(). CacheFirst — потому
+// что сцена после деплоя не меняется (если меняется — bump cacheName).
+// На 90 дней, максимум 30 сцен.
+
+// Локальные сцены: /lottie/wave.json, /lottie/writing-notes.json и т.д.
+registerRoute(
+  ({ url }) =>
+    url.origin === self.location.origin &&
+    url.pathname.startsWith('/lottie/') &&
+    url.pathname.endsWith('.json'),
+  new CacheFirst({
+    cacheName: 'mascot-lottie-v1',
+    plugins: [
+      new ExpirationPlugin({ maxEntries: 30, maxAgeSeconds: 60 * 60 * 24 * 90 }),
+      new CacheableResponsePlugin({ statuses: [0, 200] }),
+    ],
+  }),
+)
+
+// CDN-сцены (если решишь переехать) — заготовка.
+// Раскомментируй, когда сцены окажутся на CDN, и поменяй путь.
+//
+// registerRoute(
+//   ({ url }) =>
+//     url.origin === 'https://cdn.x5hd.ru' &&
+//     url.pathname.startsWith('/mascot/lottie/') &&
+//     url.pathname.endsWith('.json'),
+//   new CacheFirst({
+//     cacheName: 'mascot-lottie-cdn-v1',
+//     plugins: [
+//       new ExpirationPlugin({ maxEntries: 30, maxAgeSeconds: 60 * 60 * 24 * 90 }),
+//       new CacheableResponsePlugin({ statuses: [0, 200] }),
+//     ],
+//   }),
+// )
+
 // ── Механизм передачи URL из push в SPA ────────────────────────
 const PENDING_NAV_CACHE = 'pwa-pending-nav'
 const PENDING_NAV_URL = '/__pending-navigation__'
@@ -146,7 +186,7 @@ self.addEventListener('push', function (event) {
     try {
       const parsed = event.data.json()
       data = { ...data, ...parsed }
-      
+
       // Если сервер прислал ticketId вместо url — собираем url для поддержки
       if (parsed.ticketId && !parsed.url) {
         data.url = `/support/tickets/${parsed.ticketId}`
@@ -173,9 +213,8 @@ self.addEventListener('notificationclick', function (event) {
   console.log('[SW] notification click', event.notification.data)
   event.notification.close()
 
-  // Берем url из данных уведомления. Если его нет, пробуем собрать из ticketId
   let target = (event.notification.data && event.notification.data.url) || '/'
-  
+
   if (event.notification.data?.ticketId && target === '/') {
     target = `/support/tickets/${event.notification.data.ticketId}`
   }

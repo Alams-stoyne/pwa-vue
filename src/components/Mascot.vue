@@ -59,7 +59,7 @@
           <circle cx="282.695" cy="284.752" r="1.42683" fill="#512B35"/>
         </g>
       </template>
-      <!-- ГЛАЗА: закрытые -->
+      <!-- ГЛАЗА: закрытые (laughing) -->
       <template v-else>
         <path class="eye eye-left" d="M215.101 277.103C218.929 288.402 235.483 288.442 238.975 277.103" stroke-width="4.45725" stroke-linecap="round" stroke="#1B0303" />
         <path class="eye eye-right" d="M279.391 277.103C283.219 288.402 299.773 288.442 303.265 277.103" stroke-width="4.45725" stroke-linecap="round" stroke="#1B0303" />
@@ -80,7 +80,6 @@
 
     <!-- ── Слой 3.5: Эффекты (Звезды, Снег, Дождь, Туман, Ветер) ── -->
     <div v-if="internalEffect !== 'none'" class="maskot__particles" aria-hidden="true">
-      
       <!-- ЗВЕЗДЫ -->
       <svg v-if="internalEffect.includes('stars')" viewBox="0 0 520 520" fill="none" class="stars-svg" :class="`is-${internalEffect}`">
         <path class="star s1" d="M171.318 120.44L167.542 135.718L182.259 141.292L166.981 137.516L161.406 152.233L165.183 136.955L150.466 131.381L165.743 135.157L171.318 120.44Z" fill="#FFEB45"/>
@@ -98,13 +97,7 @@
           v-for="p in particles.snow"
           :key="p.id"
           class="snowflake"
-          :style="{
-            left: p.left,
-            animationDelay: p.delay,
-            animationDuration: p.duration,
-            width: p.size,
-            height: p.size
-          }"
+          :style="{ left: p.left, animationDelay: p.delay, animationDuration: p.duration, width: p.size, height: p.size }"
         />
       </div>
 
@@ -114,11 +107,7 @@
           v-for="p in particles.rain"
           :key="p.id"
           class="raindrop"
-          :style="{
-            left: p.left,
-            animationDelay: p.delay,
-            animationDuration: p.duration
-          }"
+          :style="{ left: p.left, animationDelay: p.delay, animationDuration: p.duration }"
         />
       </div>
 
@@ -135,16 +124,12 @@
           v-for="p in particles.wind"
           :key="p.id"
           class="wind-line"
-          :style="{
-            top: p.top,
-            animationDelay: p.delay,
-            animationDuration: p.duration
-          }"
+          :style="{ top: p.top, animationDelay: p.delay, animationDuration: p.duration }"
         />
       </div>
     </div>
 
-    <!-- ── Слой 4: стрелки (летят вверх) ── -->
+    <!-- ── Слой 4: стрелки ── -->
     <svg v-if="arrowsVisible" class="maskot__arrows" viewBox="0 0 520 520" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
       <g class="arrow arrow-1">
         <path d="M128.53 182.416C129.267 181.815 130.354 181.858 131.041 182.545L139.484 190.988C140.217 191.721 140.217 192.909 139.484 193.641C138.752 194.374 137.564 194.374 136.831 193.641L131.536 188.346C131.511 191.876 131.513 196.04 131.528 199.754C131.538 202.478 131.554 204.953 131.567 206.747C131.573 207.644 131.579 208.371 131.583 208.873C131.586 209.124 131.588 209.319 131.589 209.451C131.59 209.518 131.59 209.568 131.59 209.602C131.59 209.619 131.591 209.632 131.591 209.64V209.653C131.6 210.689 130.768 211.537 129.732 211.547C128.696 211.556 127.848 210.724 127.838 209.688V209.637C127.838 209.602 127.837 209.552 127.836 209.485C127.835 209.353 127.834 209.156 127.832 208.905C127.827 208.401 127.821 207.673 127.814 206.774C127.801 204.977 127.785 202.498 127.775 199.769C127.761 196.107 127.759 191.984 127.783 188.455L122.598 193.641C121.865 194.374 120.677 194.374 119.945 193.641C119.212 192.909 119.212 191.721 119.945 190.988L128.388 182.545L128.53 182.416Z" fill="#097802"/>
@@ -164,42 +149,33 @@
         <path d="M354.854 168.206C372.127 168.206 386.129 182.209 386.129 199.481C386.129 216.754 372.127 230.757 354.854 230.757C337.581 230.757 323.579 216.754 323.579 199.481C323.579 182.209 337.581 168.206 354.854 168.206Z" fill="#D3FF4F"/>
         <path d="M354.854 168.206C372.127 168.206 386.129 182.209 386.129 199.481C386.129 216.754 372.127 230.757 354.854 230.757C337.581 230.757 323.579 216.754 323.579 199.481C323.579 182.209 337.581 168.206 354.854 168.206Z" stroke="#015F01" stroke-width="2.45"/>
         <path d="M370.202 188.647L350.341 208.509L341.313 199.481" stroke-width="6.77083" stroke-linecap="round" stroke-linejoin="round" stroke="#015F01"/>
-        <use xlink:href="#stroke0_362_22311" fill="#D3FF4F"/>
-        <mask id="stroke1_362_22311" maskUnits="userSpaceOnUse" x="294.026" y="137.935" width="123.284" height="123.284" fill="black">
-        <rect fill="white" x="294.026" y="137.935" width="123.284" height="123.284"/>
-        <use xlink:href="#stroke0_362_22311"/>
-        </mask>
-        <path d="M405.857 191.31C410.506 218.912 391.898 245.057 364.296 249.706C336.693 254.354 310.549 235.746 305.9 208.144C301.251 180.541 319.859 154.397 347.462 149.748C375.064 145.099 401.209 163.707 405.857 191.31ZM313.397 206.881C317.348 230.343 339.571 246.16 363.033 242.209C386.495 238.257 402.312 216.034 398.361 192.572C394.409 169.11 372.186 153.294 348.724 157.245C325.262 161.196 309.445 183.419 313.397 206.881Z" stroke-width="4.90477" stroke="#097802" mask="url(#stroke1_362_22311)"/>
-        <defs>
-        <path id="stroke0_362_22311" d="M405.857 191.31C410.506 218.912 391.898 245.057 364.296 249.706C336.693 254.354 310.549 235.746 305.9 208.144C301.251 180.541 319.859 154.397 347.462 149.748C375.064 145.099 401.209 163.707 405.857 191.31ZM313.397 206.881C317.348 230.343 339.571 246.16 363.033 242.209C386.495 238.257 402.312 216.034 398.361 192.572C394.409 169.11 372.186 153.294 348.724 157.245C325.262 161.196 309.445 183.419 313.397 206.881Z"/>
-        </defs>
       </g>
     </svg>
 
     <!-- ── Слой 6: кастомные эмодзи-эффекты ── -->
     <div v-if="effects && effects.length" class="maskot__effects" aria-hidden="true">
-      <span v-for="(fx, i) in effects" :key="fx.id || i" class="maskot__effect" :class="`is-${fx.type || 'default'}`" :style="fx.style || {}">{{ fx.emoji || '✨' }}</span>
+      <span
+        v-for="(fx, i) in effects"
+        :key="fx.id || i"
+        class="maskot__effect"
+        :class="`is-${fx.type || 'default'}`"
+        :style="fx.style || {}"
+      >{{ fx.emoji || '✨' }}</span>
     </div>
 
-    <!-- ── Слой 7: облако с текстом ── -->
-    <transition name="bubble">
-      <svg v-if="visible" class="maskot__bubble" viewBox="0 0 520 520" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-        <path d="M390.295 34.2441C315.984 34.2441 247.454 57.6159 250.379 98.7599C250.379 119.175 263.063 137.948 288.894 149.155C293.816 151.291 299.194 153.121 305.061 154.646C303.505 160.136 298.886 160.956 283.329 165.694C310.595 170.557 337.993 163.804 345.462 160.093C349.685 160.267 354.064 160.354 358.606 160.354C411.277 164.007 451.112 157.898 476.584 146.234C502.036 134.578 513.146 117.377 513.146 98.7599C513.146 75.853 490.738 53.2237 453.67 42.0348C435.69 36.6078 414.566 34.2441 390.295 34.2441Z" fill="#21271F" />
-        <path d="M387.088 29.4417C312.777 29.4417 244.248 52.8135 247.173 93.9574C247.173 114.372 259.856 133.145 285.687 144.353C290.609 146.488 295.988 148.318 301.854 149.843C300.299 155.334 298.224 160.143 282.667 164.881C312.412 166.116 334.786 159.002 342.255 155.29C346.478 155.465 350.858 155.552 355.399 155.552C408.07 159.205 447.905 153.095 473.377 141.431C498.83 129.776 509.94 112.575 509.94 93.9574C509.94 71.0505 487.532 48.4212 450.463 37.2323C432.484 31.8053 411.359 29.4417 387.088 29.4417Z" fill="white" stroke-width="1.24" stroke-linecap="round" stroke-linejoin="round" stroke="#21271F" />
-        <foreignObject x="260" y="45" width="235" height="100">
-          <div xmlns="http://www.w3.org/1999/xhtml" class="maskot__bubble-text-wrap">
-            <p class="maskot__bubble-text">
-              {{ displayedText }}<span v-if="typing" class="maskot__caret" aria-hidden="true">|</span>
-            </p>
-          </div>
-        </foreignObject>
-      </svg>
-    </transition>
+    <!-- ── Слой 7: облако с текстом (вынесено в MascotBubble) ── -->
+    <MascotBubble
+      ref="bubbleRef"
+      :text="bubbleText"
+      :speed="typewriterSpeed"
+      @complete="onBubbleComplete"
+    />
   </div>
 </template>
 
 <script setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, useAttrs } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import MascotBubble from './MascotBubble.vue'
 
 const props = defineProps({
   backgroundSrc: { type: String, default: '' },
@@ -224,28 +200,24 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['click', 'bubble-complete'])
-const attrs = useAttrs()
 
-// ▼ Слушатель для управления из консоли ▼
-function onGlobalSetEffect(e) {
-  const targetId = e.detail?.targetId
-  // Если targetId не указан — применяем ко всем маскотам на странице.
-  // Если указан — только к тому, у которого совпадает id
-  if (!targetId || targetId === attrs.id) {
-    if (e.detail && e.detail.effect) {
-      setEffect(e.detail.effect)
-    }
-  }
+// ── Пузырь ──
+const bubbleRef = ref(null)
+function onBubbleComplete() {
+  emit('bubble-complete')
+}
+function showBubble(text) {
+  bubbleRef.value?.showBubble(text)
+}
+function hideBubble() {
+  bubbleRef.value?.hideBubble()
 }
 
 // ── Внутренний стейт для эффекта ──
 const internalEffect = ref(props.effect)
+watch(() => props.effect, (v) => { internalEffect.value = v })
 
-watch(() => props.effect, (v) => {
-  internalEffect.value = v
-})
-
-// ── Контейнер ────────────────────────────────────────────────
+// ── Контейнер ──
 const containerStyle = computed(() => {
   const style = {}
   if (props.size !== '' && props.size !== null && props.size !== undefined) {
@@ -262,33 +234,32 @@ const containerStyle = computed(() => {
   return style
 })
 
-// ── Генератор частиц (выполняется 1 раз) ────────────────────
+// ── Генератор частиц ──
 const particles = {
   snow: Array.from({ length: 25 }).map((_, i) => ({
     id: i,
     left: Math.random() * 100 + '%',
     delay: (Math.random() * 5).toFixed(2) + 's',
     duration: (4 + Math.random() * 4).toFixed(2) + 's',
-    size: (4 + Math.random() * 8).toFixed(0) + 'px'
+    size: (4 + Math.random() * 8).toFixed(0) + 'px',
   })),
   rain: Array.from({ length: 30 }).map((_, i) => ({
     id: i,
     left: Math.random() * 100 + '%',
     delay: (Math.random() * 2).toFixed(2) + 's',
-    duration: (0.6 + Math.random() * 0.4).toFixed(2) + 's'
+    duration: (0.6 + Math.random() * 0.4).toFixed(2) + 's',
   })),
   wind: Array.from({ length: 12 }).map((_, i) => ({
     id: i,
     top: Math.random() * 100 + '%',
     delay: (Math.random() * 4).toFixed(2) + 's',
-    duration: (2 + Math.random() * 3).toFixed(2) + 's'
-  }))
+    duration: (2 + Math.random() * 3).toFixed(2) + 's',
+  })),
 }
 
-// ── Стрелки и галочка ────────────────────────────────────────
+// ── Стрелки и галочка ──
 const arrowsVisible = ref(props.arrows)
 const checkVisible = ref(props.check)
-
 watch(() => props.arrows, (v) => { arrowsVisible.value = !!v })
 watch(() => props.check, (v) => { checkVisible.value = !!v })
 
@@ -297,7 +268,7 @@ function hideArrows() { arrowsVisible.value = false }
 function showCheck() { checkVisible.value = true }
 function hideCheck() { checkVisible.value = false }
 
-// ── Face ref и эмоции ────────────────────────────────────────
+// ── Face ref и эмоции ──
 const faceEl = ref(null)
 const blinkActive = ref(false)
 const winkActive = ref(false)
@@ -312,7 +283,7 @@ const faceClasses = computed(() => ({
   sad: activeEmotion.value === 'sad',
   surprised: activeEmotion.value === 'surprised',
   blush: activeEmotion.value === 'blush',
-  laughing: activeEmotion.value === 'laughing', 
+  laughing: activeEmotion.value === 'laughing',
 }))
 
 async function blink() {
@@ -352,77 +323,16 @@ function scheduleBlink() {
   }, delay)
 }
 
-/* ---------- Typewriter для облака ---------- */
-const visible = ref(false)
-const displayedText = ref('')
-const typing = ref(false)
-let typingTimer = null
-
-function stopTyping() {
-  if (typingTimer) {
-    clearTimeout(typingTimer)
-    typingTimer = null
-  }
-  typing.value = false
-}
-
-function startTyping(text) {
-  stopTyping()
-  displayedText.value = ''
-
-  if (!text) {
-    visible.value = false
-    emit('bubble-complete')
-    return
-  }
-
-  visible.value = true
-  typing.value = true
-  let i = 0
-
-  const step = () => {
-    if (i < text.length) {
-      displayedText.value += text[i]
-      i++
-      typingTimer = setTimeout(step, props.typewriterSpeed)
-    } else {
-      typing.value = false
-      typingTimer = null
-      emit('bubble-complete')
-    }
-  }
-
-  step()
-}
-
-watch(
-  () => props.bubbleText,
-  (val) => { startTyping(val || '') },
-  { immediate: true },
-)
-
 /* ---------- Lifecycle ---------- */
 onMounted(() => {
   scheduleBlink()
-  window.addEventListener('maskot:set-effect', onGlobalSetEffect)
 })
 
 onBeforeUnmount(() => {
   if (blinkTimer) clearTimeout(blinkTimer)
-  stopTyping()
-  window.removeEventListener('maskot:set-effect', onGlobalSetEffect)
 })
 
 /* ---------- Публичный API ---------- */
-function showBubble(text) {
-  startTyping(String(text || ''))
-}
-function hideBubble() {
-  stopTyping()
-  displayedText.value = ''
-  visible.value = false
-}
-
 function setEffect(effectName) {
   internalEffect.value = effectName
 }
@@ -445,7 +355,7 @@ defineExpose({
 <style>
 /* ─────────────────────────────────────────────────────────
    Стили не scoped: внутри SVG и для @keyframes.
-   Все селекторы префиксованы `.maskot` — конфликтов нет.
+   Пузырь переехал в MascotBubble.vue.
    ───────────────────────────────────────────────────────── */
 
 .maskot {
@@ -462,7 +372,6 @@ defineExpose({
 }
 .maskot.is-fixed { position: fixed; pointer-events: none; }
 .maskot.is-fixed .maskot__face,
-.maskot.is-fixed .maskot__bubble,
 .maskot.is-fixed .maskot__effects { pointer-events: auto; }
 
 .maskot__bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; pointer-events: none; display: block; z-index: 1; }
@@ -514,7 +423,6 @@ defineExpose({
 .s2, .s4, .s7 { filter: drop-shadow(0 0 8px rgba(254, 251, 226, 0.9)); }
 .s5 { filter: drop-shadow(0 0 5px rgba(255, 241, 131, 0.8)); }
 
-/* Обычные звезды (спокойные) */
 .is-stars .s1 { animation: floatStar1 6s ease-in-out infinite alternate, twinkle 3s ease-in-out infinite; }
 .is-stars .s2 { animation: floatStar2 7s ease-in-out infinite alternate, twinkle 4s ease-in-out infinite 1s; }
 .is-stars .s3 { animation: floatStar3 5s ease-in-out infinite alternate, twinkle 2.5s ease-in-out infinite 0.5s; }
@@ -523,7 +431,6 @@ defineExpose({
 .is-stars .s6 { animation: floatStar3 7.5s ease-in-out infinite alternate, twinkle 4.5s ease-in-out infinite 0.8s; }
 .is-stars .s7 { animation: floatStar1 9s ease-in-out infinite alternate, twinkle 4s ease-in-out infinite 2.5s; }
 
-/* Быстрые звезды (праздник, динамика) */
 .is-stars-fast .s1, .is-stars-fast .s2, .is-stars-fast .s3,
 .is-stars-fast .s4, .is-stars-fast .s5, .is-stars-fast .s6, .is-stars-fast .s7 {
   animation-duration: 2s, 1s;
@@ -632,23 +539,11 @@ defineExpose({
 @keyframes maskotEffectArrow { 0%, 100% { transform: translateX(0); opacity: 0.9; } 50% { transform: translateX(6px); opacity: 1; } }
 @keyframes maskotEffectTwinkle { 0%, 100% { transform: scale(1) rotate(0deg); opacity: 0.85; } 50% { transform: scale(1.15) rotate(8deg); opacity: 1; } }
 
-/* ═══════════════════════════════════════════════════════
-   Слой 5: облако
-   ═══════════════════════════════════════════════════════ */
-.maskot__bubble { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none; filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.08)); }
-.maskot__bubble-text-wrap { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; text-align: center; pointer-events: auto; padding: 4px 10px; box-sizing: border-box; }
-.maskot__bubble-text { margin: 0; font-family: var(--font-family, sans-serif); font-size: 16px; line-height: 1.3; letter-spacing: -0.01em; color: #21271f; font-weight: 500; word-break: break-word; white-space: pre-wrap; }
-.maskot__caret { display: inline-block; margin-left: 1px; color: #015f01; animation: maskotCaret 0.8s steps(2) infinite; }
-@keyframes maskotCaret { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
-
-.bubble-enter-active, .bubble-leave-active { transition: opacity 0.22s ease, transform 0.22s ease; }
-.bubble-enter-from, .bubble-leave-to { opacity: 0; transform: translateY(6px) scale(0.96); }
-
 @media (prefers-reduced-motion: reduce) {
   .maskot__face .eye, .maskot__face .cheek, .maskot__face .mouth, .maskot__face .mouth-o { transition: none; }
   .maskot__face.blush .cheek { animation: none; }
   .maskot__face.blink .eye, .maskot__face.wink .eye-right { animation-duration: 0.01ms; }
-  .maskot__effect, .maskot__caret, .maskot__arrows .arrow, .star, .snowflake, .raindrop, .fog-cloud, .wind-line { animation: none; opacity: 0.8; }
+  .maskot__effect, .maskot__arrows .arrow, .star, .snowflake, .raindrop, .fog-cloud, .wind-line { animation: none; opacity: 0.8; }
   .maskot__check .check-group { animation-duration: 0.01ms; }
 }
 </style>
