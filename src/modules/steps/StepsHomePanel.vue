@@ -5,10 +5,11 @@
     </p>
     <div class="rating-block">
       <div class="rating-text">
-        <p>Каждый день загружай шаги за предыдущий день.<br> Укажи количество и приложи скриншот из приложения-шагомера в разделе рефлексии. </p>
-        <p v-if="periodText">Учитываем шаги {{ periodText }}.</p>
-        <p v-else>Учитываем шаги с 26 октября по 1 ноября.</p>
-        <p v-if="daysLeftText" class="days-left">{{ daysLeftText }}</p>
+        <p>Каждый день загружайте шаги за предыдущий день.<br> Укажите количество и приложите скриншот из приложения-шагомера в разделе рефлексии. </p>
+        <p>Максимально возможное количество шагов для внесения - {{ formatNum(MAX_STEPS) }} шагов в день</p>
+        <!-- <p v-if="periodText">Учитываем шаги {{ periodText }}.</p> -->
+        <p>Учитываем шаги с 26 октября по 1 ноября.</p>
+        <!-- <p v-if="daysLeftText" class="days-left">{{ daysLeftText }}</p> -->
         <p>Крайний срок загрузки: 2 ноября, 12:00 МСК.</p>
       </div>
       <section class="arc-block">
@@ -33,19 +34,21 @@
           <div class="arc-center">
             <div class="arc-value">{{ formattedTotal }}</div>
             <div v-if="totalDays > 0" class="arc-days">
-              {{ confirmedDays }} из {{ totalDays }} дн.
+              <!-- {{ confirmedDays }} из {{ totalDays }} дн. -->
             </div>
           </div>
-          <div class="rating color-text-stroke" v-if="rank > 0">№ {{ formattedRank }}</div>
+          <transition name="fade" appear>
+            <div class="rating color-text-stroke" v-if="rank > 0">№ {{ formattedRank }}</div>
+          </transition>          
         </div>
-      </section>
+      </section>      
       <div class="rating-text">
-        <template v-if="totalUsers > 0">
+        <template v-if="rank > 0">
           <div class="rating-title">твой путь в шагах</div>
-          <p>Здесь результаты участников и твоё место среди всех пользователей. Рейтинг обновляется раз в сутки и остаётся предварительным до проверки подтверждений. Итоги марафона шагов будут опубликованы в Сфере 3 ноября.</p>
+          <p>Здесь результаты участников и ваше место среди всех пользователей. Рейтинг обновляется раз в сутки и остаётся предварительным до проверки подтверждений. Итоги марафона шагов будут опубликованы в Сфере 3 ноября.</p>
         </template>
         <template v-else>
-          Пока результатов нет. Добавь шаги за вчера и скриншот из шагомера. Рейтинг обновляется раз в сутки, твоё место появится после обновления.
+          Пока ваших результатов нет. Добавьте шаги за вчера и скриншот из шагомера. Рейтинг обновляется раз в сутки, ваше место появится после обновления.
         </template>
       </div>
     </div>
@@ -61,13 +64,15 @@
           step="1"
           placeholder="укажите количество шагов"
           class="steps-input"
-        />
+        /> 
         <div v-if="imagePreview" class="image-preview">
           <img :src="imagePreview" alt="Скриншот" />
           <button type="button" class="remove-img" @click="removeImage">✕</button>
         </div>
       </div>
-
+      <transition name="fade" appear>
+        <div class="steps-info-barge" v-if="steps > MAX_STEPS">лимит в день - {{ formatNum(MAX_STEPS) }} шагов</div>
+      </transition>
       <input
         v-if="canSubmitWithConsent"
         type="file"
@@ -76,7 +81,6 @@
         class="hidden-input"
         @change="onFileChange"
       />
-
       <div class="bottom-action d-grid g12">
         <ConsentBanner v-if="!canSubmitWithConsent" :class="'relative'" text="Для отправки шагов нужно согласие на обработку персональных данных." />
 
@@ -131,7 +135,7 @@
       </div>
     </div>
 
-    <StepsLeaderboardWidget />
+    <StepsLeaderboardWidget v-if="canSubmitWithConsent"/>
   </div>
 </template>
 
@@ -150,7 +154,7 @@ const store = useStepsStore()
 const consentStore = useConsentStore()
 const toast = useToast()
 
-const MAX_STEPS = 30000
+const MAX_STEPS = 50000
 
 const steps = ref(null)
 const fileInput = ref(null)
@@ -298,6 +302,10 @@ async function submit() {
   } else if (store.error) {
     // error уже в store.error
   }
+}
+
+function formatNum(n) {
+  return Number(n || 0).toLocaleString('ru-RU')
 }
 
 function refreshStatus() {
@@ -480,6 +488,19 @@ onUnmounted(() => {
   text-transform: lowercase;
   color: var(--black);
   text-align: center;
+}
+.steps-info-barge{
+  margin-top: 16px;
+  position: relative;
+  border-radius: 14px;
+  padding: 14px;
+  background: var(--orange-light);
+  font-family: var(--font-family);
+  font-weight: 500;
+  font-size: 14px;
+  line-height: 120%;
+  text-transform: lowercase;
+  color: var(--txt-black-dark-green);
 }
 .steps-input::placeholder {
   color: #a3a69a;

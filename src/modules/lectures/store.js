@@ -10,6 +10,7 @@ import {
   getLecture,
   deleteLecturesByBucketDate,
   cleanupLectures,
+  cleanupLecturesOutsidePeriod,
 } from './db'
 import { idbAllKeys, idbPut } from '../core/db'
 import { localDate, localDateTime } from '../core/utils/date'
@@ -19,6 +20,8 @@ import { useThemeStore } from '../theme/store'
 import { useStatsStore } from '../stats/store'
 import { useHomeStore } from '../home/store'
 import { useLimits, bucketToRewardType, bucketFromDbKey } from '../core/limits'
+import { useMascotStore } from '../mascot/store'
+import { usePeriod } from '../core/period'
 import { themesComputed } from '../theme/themes'
 import { isOffline } from '../core/utils/network'
 
@@ -76,10 +79,24 @@ export const useLecturesStore = defineStore('lectures', {
       this.readKeys = readKeysFromLS()
     },
 
-    init() {
+    async init() {
       this._watchNet()
       this._startTimer()
-      this.loadAll()
+
+      // ▼ Очистка IDB от данных вне периода — до первой загрузки ▼
+      const period = usePeriod()
+      try {
+        if (period.range.value) {
+          const removed = await cleanupLecturesOutsidePeriod(period.range.value)
+          if (removed > 0) {
+            console.log(`[lectures] cleanup: удалено ${removed} лекций вне периода`)
+          }
+        }
+      } catch (e) {
+        console.warn('[lectures] cleanup failed:', e)
+      }
+
+      await this.loadAll()
       this.syncFromServer()
       setTimeout(() => this.syncMissingPhotos(), 4000)
     },
@@ -122,7 +139,22 @@ export const useLecturesStore = defineStore('lectures', {
       const themeId = theme.selected
       if (!themeId) return
 
+      const period = usePeriod()
       const today = localDate()
+
+      // Если сегодня вне периода — нет смысла грузить лекции за сегодня
+      if (!period.isInPeriod(today)) {
+        this.generalList = []
+        this.themeList = []
+        this.chargingList = []
+        this.loadedTheme = themeId
+        this.loadedDate = today
+        this.loading = false
+        this.refreshing = false
+        this.error = null
+        return
+      }
+
       const hourPassed = Date.now() - this.lastSyncAt >= HOUR
       const sameTheme = this.loadedTheme === themeId
       const sameDate = this.loadedDate === today
@@ -134,18 +166,20 @@ export const useLecturesStore = defineStore('lectures', {
         return
       }
 
+      const inPeriod = (l) => !l.publishedDate || period.isInPeriod(l.publishedDate)
+
       const [gC, tC, chC] = await Promise.all([
         idbLecturesByBucket('lecture-general',    { onlyDate: today }),
         idbLecturesByBucket(`lecture-${themeId}`, { onlyDate: today }),
         idbLecturesByBucket('lecture-charging',   { onlyDate: today }),
       ])
-      this.generalList = gC
-      this.themeList = tC
-      this.chargingList = chC
+      this.generalList = gC.filter(inPeriod)
+      this.themeList = tC.filter(inPeriod)
+      this.chargingList = chC.filter(inPeriod)
       this.loadedTheme = themeId
       this.loadedDate = today
 
-      const total = gC.length + tC.length + chC.length
+      const total = this.generalList.length + this.themeList.length + this.chargingList.length
 
       if (isOffline()) {
         this.online = false
@@ -191,9 +225,9 @@ export const useLecturesStore = defineStore('lectures', {
         idbLecturesByBucket(`lecture-${themeId}`, { onlyDate: today }),
         idbLecturesByBucket('lecture-charging',   { onlyDate: today }),
       ])
-      this.generalList = g
-      this.themeList = t
-      this.chargingList = ch
+      this.generalList = g.filter(inPeriod)
+      this.themeList = t.filter(inPeriod)
+      this.chargingList = ch.filter(inPeriod)
 
       this.loading = false
       this.refreshing = false
@@ -207,6 +241,7 @@ export const useLecturesStore = defineStore('lectures', {
       if (isOffline()) return { added: 0, days: 0, skipped: true, error: 'OFFLINE' }
       if (this.syncing) return { added: 0, days: 0, skipped: true, error: 'IN_PROGRESS' }
 
+      const period = usePeriod()
       const theme = useThemeStore()
       const tid = themeId || theme.selected
       if (!tid && !allThemes) return { added: 0, days: 0, skipped: true, error: 'NO_THEME' }
@@ -225,6 +260,9 @@ export const useLecturesStore = defineStore('lectures', {
           const d = new Date()
           d.setDate(d.getDate() - i)
           const date = localDate(d)
+
+          // ▼ Не грузим даты вне периода ▼
+          if (!period.isInPeriod(date)) continue
 
           const jobs = [
             { bucket: 'lecture-general',  fetcher: () => fetchGeneralLectures(date) },
@@ -270,7 +308,11 @@ export const useLecturesStore = defineStore('lectures', {
     },
 
     async loadArchive() {
-      this.archiveList = await idbAllLectures()
+      const period = usePeriod()
+      const all = await idbAllLectures()
+      this.archiveList = period.range.value
+        ? all.filter((l) => !l.publishedDate || period.isInPeriod(l.publishedDate))
+        : all
       return this.archiveList
     },
 
@@ -350,24 +392,17 @@ export const useLecturesStore = defineStore('lectures', {
       return getLecture(dbKey)
     },
 
-    /**
-     * Отметить лекцию прочитанной.
-     *
-     * @returns {{
-     *   done: boolean,                 // действие засчитано
-     *   reason?: string,               // причина отказа (ALREADY_READ | NOT_TODAY | NO_LECTURE)
-     *   rewardPoints?: number,         // сколько яблок реально начислено (0 если нет)
-     *   limitReached?: boolean,        // сервер сообщил REWARD_LIMIT_REACHED
-     *   limitInfo?: object|null,       // { type?, limit, count }
-     *   rewardType?: string|null,      // lecture_theme | lecture_general | charging
-     *   queued?: boolean,              // true если ушло в офлайн-очередь
-     * }}
-     */
     async markRead(lecture) {
       if (!lecture) return { done: false, reason: 'NO_LECTURE' }
       const { dbKey, publishedDate, bucket } = lecture
       if (this.readKeys.includes(dbKey)) return { done: false, reason: 'ALREADY_READ' }
       if (publishedDate !== localDate()) return { done: false, reason: 'NOT_TODAY' }
+
+      // ▼ Защита: не даём отметить вне периода ▼
+      const period = usePeriod()
+      if (!period.isInPeriod(publishedDate)) {
+        return { done: false, reason: 'OUT_OF_PERIOD' }
+      }
 
       this.readKeys.push(dbKey)
       localStorage.setItem(LS_READ, JSON.stringify(this.readKeys))
@@ -375,6 +410,11 @@ export const useLecturesStore = defineStore('lectures', {
       const rewardType = bucketToRewardType(bucket)
       const themeKey = String(bucket || '').replace(/^lecture-/, '') || 'general'
       try { useStatsStore().bumpLecturesRead(themeKey) } catch { /* ignore */ }
+
+      try {
+        const mascotType = bucket === 'lecture-charging' ? 'charging' : 'lecture'
+        useMascotStore().trigger(mascotType)
+      } catch { /* ignore */ }
 
       const auth = useAuthStore()
       const payload = {
@@ -424,9 +464,7 @@ export const useLecturesStore = defineStore('lectures', {
       const remain = []
       const limits = useLimits()
       for (const p of q) {
-        // Отделяем клиентское поле _rewardType, чтобы не отправлять его на сервер.
         const { _rewardType, ...cleanPayload } = p
-        // Fallback для старых записей очереди без _rewardType.
         const fallbackType = _rewardType || bucketToRewardType(bucketFromDbKey(cleanPayload.ID_LECTURE))
         try {
           const res = await sendLectureRead(cleanPayload)

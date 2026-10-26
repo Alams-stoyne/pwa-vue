@@ -7,7 +7,7 @@
     </transition>
 
     <p class="muted intro">
-      У вас будет одна привычка. Всего одна — зато каждый день.
+      вашей новой привычкой станет одно небольшое действие — повторяйте его каждый день
     </p>
 
     <div v-if="loading" class="theme-grid">
@@ -45,7 +45,7 @@
             <AppIcon name="check" :size="16" />
           </span>
           <div class="theme-info">
-            <div class="theme-name color-text-stroke" v-html="h.title" />
+            <div class="theme-name color-text-stroke" v-html="h.title" @click="pick(h.id)"/>
             <button
               class="theme-details"
               :disabled="habits.saving"
@@ -77,7 +77,7 @@
           class="btn btn-secondary btn-center"
           @click="enableNotifications"
         >
-          включить напоминания
+          включить
         </button>
       </section>
     </transition>

@@ -10,6 +10,8 @@ import { useStatsStore } from '../stats/store'
 import { useHomeStore } from '../home/store'
 import { useConsentStore } from '../consent/store'
 import { useLimits } from '../core/limits'
+import { useMascotStore } from '../mascot/store'
+import { usePeriod } from '../core/period'
 import { isOffline, OfflineError } from '../core/utils/network'
 
 const LS_DONE = 'tasks.doneKeys'
@@ -77,10 +79,31 @@ export const useTasksStore = defineStore('tasks', {
       const themeId = theme.selected
       if (!themeId) return
 
+      const period = usePeriod()
       const today = localDate()
+
+      // ▼ Если сегодня вне периода — ничего не грузим и чистим ▼
+      if (!period.isInPeriod(today)) {
+        this.list = []
+        this.doneKeys = this.doneKeys.filter((k) => {
+          const date = String(k).split(':')[0]
+          return period.isInPeriod(date)
+        })
+        localStorage.setItem(LS_DONE, JSON.stringify(this.doneKeys))
+        this.loadedTheme = themeId
+        this.loadedDate = today
+        this.error = null
+        this.loading = false
+        return
+      }
+
       if (!force && this.loadedTheme === themeId && this.loadedDate === today) return
 
-      this.doneKeys = this.doneKeys.filter((k) => k.startsWith(`${today}:`))
+      // Фильтрация doneKeys: только даты внутри периода
+      this.doneKeys = this.doneKeys.filter((k) => {
+        const date = String(k).split(':')[0]
+        return period.isInPeriod(date)
+      })
       localStorage.setItem(LS_DONE, JSON.stringify(this.doneKeys))
 
       this.loadedTheme = themeId
@@ -109,19 +132,6 @@ export const useTasksStore = defineStore('tasks', {
       }
     },
 
-    /**
-     * Отметить задачу выполненной.
-     *
-     * @returns {{
-     *   done: boolean,
-     *   reason?: string,               // ALREADY_DONE
-     *   rewardPoints?: number,
-     *   limitReached?: boolean,
-     *   limitInfo?: object|null,
-     *   rewardType?: 'task',
-     *   queued?: boolean,
-     * }}
-     */
     async complete(task) {
       const consent = useConsentStore()
       if (!consent.isGranted) {
@@ -129,6 +139,13 @@ export const useTasksStore = defineStore('tasks', {
       }
 
       const date = task.DATE || localDate()
+
+      // ▼ Защита: не даём выполнить вне периода ▼
+      const period = usePeriod()
+      if (!period.isInPeriod(date)) {
+        return { done: false, reason: 'OUT_OF_PERIOD' }
+      }
+
       const key = `${date}:${task.ID_TASK}`
       if (this.doneKeys.includes(key)) return { done: false, reason: 'ALREADY_DONE' }
 
@@ -137,6 +154,8 @@ export const useTasksStore = defineStore('tasks', {
 
       const rewardType = 'task'
       try { useStatsStore().bumpTaskDone() } catch { /* ignore */ }
+
+      try { useMascotStore().trigger('practice') } catch { /* ignore */ }
 
       const auth = useAuthStore()
       const payload = {
@@ -210,6 +229,7 @@ export const useTasksStore = defineStore('tasks', {
       const auth = useAuthStore()
       if (!auth.idUser) return { merged: false, error: 'NO_USER' }
 
+      const period = usePeriod()
       const hourPassed = Date.now() - this.lastSyncAt >= HOUR
       if (!force && !hourPassed) return { merged: false, error: null }
 
@@ -220,9 +240,13 @@ export const useTasksStore = defineStore('tasks', {
           return { merged: false, error: 'BAD_RESPONSE' }
         }
 
+        // Мерджим и фильтруем по периоду
         const merged = new Set([...this.doneKeys, ...res.TASKS])
         const before = this.doneKeys.length
-        this.doneKeys = [...merged]
+        this.doneKeys = [...merged].filter((k) => {
+          const date = String(k).split(':')[0]
+          return period.isInPeriod(date)
+        })
         localStorage.setItem(LS_DONE, JSON.stringify(this.doneKeys))
 
         this.lastSyncAt = Date.now()

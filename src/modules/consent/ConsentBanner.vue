@@ -5,7 +5,7 @@
       {{ resolvedText }}
     </div>
     <router-link to="/onboarding/consent" class="cb-btn">
-      Дать согласие
+      дать согласие
     </router-link>
   </div>
 </template>

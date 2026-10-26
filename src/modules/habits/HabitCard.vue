@@ -62,7 +62,7 @@
         <template v-else-if="canComplete">Выполнить </template>
         <template v-else>Через {{ leftText }}</template>      
       </span>
-      <span class="badge" v-if="habit.rewardPoints && canComplete">+{{ habit.rewardPoints }} <AppIcon name="apple" :size="21" /></span>
+      <span class="badge" v-if="habit.rewardPoints && canComplete">+{{ habit.rewardPoints }} <span class="apple"><AppIcon name="apple" :size="21" /></span></span>
 
     </button>
   </article>
@@ -72,6 +72,12 @@
 import { computed } from 'vue'
 import HabitIcon from './HabitIcon.vue'
 import AppIcon from '../../components/AppIcon.vue'
+import { useConsentStore } from '../consent/store'
+import ConsentBanner from '../consent/ConsentBanner.vue'
+
+const consent = useConsentStore()
+const hasConsent = computed(() => consent.isGranted)
+
 
 const props = defineProps({
   habit: { type: Object, required: true },

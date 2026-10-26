@@ -1,91 +1,47 @@
 <template>
   <div class="page rules-page">
-    <p v-if="rules.INTRO" class="intro">{{ rules.INTRO }}</p>
-
-    <section class="sections">
-      <article
-        v-for="(s, i) in rules.SECTIONS || []"
-        :key="s.id || i"
-        class="section"
-      >
-        <h2 class="section-title">{{ s.title }}</h2>
-        <p class="section-text">{{ s.text }}</p>
-      </article>
-    </section>
-
-    <p v-if="!rules.SECTIONS?.length" class="muted empty">
-      Правила временно недоступны.
-    </p>
+    <div class="heart-page-title color-text-stroke">шагаем вместе </div>
+    <div class="content-block">
+      <p><b>С 26 октября по 1 ноября</b> участвуйте в марафоне шагов Х5. Прогулка в обед, дорога до магазина или вечерний круг по парку — каждый шаг идёт в зачёт.</p>
+      <p>Используйте удобное приложение-шагомер. Каждый день открывайте вкладку «Шагомер» в разделе рефлексии, указывайте количество шагов за вчера и <b>прикрепляйте скриншот</b>. На нём должны быть видны дата и результат. Не забудьте нажать «Отправить»: автоматически данные на платформу не передаются.</p>
+      <p>Первую загрузку, за 26 октября, добавьте 27 октября. Последние шаги, за воскресенье, 1 ноября, отправьте в понедельник, 2 ноября.</p>
+      <p>Шаги за дни марафона складываются. Подтверждённый результат можно посмотреть в статистике. <b>Рейтинг обновляется раз в сутки</b>, поэтому новая загрузка может отобразиться не сразу.</p>
+      <p>После проверки определим количество участников с наибольшей суммой подтверждённых шагов. Их ждут призы. <b>Победителей и порядок получения подарков опубликуем в Сфере</b>.</p>
+      <p>Ну что, прогуляемся?</p>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted } from 'vue'
-import { useStepsStore } from './store'
+import { onMounted } from 'vue'
+import AppIcon from '../../components/AppIcon.vue'
+import { useAppBackground } from '../core/composables/useAppBackground'
 
-const store = useStepsStore()
-const rules = computed(() => store.rules || { SECTIONS: [] })
+const { setBackground } = useAppBackground()
 
 onMounted(() => {
-  store.loadRules()
+  setBackground({ url: '/backgrounds/bg_frame.jpg' })
 })
 </script>
 
 <style scoped>
-.rules-page { padding-bottom: 32px; }
-
-.head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 16px;
-}
-.head h1 { margin: 0; font-size: 22px; }
-
-.intro {
-  margin: 0 0 24px;
-  font-size: 15px;
-  line-height: 1.5;
-  color: #21271f;
-}
-
-.sections {
+.rules-page {
+  position: relative;
   display: grid;
-  gap: 20px;
+  align-items: start;
+  align-content: start;
+  gap: 16px;
 }
-
-.section {
-  padding: 16px 18px;
-  background: #FFFFFF;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-}
-
-.section-title {
-  margin: 0 0 8px;
-  font-size: 15px;
-  font-weight: 700;
-  color: #015f01;
-  letter-spacing: -0.01em;
-}
-
-.section-text {
-  margin: 0;
-  font-size: 14.5px;
-  line-height: 1.55;
-  color: #21271f;
-  white-space: pre-line;
-}
-
-.empty {
+.heart-page-title{
+  position: relative;
+  font-size: 32px;
   text-align: center;
-  padding: 32px 16px;
-  font-size: 14px;
+  line-height: 100%;
 }
-
-@media (max-width: 420px) {
-  .head h1 { font-size: 20px; }
-  .section-title { font-size: 14px; }
-  .section-text { font-size: 14px; }
+.content-block{
+  border: 1px solid #afe6dd;
+  border-radius: 20px;
+  padding: 24px 16px;
+  background: var(--white);
 }
 </style>

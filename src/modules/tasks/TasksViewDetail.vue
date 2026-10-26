@@ -72,7 +72,8 @@
         >
           <span class="text">{{ marking ? 'Отправка…' : 'готово' }}</span>
           <span class="badge">
-            +{{ task.REWARD_POINTS }} <AppIcon name="apple" :size="21" />
+            +{{ task.REWARD_POINTS }} 
+            <span class="apple"><AppIcon name="apple" :size="21" /></span>            
           </span>
         </button>
       </div>

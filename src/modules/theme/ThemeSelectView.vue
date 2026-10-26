@@ -115,7 +115,10 @@ function openVideo(theme) {
 }
 
 function openRecomendation(theme) {
-  router.push(`/themes/${theme.id}`)
+  router.push({
+    path: `/themes/${theme.id}`,
+    query: route.query.change ? { change: route.query.change } : {},
+  })
 }
 
 async function confirm() {

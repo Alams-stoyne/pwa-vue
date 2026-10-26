@@ -17,7 +17,7 @@
         <div class="apples-row">
           <span class="apples-label">у вас:</span>
           <div class="btn-badge">
-            {{ formatNum(store.apples) }}<AppIcon name="apple" :size="24" />
+            {{ formatNum(store.apples) }}<span class="apple"><AppIcon name="apple" :size="24" /></span>
           </div>
         </div>
         <div class="card stat-card">
@@ -84,7 +84,7 @@
     <!-- ОБЩАЯ СТАТИСТИКА -->
     <section v-show="tab === 'global'" class="pane global">
       <div class="head">
-        <div class="title">общий зачёт компаний х5</div>
+        <div class="title">общий зачёт X5</div>
         <div class="subtitle">ваши действия добавляют вклад в результат команды на протяжении всей недели</div>
       </div>
 
@@ -93,7 +93,7 @@
         <div class="apples-row">
           <span class="apples-label">общее количество яблок:</span>
           <div class="btn-badge">
-            {{ formatNum(globalProgress.TOTAL_APPLES) }} <AppIcon name="apple" :size="24" />
+            {{ formatNum(globalProgress.TOTAL_APPLES) }} <span class="apple"><AppIcon name="apple" :size="24" /></span>
           </div>
         </div>
         <div class="card stat-card">
@@ -267,7 +267,7 @@ onMounted(() => {
   display: grid;
   gap: 16px;
   font-family: var(--font-family);
-  text-transform: lowercase;
+  
   color: var(--txt-black-dark-green);
 }
 .pane .head .title{
@@ -529,5 +529,8 @@ onMounted(() => {
 .li-value.reached {
   color: #b91d0c;
   font-weight: 600;
+}
+.btn-badge svg{
+  color: transparent;
 }
 </style>

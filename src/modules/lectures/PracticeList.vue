@@ -39,15 +39,15 @@
 
         <div class="task-footer" v-if="tasks.isDone(t.ID_TASK, t.DATE)"> 
           <span class="read" aria-label="награда получена">
-            <div class="check"><AppIcon name="check" :size="10" /></div>          
-            <AppIcon name="apple" :size="14" />
+            <div class="check"><AppIcon name="check" :size="10" /></div>        
+            <span class="apple"><AppIcon name="apple" :size="14" /></span>  
             <div class="text">награда получена</div>  
           </span>
           <span class="task-barge" aria-label="выполнено">выполнено</span>   
         </div>
         <div class="task-footer" v-else> 
           <span class="read" aria-label="за выполнение">  
-            <AppIcon name="apple" :size="14" />
+            <span class="apple"><AppIcon name="apple" :size="14" /></span> 
             <div class="text">за выполнение</div>  
           </span>
           <span class="btn btn-primary btn-center" aria-label="выполнено" @click="openDetail(t)" @keydown.enter="openDetail(t)">открыть</span>   

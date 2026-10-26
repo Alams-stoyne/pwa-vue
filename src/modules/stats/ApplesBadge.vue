@@ -6,7 +6,7 @@
     :class="{ 'is-clickable': to }"
   >
     <span class="text">{{ formattedApples }}</span>
-    <AppIcon name="apple" :size="iconSize" />
+    <span class="apple"><AppIcon name="apple" :size="iconSize" /></span>  
   </component>
 </template>
 
@@ -47,7 +47,9 @@ const formattedApples = computed(() => {
   text-decoration: none;
   transition: transform 0.2s, box-shadow 0.2s;
 }
-
+.btn-badge {
+  color: transparent;
+}
 .btn-badge.is-clickable:hover {
   transform: translateY(-1px);
   box-shadow: 0 4px 10px rgba(0,0,0,0.1);

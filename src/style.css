@@ -283,6 +283,7 @@ input:focus, textarea:focus {
   border: 2px solid var(--txt-black-dark-green);
   border-radius: 14px;
   padding: 4px;
+  color: transparent;
 }
 .btn-badge{
   position: relative;
@@ -655,6 +656,12 @@ input, textarea, [contenteditable] {
 }
 .w-100{
   width: 100%;
+}
+.check svg{
+  color: var(--txt-brand-limon);
+}
+.apple svg{
+  color: transparent;
 }
 
 .g2{ gap: 2px;}

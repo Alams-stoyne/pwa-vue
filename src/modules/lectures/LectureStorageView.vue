@@ -28,7 +28,7 @@
       </div>
     </div>
 
-    <div v-else-if="!groups.length" class="empty">
+    <div v-else-if="!groups.length" class="empty-block">
       <div class="empty-title">хранилище пока пусто</div>
       <div class="empty-text">здесь появятся материалы прошедших дней</div>
       <div class="empty-help-text">Нажмите «Синхронизировать» — подтянем материалы за последнюю неделю.</div>

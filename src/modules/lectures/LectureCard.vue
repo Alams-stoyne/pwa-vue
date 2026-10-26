@@ -26,15 +26,15 @@
 
       <div class="lecture-meta"  v-if="read">
         <span class="lecture-read" aria-label="награда получена">
-          <div class="check"><AppIcon name="check" :size="10" /></div>          
-          <AppIcon name="apple" :size="14" />
+          <div class="check"><AppIcon name="check" :size="10" /></div>      
+          <span class="apple"><AppIcon name="apple" :size="14" /></span>
           <div class="text">награда получена</div>  
         </span>
         <span class="lecture-barge" aria-label="выполнено">выполнено</span>       
       </div>
       <div class="lecture-meta"  v-else>
-        <span class="lecture-read" aria-label="награда получена">     
-          <AppIcon name="apple" :size="14" />
+        <span class="lecture-read" aria-label="награда получена">  
+          <span class="apple"><AppIcon name="apple" :size="14" /></span>
           <div class="text">за выполнение</div>  
         </span>     
       </div>

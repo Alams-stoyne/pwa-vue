@@ -41,7 +41,7 @@
           @click="handleConfirm(event)"
         >
           <span class="text">Получить</span>
-          <span class="badge" v-if="event.rewardPoints">+{{ event.rewardPoints }} <AppIcon name="apple" :size="21" /></span>
+          <span class="badge" v-if="event.rewardPoints">+{{ event.rewardPoints }} <span class="apple"><AppIcon name="apple" :size="21" /></span></span>
         </button>
 
         <!-- 4. Выполнено -->
@@ -50,7 +50,7 @@
           class="btn btn-white btn-center btn-full disabled"
         >
           <span class="text">{{ event.rewardPoints ? 'Награда получена' : 'Посещено' }}</span>
-          <span class="badge" v-if="event.rewardPoints">+{{ event.rewardPoints }} <AppIcon name="apple" :size="21" /></span>
+          <span class="badge" v-if="event.rewardPoints">+{{ event.rewardPoints }} <span class="apple"><AppIcon name="apple" :size="21" /></span></span>
         </div>
       </div>
     </article>

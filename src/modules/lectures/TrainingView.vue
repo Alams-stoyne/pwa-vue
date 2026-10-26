@@ -41,7 +41,7 @@
 
     <div class="bottom-action">
       <router-link to="/training/storage" class="btn btn-secondary btn-center">
-        Материалы прошлых дней
+        архив материалов
       </router-link>
     </div>    
   </div>

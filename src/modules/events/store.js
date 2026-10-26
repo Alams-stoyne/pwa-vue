@@ -4,7 +4,8 @@ import { fetchEventsForDate, fetchEventsStatus, sendEventAction } from './api'
 import { localDate } from '../core/utils/date'
 import { isSuccess } from '../core/utils/response'
 import { useAuthStore } from '../auth/store'
-import { useStatsStore } from '../stats/store' // <--- ДОБАВЛЕН ИМПОРТ
+import { useStatsStore } from '../stats/store'
+import { usePeriod } from '../core/period'
 import { isOffline } from '../core/utils/network'
 
 const LS_CACHE = 'events.cache'
@@ -14,7 +15,7 @@ const LS_STATE = 'events.state'
 const LS_STATE_SYNC_AT = 'events.statusSyncAt'
 const LS_QUEUE = 'events.queue'
 const HOUR = 60 * 60 * 1000
-const STATUS_TTL = 15 * 60 * 1000 // 15 минут
+const STATUS_TTL = 15 * 60 * 1000
 
 function readLS(key, fallback) {
   try {
@@ -29,6 +30,7 @@ function writeLS(key, val) {
 let _tickTimer = null
 let _netWatched = false
 let _authWatched = false
+let _periodWatched = false
 
 export const useEventsStore = defineStore('events', {
   state: () => ({
@@ -47,7 +49,7 @@ export const useEventsStore = defineStore('events', {
       if (!event) return { status: 'unknown', timeLeft: 0 }
 
       const userState = s.states[eventId] || {}
-      
+
       if (userState.confirmedAt) {
         return { status: 'done', timeLeft: 0 }
       }
@@ -56,7 +58,7 @@ export const useEventsStore = defineStore('events', {
         const cooldownMs = (event.timerMins || 0) * 60 * 1000
         const expireAt = userState.clickedAt + cooldownMs
         const timeLeft = expireAt - s.now
-        
+
         if (timeLeft > 0) {
           return { status: 'timer', timeLeft }
         } else {
@@ -72,9 +74,10 @@ export const useEventsStore = defineStore('events', {
     init() {
       this._watchNet()
       this._watchAuth()
-      
+      this._watchPeriod()
+
       this.loadEvents()
-      this.syncStatus() 
+      this.syncStatus()
 
       if (!_tickTimer) {
         _tickTimer = setInterval(() => {
@@ -97,7 +100,7 @@ export const useEventsStore = defineStore('events', {
       if (_authWatched) return
       _authWatched = true
       const auth = useAuthStore()
-      
+
       if (!auth.idUser) {
         const stop = watch(() => auth.idUser, (newId) => {
           if (newId) {
@@ -108,8 +111,38 @@ export const useEventsStore = defineStore('events', {
       }
     },
 
+    _watchPeriod() {
+      if (_periodWatched) return
+      _periodWatched = true
+      const period = usePeriod()
+      watch(
+        () => period.range.value,
+        (newRange, oldRange) => {
+          if (!newRange || !oldRange) return
+          if (newRange.from === oldRange.from && newRange.to === oldRange.to) return
+          // Период изменился — перезагружаем события
+          this.loadEvents({ force: true })
+        },
+      )
+    },
+
     async loadEvents({ force = false } = {}) {
+      const period = usePeriod()
       const today = localDate()
+
+      // ▼ Вне периода — очищаем и не грузим ▼
+      if (!period.isInPeriod(today)) {
+        if (this.config.length) {
+          this.config = []
+          try { localStorage.removeItem(LS_CACHE) } catch {}
+          try { localStorage.removeItem(LS_CACHE_DATE) } catch {}
+          try { localStorage.removeItem(LS_CACHE_AT) } catch {}
+        }
+        this.loading = false
+        this.error = null
+        return false
+      }
+
       const cachedDate = localStorage.getItem(LS_CACHE_DATE)
       const cachedAt = Number(localStorage.getItem(LS_CACHE_AT) || 0)
       const fresh = Date.now() - cachedAt < HOUR
@@ -146,7 +179,7 @@ export const useEventsStore = defineStore('events', {
       if (!force) {
         const lastSync = Number(localStorage.getItem(LS_STATE_SYNC_AT) || 0)
         const isFresh = Date.now() - lastSync < STATUS_TTL
-        
+
         if (isFresh && this.config.length > 0) {
           return
         }
@@ -156,7 +189,7 @@ export const useEventsStore = defineStore('events', {
             const st = this.eventState(e.id)
             return st.status === 'available' || st.status === 'ready_to_confirm'
           })
-          
+
           if (!hasUnstable) {
             return
           }
@@ -165,19 +198,19 @@ export const useEventsStore = defineStore('events', {
 
       try {
         const res = await fetchEventsStatus({ ID_USER: auth.idUser })
-        
+
         if (isSuccess(res) && res.STATES) {
           const merged = { ...this.states }
-          
+
           for (const [id, srvState] of Object.entries(res.STATES)) {
             const local = merged[id] || {}
-            
+
             const rawClicked = srvState.CLICKED_AT || srvState.clicked_at
             const rawConfirmed = srvState.CONFIRMED_AT || srvState.confirmed_at
-            
+
             const srvClicked = rawClicked ? new Date(rawClicked).getTime() : 0
             const srvConfirmed = rawConfirmed ? new Date(rawConfirmed).getTime() : 0
-            
+
             const finalClicked = Math.max(local.clickedAt || 0, srvClicked) || undefined
             const finalConfirmed = Math.max(local.confirmedAt || 0, srvConfirmed) || undefined
 
@@ -189,14 +222,14 @@ export const useEventsStore = defineStore('events', {
               }
             }
           }
-          
+
           this.states = merged
           writeLS(LS_STATE, this.states)
-          
+
           localStorage.setItem(LS_STATE_SYNC_AT, String(Date.now()))
         }
-      } catch (e) { 
-        console.warn('[events] syncStatus failed:', e) 
+      } catch (e) {
+        console.warn('[events] syncStatus failed:', e)
       }
     },
 
@@ -221,23 +254,23 @@ export const useEventsStore = defineStore('events', {
 
       try {
         const res = await sendEventAction(payload)
-        
+
         if (res.CLICKED_AT) {
-          this.states[eventId] = { 
-            ...this.states[eventId], 
-            clickedAt: new Date(res.CLICKED_AT).getTime() 
+          this.states[eventId] = {
+            ...this.states[eventId],
+            clickedAt: new Date(res.CLICKED_AT).getTime()
           }
         }
-        
+
         if (res.CONFIRMED_AT) {
-          this.states[eventId] = { 
-            ...this.states[eventId], 
-            confirmedAt: new Date(res.CONFIRMED_AT).getTime() 
+          this.states[eventId] = {
+            ...this.states[eventId],
+            confirmedAt: new Date(res.CONFIRMED_AT).getTime()
           }
         }
-        
+
         writeLS(LS_STATE, this.states)
-        
+
         if (res.REWARD_POINTS) {
            const ev = this.config.find(e => e.id === eventId)
            if (ev) {
@@ -254,7 +287,7 @@ export const useEventsStore = defineStore('events', {
 
     async confirmEvent(eventId) {
       const auth = useAuthStore()
-      
+
       this.states[eventId] = { ...this.states[eventId], confirmedAt: Date.now() }
       writeLS(LS_STATE, this.states)
       this.now = Date.now()
@@ -272,7 +305,7 @@ export const useEventsStore = defineStore('events', {
 
       try {
         const res = await sendEventAction(payload)
-        
+
         if (res.RESULT === 'ALREADY_CONFIRMED') {
           if (res.CONFIRMED_AT) {
             this.states[eventId].confirmedAt = new Date(res.CONFIRMED_AT).getTime()
@@ -280,11 +313,11 @@ export const useEventsStore = defineStore('events', {
           }
           return { success: true, already: true, message: 'Вы уже получили награду за это событие.' }
         }
-        
+
         if (res.RESULT === 'TOO_EARLY') {
           delete this.states[eventId].confirmedAt
           writeLS(LS_STATE, this.states)
-          
+
           let msg = 'Слишком рано подтверждать.'
           if (res.RETRY_AFTER_SECONDS) {
             msg = `Подождите еще ${Math.ceil(res.RETRY_AFTER_SECONDS / 60)} мин.`
@@ -303,8 +336,7 @@ export const useEventsStore = defineStore('events', {
           writeLS(LS_STATE, this.states)
           return { success: false, message: res.MESSAGE || 'Ошибка подтверждения' }
         }
-        
-        // ▼ ДОБАВЛЕНО: Локальное начисление яблок ▼
+
         if (res.REWARD_POINTS) {
           try { useStatsStore().addApplesLocally(res.REWARD_POINTS) } catch { /* ignore */ }
         }

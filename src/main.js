@@ -12,6 +12,7 @@ import { useThemeStore } from './modules/theme/store'
 import { useConsentStore } from './modules/consent/store'
 import { useHabitsStore } from './modules/habits/store'
 import { useLimits } from './modules/core/limits'
+import { usePeriod } from './modules/core/period'
 import { subscribeToPush, getSubscription } from './modules/push/push'
 
 const pinia = createPinia()
@@ -36,16 +37,23 @@ try {
 useInstall()
 installNoZoomGuards()
 
+// ── Период активности — запускаем как можно раньше ────────────
+// (события, лекции, задачи, привычки фильтруются по нему)
+usePeriod()
+
 const app = createApp(App)
 app.use(pinia)
 app.use(router)
 
-// auth.load() синхронный и идемпотентный — вызываем один раз.
 const auth = useAuthStore()
 auth.load()
 
 app.mount('#app')
 
+if (import.meta.env.DEV || location.search.includes('debug')) {
+  window.__pinia = pinia
+  window.__app = app
+}
 // ── Всё ниже — вне критического пути ──────────────────────────
 
 const shift = Number(sessionStorage.getItem('debug.dateShift') || 0)
@@ -61,26 +69,19 @@ if (shift) {
   console.log('[debug] сдвиг даты:', shift / 86400000, 'дн.')
 }
 
-// ── Лимиты дневных наград ────────────────────────────────────
-// init() запускается внутри useLimits(): читает used из LS,
-// подтягивает rules с CDN (кэш 1 час). startDayWatcher() ставит
-// setInterval(60с) + visibilitychange → сверка с /config/limits.
 const limits = useLimits()
 limits.startDayWatcher()
 limits.refreshUsed().catch(() => {})
 
-// Согласие ПД — загружаем при старте, если пользователь авторизован
 const consent = useConsentStore()
 if (auth.idUser && !consent.isAnswered) {
   consent.loadStatus().catch(() => {})
 }
 
-// Направления — с CDN
 const theme = useThemeStore()
 theme.load()
 theme.loadThemes().catch(() => {})
 
-// Привычка — не меняется, восстанавливается через STATE.HABIT_SELECTED
 if (auth.idUser) {
   const habits = useHabitsStore()
   habits.reload()

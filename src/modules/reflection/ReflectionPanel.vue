@@ -40,7 +40,7 @@
             :disabled="!store.canSubmit || !canSubmitWithConsent"
           >
             <span class="text">{{ store.sending ? 'Отправка…' : 'Отправить' }}</span>
-            <span class="badge" v-if="store.todayRewardPoints">+{{ store.todayRewardPoints }} <AppIcon name="apple" :size="21" /></span>
+            <span class="badge" v-if="store.todayRewardPoints">+{{ store.todayRewardPoints }} <span class="apple"><AppIcon name="apple" :size="21" /></span></span>
           </button>  
         </div>
       </form>

@@ -134,20 +134,20 @@ registerRoute(
 
 // CDN-сцены (если решишь переехать) — заготовка.
 // Раскомментируй, когда сцены окажутся на CDN, и поменяй путь.
-//
-// registerRoute(
-//   ({ url }) =>
-//     url.origin === 'https://cdn.x5hd.ru' &&
-//     url.pathname.startsWith('/mascot/lottie/') &&
-//     url.pathname.endsWith('.json'),
-//   new CacheFirst({
-//     cacheName: 'mascot-lottie-cdn-v1',
-//     plugins: [
-//       new ExpirationPlugin({ maxEntries: 30, maxAgeSeconds: 60 * 60 * 24 * 90 }),
-//       new CacheableResponsePlugin({ statuses: [0, 200] }),
-//     ],
-//   }),
-// )
+
+registerRoute(
+  ({ url }) =>
+    url.origin === 'https://cdn.x5hd.ru' &&
+    url.pathname.startsWith('/lottie/') &&
+    url.pathname.endsWith('.json'),
+  new CacheFirst({
+    cacheName: 'mascot-lottie-cdn-v1',
+    plugins: [
+      new ExpirationPlugin({ maxEntries: 30, maxAgeSeconds: 60 * 60 * 24 * 90 }),
+      new CacheableResponsePlugin({ statuses: [0, 200] }),
+    ],
+  }),
+)
 
 // ── Механизм передачи URL из push в SPA ────────────────────────
 const PENDING_NAV_CACHE = 'pwa-pending-nav'

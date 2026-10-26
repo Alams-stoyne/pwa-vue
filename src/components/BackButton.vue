@@ -122,15 +122,14 @@ function onClick(e) {
   transition: box-shadow var(--t-base);
 }
 .back-title {
-  position: relative;
-  text-transform: lowercase;
   font-family: var(--font-family);
-  font-weight: 700;
-  font-size: 26px;
-  line-height: 87%;
+  font-weight: 500;
+  font-size: 28px;
+  line-height: 100%;
   letter-spacing: -0.02em;
+  text-transform: lowercase;
   text-wrap: balance;
-  color: #21271f;
+  color: var(--txt-black-dark-green);
   padding: 0;
   margin: 9px 0;
 }

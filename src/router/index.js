@@ -62,7 +62,7 @@ const routes = [
   { path: '/training', component: TrainingView, meta: { auth: true, title: 'Обучение', viewBackTitle: true, back: true, backTo: { path: '/home' } } },
   { path: '/training/lectures/:dbKey', component: LectureDetailView, props: true, meta: { auth: true, title: 'Лекция', viewBackTitle: true, back: true, hideNav: true, backTo: (r) => r.query.from === 'storage' ? { path: '/training/storage' } : { path: '/training' } } },
   { path: '/training/practices/:id', name: 'PracticeDetail', component: () => import('../modules/tasks/TasksViewDetail.vue'), meta: { auth: true, title: 'Практика', viewBackTitle: true, back: true, backTo: { path: '/training', query: { tab: 'practice' } } } },
-  { path: '/training/storage', component: LectureStorageView, meta: { auth: true, title: 'Материалы прошлых дней', viewBackTitle: true, back: true, backTo: { path: '/training' } } },
+  { path: '/training/storage', component: LectureStorageView, meta: { auth: true, title: 'архив материалов', viewBackTitle: true, back: true, backTo: { path: '/training' } } },
   
   // ▼ ДОБАВЛЕН МАРШРУТ ПРАВИЛ ▼
   { path: '/stats/rules', component: StatsRulesView, meta: { auth: true, title: 'Правила зачёта', viewBackTitle: true, back: true, backTo: { path: '/stats' } } },
@@ -77,7 +77,7 @@ const routes = [
     component: SupportView, 
     meta: { 
       public: true, 
-      title: 'Написать администратору', 
+      title: 'Написать', 
       viewBackTitle: true, 
       back: true, 
       hideNav: true, 

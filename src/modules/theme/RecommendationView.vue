@@ -16,7 +16,7 @@
 
     <div class="action d-grid g4">
       <button type="button" class="btn btn-primary btn-center" @click="choose">
-        выбрать это направление
+        выбрать
       </button>
       <button type="button" class="reco-skip m-auto" @click="skip">
         посмотреть другие направления
@@ -87,6 +87,7 @@ function choose() {
 }
 
 function skip() {
+  console.log('skip isChangeMode', isChangeMode, isChangeMode.value);
   if (isChangeMode.value) router.replace('/themes?change=1')
   else router.replace('/themes')
 }

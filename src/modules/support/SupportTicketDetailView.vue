@@ -18,7 +18,7 @@
           :class="msg.SENDER === 'admin' ? 'admin-message' : 'user-message'"
         >
           <div class="message-meta">
-            <span>{{ msg.SENDER === 'admin' ? 'поддержка' : 'вы' }}</span>
+            <span>{{ msg.SENDER === 'admin' ? 'поддержка' : 'вы' }}</span> 
             <span>{{ formatDate(msg.CREATED_AT) }}</span>
           </div>
           <div class="message-body">

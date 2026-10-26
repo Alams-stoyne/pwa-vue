@@ -55,7 +55,7 @@
         :disabled="!canAdvance"
         @click="next"        
       >
-        {{ isLast ? 'Получить рекомендацию' : 'Далее' }}
+        {{ isLast ? 'результат' : 'далее' }}
       </button>
     </div>
   </div>

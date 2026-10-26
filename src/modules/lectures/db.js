@@ -58,7 +58,6 @@ export async function deleteLecture(dbKey) {
   const lecture = await idbGet('lectures', dbKey)
   if (!lecture) return
 
-  // Удаляем фотографии
   for (const p of lecture.photos || []) {
     if (p.key) await idbDelete('photos', p.key)
   }
@@ -66,7 +65,6 @@ export async function deleteLecture(dbKey) {
     await idbDelete('photos', lecture.coverKey)
   }
 
-  // Удаляем саму лекцию
   await idbDelete('lectures', dbKey)
 }
 
@@ -86,12 +84,35 @@ export async function deleteLecturesByBucketDate(bucket, date) {
 export async function cleanupLectures(bucket, date, items) {
   const validIds = new Set((items || []).map(it => String(it.ID_LECTURE)))
   const existing = await idbLecturesByBucket(bucket, { onlyDate: date })
-  
+
   for (const ext of existing) {
     if (!validIds.has(ext.id)) {
       await deleteLecture(ext.dbKey)
     }
   }
+}
+
+/**
+ * Удаление всех лекций, опубликованных вне периода активности.
+ * Используется при старте приложения и при смене периода.
+ *
+ * @param {{ from: string, to: string } | null} period
+ * @returns {Promise<number>} — сколько лекций удалено
+ */
+export async function cleanupLecturesOutsidePeriod(period) {
+  if (!period?.from || !period?.to) return 0
+
+  const all = await idbAll('lectures')
+  let removed = 0
+  for (const l of all) {
+    const date = l.publishedDate
+    if (!date) continue
+    if (date < period.from || date > period.to) {
+      await deleteLecture(l.dbKey)
+      removed++
+    }
+  }
+  return removed
 }
 
 export async function idbLecturesByBucket(bucket, opts = {}) {

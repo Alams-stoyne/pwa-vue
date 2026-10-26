@@ -5,7 +5,9 @@ import {
   fetchReflectionTitles,
 } from './api'
 import { useAuthStore } from '../auth/store'
-import { useStatsStore } from '../stats/store' // <--- ДОБАВЛЕН ИМПОРТ
+import { useStatsStore } from '../stats/store'
+import { useHabitsStore } from '../habits/store'
+import { useMascotStore } from '../mascot/store'
 import { isSuccess } from '../core/utils/response'
 import { localDate, localDateTime } from '../core/utils/date'
 import { isOffline } from '../core/utils/network'
@@ -160,6 +162,18 @@ export const useReflectionStore = defineStore('reflection', {
           if (res.REWARD_POINTS) {
             try { useStatsStore().addApplesLocally(res.REWARD_POINTS) } catch { /* ignore */ }
           }
+
+          // ▼ ТРИГГЕР МАСКОТА (journal) ▼
+          // Привычка task3 — тоже "запись в блокноте" и уже триггерит journal
+          // в habits/store.js. Чтобы не показывать дважды за день, проверяем,
+          // не выполнена ли task3 сегодня.
+          try {
+            const habits = useHabitsStore()
+            const task3Count = Number(habits.data?.['task3']?.count) || 0
+            if (task3Count < 1) {
+              useMascotStore().trigger('journal')
+            }
+          } catch { /* ignore */ }
 
           this.sentToday = true
           this.lastSentAt = res.SERVER_DATETIME || null

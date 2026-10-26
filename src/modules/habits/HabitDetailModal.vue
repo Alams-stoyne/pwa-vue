@@ -176,6 +176,7 @@ onBeforeUnmount(() => {
   height: 100%; */
   /* object-fit: cover; */
   display: block;
+  max-width: 128px;
 }
 
 .habit-modal__emoji {

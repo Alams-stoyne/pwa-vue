@@ -14,6 +14,8 @@ import { useAuthStore } from '../auth/store'
 import { useThemeStore } from '../theme/store'
 import { useStatsStore } from '../stats/store'
 import { useHomeStore } from '../home/store'
+import { useMascotStore } from '../mascot/store'
+import { usePeriod } from '../core/period'
 import { isOffline } from '../core/utils/network'
 import {
   ensurePermission, schedule, cancel, cancelAll,
@@ -29,7 +31,7 @@ const LS_SELECTED = 'habits.selectedHabitId'
 const LS_SELECTED_DATA = 'habits.selectedHabitData'
 
 const HOUR = 60 * 60 * 1000
-const CACHE_TTL = 6 * 60 * 60 * 1000
+const CACHE_TTL = 60 * 60 * 1000 // 1 час
 
 function loadState() {
   try {
@@ -151,6 +153,19 @@ export const useHabitsStore = defineStore('habits', {
 
     _ensureToday() {
       const today = localDate()
+      const period = usePeriod()
+      const inPeriod = period.isInPeriod(today)
+
+      // Вне периода — сбрасываем состояние привычек
+      if (!inPeriod) {
+        if (this.date === today && Object.keys(this.data).length === 0) return
+        this.date = today
+        this.data = {}
+        saveState({ date: today, data: {} })
+        cancelAll()
+        return
+      }
+
       if (this.date !== today) {
         this.date = today
         this.data = {}
@@ -284,6 +299,15 @@ export const useHabitsStore = defineStore('habits', {
       const themeId = theme.selected
       if (!themeId) return false
 
+      // ▼ Вне периода — не грузим конфиг с CDN ▼
+      const period = usePeriod()
+      if (!period.isInPeriod(localDate())) {
+        this.catalogList = []
+        this.loading = false
+        this.syncing = false
+        return false
+      }
+
       const cachedAt = Number(localStorage.getItem(LS_CACHE_AT) || 0)
       const cachedTheme = localStorage.getItem(LS_CACHE_THEME)
       const fresh = Date.now() - cachedAt < CACHE_TTL
@@ -308,7 +332,7 @@ export const useHabitsStore = defineStore('habits', {
       try {
         if (!isOffline()) {
           try {
-            const raw = await fetchHabitsConfig()
+            const raw = await fetchHabitsConfig({ force })
             const configs = extractHabitsForTheme(raw, themeId)
               || getFallbackHabitsForTheme(themeId)
 
@@ -400,6 +424,10 @@ export const useHabitsStore = defineStore('habits', {
       const h = getHabit(habitId)
       if (!h) return false
 
+      // ▼ Вне периода — не разрешаем ▼
+      const period = usePeriod()
+      if (!period.isInPeriod(localDate())) return false
+
       const p = this.progress(habitId)
       if (!p || !p.canComplete) return false
 
@@ -412,6 +440,16 @@ export const useHabitsStore = defineStore('habits', {
 
       this._planAllNotifications()
       try { useStatsStore().bumpHabitDone(habitId) } catch { /* ignore */ }
+
+      const mascotMap = {
+        'vodnyy-balans': 'water',
+        'dykhatelnaya-praktika': 'breathing',
+        'task3': 'journal',
+      }
+      const mascotType = mascotMap[habitId]
+      if (mascotType) {
+        try { useMascotStore().trigger(mascotType) } catch { /* ignore */ }
+      }
 
       const auth = useAuthStore()
       const payload = {
@@ -430,8 +468,6 @@ export const useHabitsStore = defineStore('habits', {
         const res = await sendHabitComplete(payload)
         if (!isSuccess(res)) throw new Error('not ok')
 
-        // ▼ Защита: если сервер когда-нибудь пришлёт REWARD_LIMIT_REACHED
-        //   для привычки — не начисляем fallback из конфига ▼
         const limitReached = res.REWARD_LIMIT_REACHED === true
         const reward = limitReached
           ? 0

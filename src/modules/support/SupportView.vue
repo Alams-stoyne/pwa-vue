@@ -1,65 +1,62 @@
 <template>
   <div class="page support-page">
-    <transition name="fade" appear>
-      <form v-if="!sent" class="form" @submit.prevent="submit">
 
-        <label class="field">
-          <textarea
-            v-model="text"
-            :maxlength="MAX_TEXT"
-            rows="12"
-            placeholder="опишите проблему подробнее…"
-          />
-          <span class="field-counter muted">{{ text.length }} / {{ MAX_TEXT }}</span>
-        </label>
-        <ImageUploader v-model="images" :max="MAX_IMAGES" />
-        
-        <!-- Ссылка на историю обращений (только для авторизованных) -->
-        <div class="tickets-link-wrapper" v-if="isAuthed">
-          <router-link to="/support/tickets" class="btn-badge">
-            Мои обращения
-          </router-link>
-        </div>
-
-        <div
-          class="consent-card"
-          :class="{ selected: consent }"
-          role="checkbox"
-          :aria-checked="consent"
-          tabindex="0"
-          @click="toggleConsent"
-          @keydown.space.prevent="toggleConsent"
-          @keydown.enter.prevent="toggleConsent"
-          v-if="!consentGlob.isGranted"
-        >
-          <span class="consent-check" aria-hidden="true">
-            <AppIcon name="check" :size="16" />
-          </span>
-          <span class="consent-text">
-            согласен на обработку персональных данных
-          </span>
-        </div>
-
-        <p v-if="store.error" class="error">{{ store.error }}</p>
-
-        <div class="bottom-action">
-          <button
-            type="submit"
-            class="btn btn-primary btn-center"
-            :disabled="!canSubmit || store.sending"
+    <transition name="fade" appear>      
+      <div class="support-form">
+        <!-- Ссылка на историю обращений (только для авторизованных) -->     
+        <div class="tickets-link-wrapper">
+          <router-link to="/support/tickets" class="btn-badge" v-if="isAuthed">Мои обращения</router-link>
+        </div>   
+        <form v-if="!sent" class="form" @submit.prevent="submit">          
+          <label class="field">
+            <textarea
+              v-model="text"
+              :maxlength="MAX_TEXT"
+              rows="12"
+              placeholder="опишите проблему подробнее…"
+            />
+            <span class="field-counter muted">{{ text.length }} / {{ MAX_TEXT }}</span>
+          </label>
+            <ImageUploader v-model="images" :max="MAX_IMAGES" />   
+          <div
+            class="consent-card"
+            :class="{ selected: consent }"
+            role="checkbox"
+            :aria-checked="consent"
+            tabindex="0"
+            @click="toggleConsent"
+            @keydown.space.prevent="toggleConsent"
+            @keydown.enter.prevent="toggleConsent"
+            v-if="!consentGlob.isGranted"
           >
-            {{ store.sending ? 'Отправка…' : 'Отправить' }}
-          </button>
-        </div>
-      </form>
+            <span class="consent-check" aria-hidden="true">
+              <AppIcon name="check" :size="16" />
+            </span>
+            <span class="consent-text">
+              согласен на обработку персональных данных
+            </span>
+          </div>
 
-      <div v-else class="bottom-action">
-        <button
-          class="btn btn-primary btn-center"
-          @click="goBack"
-        >
-          Вернуться
-        </button>
+          <p v-if="store.error" class="error">{{ store.error }}</p>
+
+          <div class="bottom-action">
+            <button
+              type="submit"
+              class="btn btn-primary btn-center"
+              :disabled="!canSubmit || store.sending"
+            >
+              {{ store.sending ? 'Отправка…' : 'Отправить' }}
+            </button>
+          </div>
+        </form>
+        <div v-else class="bottom-action">
+          <button
+            class="btn btn-primary btn-center"
+            @click="goBack"
+          >
+            Вернуться
+          </button>
+        </div>        
       </div>
     </transition>
 
@@ -115,35 +112,49 @@ function toggleConsent() {
 
 async function submit() {
   if (!canSubmit.value || store.sending) return
-  mascot.value?.showBubble('');
-  mascot.value.showArrows()
-  
-  let ok = false
 
-  if (isAuthed.value) {
-    ok = await store.send({
-      text: text.value,
-      subject: 'Обращение в поддержку',
-      images: images.value,
-      consent: consent.value,
-    })
-  } else {
-    ok = await store.createGuestTicket({
-      text: text.value,
-      images: images.value,
-      uid: route.query.uid ? String(route.query.uid) : undefined,
-      authError: route.query.auth_error ? String(route.query.auth_error) : undefined,
-    })
+  // Обёртка — любая ошибка не «убивает» форму молча
+  try {
+    mascot.value?.showBubble('')
+    mascot.value?.showArrows()
+
+    let ok = false
+
+    if (isAuthed.value) {
+      ok = await store.send({
+        text: text.value,
+        subject: 'Обращение в поддержку',
+        images: images.value,
+        consent: consent.value,
+      })
+    } else {
+      ok = await store.createGuestTicket({
+        text: text.value,
+        images: images.value,
+        uid: route.query.uid ? String(route.query.uid) : undefined,
+        authError: route.query.auth_error ? String(route.query.auth_error) : undefined,
+      })
+    }
+
+    if (ok) {
+      sent.value = true
+      text.value = ''
+      images.value = []
+      consent.value = false
+      setTimeout(() => {
+        mascot.value?.showBubble('администратор скоро свяжется с вами')
+      }, 1500)
+    }
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error('[support] submit failed:', e)
+    store.error = e?.message || 'Ошибка отправки'
   }
+}
 
-  if (ok) {
-    sent.value = true
-    text.value = ''
-    images.value = []
-    consent.value = false
-    setTimeout(() => {
-      mascot.value?.showBubble('администратор скоро свяжется с вами');
-    }, 1500)
+function onBubbleDone() {
+  if (sent.value) {
+    mascot.value?.showCheck()
   }
 }
 
@@ -151,18 +162,11 @@ function goBack() {
   router.back()
 }
 
-function onBubbleDone() {
-  if(sent.value){
-    mascot.value?.showCheck()
-  }
-}
-
 const mascot = ref(null)
 
 onMounted(() => {
   setBackground({ url: '/backgrounds/bg_frame.jpg' })
-  store.reset()
-  
+  store.reset()  
   if (route.query.text) {
     text.value = String(route.query.text)
   }
@@ -197,7 +201,7 @@ onMounted(() => {
 .tickets-link-wrapper {
   display: flex;
   justify-content: flex-end;
-  margin-bottom: -8px;
+  margin-bottom: 10px;
 }
 .tickets-link {
   font-size: 14px;

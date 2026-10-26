@@ -3,6 +3,7 @@ import { localDate, localDateTime } from '../core/utils/date'
 import { isSuccess } from '../core/utils/response'
 import { useAuthStore } from '../auth/store'
 import { useStatsStore } from '../stats/store'
+import { useMascotStore } from '../mascot/store'
 import {
   sendSteps,
   fetchStepsSummary,
@@ -61,11 +62,6 @@ function plannedTo(summary) {
   return summary?.PLANNED_TO || summary?.PERIOD?.PLANNED_TO || null
 }
 
-/**
- * Безопасный парсинг "YYYY-MM-DD" в локальный Date.
- * В отличие от new Date('2026-10-25'), который парсит как UTC,
- * это даёт локальную полночь и не сдвигает день в западных TZ.
- */
 function parseIsoLocal(iso) {
   if (!iso || typeof iso !== 'string') return null
   const [y, m, d] = iso.split('-').map(Number)
@@ -87,7 +83,6 @@ export const useStepsStore = defineStore('steps', {
     leaderboards: {},
     leaderboardMeta: {},
 
-    // { 'YYYY-MM-DD': true | false } — доступна ли дата на CDN
     _probedDates: {},
 
     leaderboardDate: 'all',
@@ -154,12 +149,6 @@ export const useStepsStore = defineStore('steps', {
       return Math.max(0, diff + 1)
     },
 
-    /**
-     * Список дат, за которые в принципе может быть рейтинг.
-     * Использует эффективный PERIOD (обрезан до «сегодня»),
-     * fallback — на PLANNED_*.
-     * Сортировка: от свежих к старым.
-     */
     availableDates: (s) => {
       const p = s.summary?.PERIOD
       let fromIso = p?.FROM || plannedFrom(s.summary)
@@ -301,18 +290,12 @@ export const useStepsStore = defineStore('steps', {
         const key = resolveDateKey(date)
         this.leaderboardResolvedKey = key
         await this._loadOneKey(key, { force })
-        // Обновляем результат пробы
         this._probedDates[key] = !!this.leaderboards[key]
       }
 
       this.loadSchoolStats().catch(() => {})
     },
 
-    /**
-     * Параллельно проверяет доступность дат на CDN.
-     * Результат кэшируется в _probedDates. Повторные вызовы
-     * не делают запросов (используется _loadOneKey с NEGATIVE_TTL).
-     */
     async probeDates(dates) {
       if (!Array.isArray(dates) || !dates.length) return
       const toProbe = dates.filter((d) => !(d in this._probedDates))
@@ -412,6 +395,9 @@ export const useStepsStore = defineStore('steps', {
             useStatsStore().addApplesLocally(res.REWARD_POINTS)
           }
         } catch {}
+
+        // ▼ ТРИГГЕР МАСКОТА (только при успехе на сервере) ▼
+        try { useMascotStore().trigger('steps') } catch { /* ignore */ }
 
         // Инвалидируем кэш сегодняшней даты
         try {

@@ -1,7 +1,7 @@
 <template>
   <section class="leaderboard-widget">
     <header class="lb-header">
-      <div class="lb-title">топ-5</div>
+      <div class="lb-title">топ-5 среди вашей бизнес-единицы</div>
       <!-- <div class="lb-tabs" ref="tabsRef">
         <button
           type="button"

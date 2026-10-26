@@ -90,21 +90,11 @@
       <div class="footer">
         <!-- ▼ ДОБАВЛЕНО: учёт лимита дня ▼ -->
         <transition name="fade" mode="out-in" v-if="isToday && !isRead">
-          <div key="read" class="read-state">
-            <template v-if="lectureLimit.reached">
-              <b>Лимит дня исчерпан.</b>
-              <span>Награда за действия по этому типу начнёт начисляться завтра.</span>
-            </template>
-            <template v-else-if="lectureLimit.limit > 0">
-              <b>Внимание!</b>
-              <span>
-                Доступна награда за выполнение.
-                Сегодня по этому типу: {{ lectureLimit.used }} из {{ lectureLimit.limit }}.
-              </span>
-            </template>
-            <template v-else>
-              Готово<span>Доступна награда за выполнение.</span>
-            </template>
+          <div key="read" class="read-state" v-if="lecture.bucket == 'lecture-charging' ">
+              <span>Найдите удобное комфортное место, чтобы выполнить зарядку. За её выполнение вам доступна награда.</span> 
+          </div>
+          <div class="read-state" v-else>
+              <span>доступна награда за выполнение</span>
           </div>
         </transition>
 
@@ -115,18 +105,18 @@
                 <path d="M0 7C0 3.13401 3.13401 0 7 0C10.866 0 14 3.13401 14 7C14 10.866 10.866 14 7 14C3.13401 14 0 10.866 0 7Z" fill="#015F01"/>
                 <path d="M10.3052 4.66663L6.02745 8.9444L4.08301 6.99996" stroke="#D3FF4F" stroke-width="1.45833" stroke-linecap="round" stroke-linejoin="round"/>
               </svg>
-              <span>Просмотрено</span>
+              <span>просмотрено</span>
             </div>
             <div class="read-state-ok">
-              <div class="read-state-ok-title">Готово • Просмотрено</div>
-              <div class="read-state-ok-text">Результат сохранён</div>
+              <div class="read-state-ok-title">готово • просмотрено</div>
+              <div class="read-state-ok-text">результат сохранён</div>
             </div>
           </div>
         </transition>
 
         <transition name="fade" mode="out-in">
           <div v-if="!isToday && !isRead" key="old" class="muted old-note">
-            Отметить прочтение можно было только в день публикации
+            отметить прочтение можно было только в день публикации
           </div>
         </transition>
       </div>
@@ -145,13 +135,13 @@
             :disabled="!canMarkRead"
             @click="onRead"
           >
-            <span class="text">Просмотрено</span>
+            <span class="text">просмотрено</span>
             <!-- ▼ Бейдж скрываем, если лимит уже исчерпан ▼ -->
             <span
               class="badge"
               v-if="lecture.rewardPoints && !lectureLimit.reached"
             >
-              +{{ lecture.rewardPoints }} <AppIcon name="apple" :size="21" />
+              +{{ lecture.rewardPoints }} <span class="apple"><AppIcon name="apple" :size="21" /></span>
             </span>
           </button>
         </div>
@@ -472,7 +462,10 @@ function viewClick(event) {
   text-shadow: 0 1px 3px rgba(0,0,0,.5);
 }
 
-.footer { margin-top: 24px; text-transform: lowercase; }
+.footer { 
+  margin-top: 24px; 
+  /* text-transform: lowercase;  */
+}
 .read-state {
   font-family: var(--second-family); font-weight: 700;
   font-size: 14px; line-height: 100%; color: #21271f; margin-bottom: 8px;

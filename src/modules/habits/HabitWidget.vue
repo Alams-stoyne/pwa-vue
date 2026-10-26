@@ -17,7 +17,7 @@
         class="hw-notify ghost"
         @click="enableNotifications"
       >
-        🔔 включить напоминания для всех привычек
+        🔔 включить
       </button>
     </transition>
   </section>
