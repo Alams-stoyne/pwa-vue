@@ -6,10 +6,17 @@ const API = import.meta.env.VITE_API_URL
 /**
  * История начислений и «просмотрено без награды».
  *
- * Запрос:  POST {API}/apples/history  { ID_USER, LOCAL_DATETIME, TZ_OFFSET_MIN }
- * Ответ:   { RESULT: 'OK', TOTAL_EARNED, EARNED: [...], PENDING: [...] }
+ * Запрос:  POST {API}/apples/history  { ID_USER, LOCAL_DATETIME, TZ_OFFSET_MIN, PAGE? }
+ * Ответ:   {
+ *   RESULT: 'OK',
+ *   ITEMS: [{ ID, DATE, TYPE, TITLE, POINTS, STATUS, REASON, CREATED_AT }],
+ *   TOTAL, PAGE, PER_PAGE, PAGES
+ * }
+ *
+ * STATUS: 'rewarded' | 'skipped' | ...
+ * REASON: null | 'LIMIT_OR_NO_POINTS' | ...
  */
-export async function fetchApplesHistory({ ID_USER }) {
+export async function fetchApplesHistory({ ID_USER, PAGE = 1 }) {
   if (isOffline()) throw new OfflineError()
 
   const res = await fetchWithTimeout(`${API}/apples/history`, {
@@ -20,6 +27,7 @@ export async function fetchApplesHistory({ ID_USER }) {
       ID_USER,
       LOCAL_DATETIME: localDateTime(),
       TZ_OFFSET_MIN: tzOffsetMin(),
+      PAGE,
     }),
   })
 

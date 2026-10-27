@@ -75,8 +75,39 @@ const routes = [
   { path: '/profile/edit', component: ProfileViewEditor, meta: { auth: true, title: 'Редактировать профиль', viewBackTitle: true, back: true, backTo: { path: '/profile' } } },
   
   { path: '/training', component: TrainingView, meta: { auth: true, title: 'Обучение', viewBackTitle: true, back: true, backTo: { path: '/home' } } },
-  { path: '/training/lectures/:dbKey', component: LectureDetailView, props: true, meta: { auth: true, title: 'Лекция', viewBackTitle: true, back: true, hideNav: true, backTo: (r) => r.query.from === 'storage' ? { path: '/training/storage' } : { path: '/training' } } },
-  { path: '/training/practices/:id', name: 'PracticeDetail',  component: TasksViewDetail, meta: { auth: true, title: 'Практика', viewBackTitle: true, back: true, backTo: { path: '/training', query: { tab: 'practice' } } }  },
+
+  // ▼ Лекции: backTo — функция с тремя ветками (storage / rewards / fallback) ▼
+  { 
+    path: '/training/lectures/:dbKey', 
+    component: LectureDetailView, 
+    props: true, 
+    meta: { 
+      auth: true, 
+      title: 'Лекция', 
+      viewBackTitle: true, 
+      back: true, 
+      hideNav: true, 
+      backTo: (r) => 
+        r.query.from === 'storage' ? { path: '/training/storage' }
+        : r.query.from === 'rewards' ? { path: '/stats/rewards' }
+        : { path: '/training' } 
+    } 
+  },
+
+  // ▼ Практика: backTo без изменений — возврат всегда на вкладку «Практики» ▼
+  { 
+    path: '/training/practices/:id', 
+    name: 'PracticeDetail', 
+    component: TasksViewDetail, 
+    meta: { 
+      auth: true, 
+      title: 'Практика', 
+      viewBackTitle: true, 
+      back: true, 
+      backTo: { path: '/training', query: { tab: 'practice' } } 
+    } 
+  },
+
   { path: '/training/storage', component: LectureStorageView, meta: { auth: true, title: 'архив материалов', viewBackTitle: true, back: true, backTo: { path: '/training' } } },
 
   { path: '/stats', component: StatsView, meta: { auth: true, title: 'Статистика', viewBackTitle: true, back: true, backTo: { path: '/home' } } },   
