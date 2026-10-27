@@ -12,10 +12,12 @@ const TTL = 15 * 60 * 1000
 
 // START/END — эффективный период (обрезан до сегодня).
 // PLANNED_START/PLANNED_END — полный период марафона.
+// configured — флаг «админ задал реальный период» (PERIOD_CONFIGURED).
 const start = ref(null)
 const end = ref(null)
 const plannedStart = ref(null)
 const plannedEnd = ref(null)
+const configured = ref(false)
 
 let loaded = false
 let inFlight = null
@@ -48,6 +50,11 @@ function applyPeriodData(data, forDate) {
   // (fallback: если сервер ещё не отдаёт PLANNED_*, берём START/END)
   plannedStart.value = data.PLANNED_START || data.START || null
   plannedEnd.value   = data.PLANNED_END   || data.END   || null
+
+  // Флаг «период настроен админом».
+  // true  — реальные даты марафона, можно показывать в UI
+  // false — технические широкие границы (2000..2099), UI дат не показывать
+  configured.value = data.PERIOD_CONFIGURED === true
 
   if (plannedStart.value && plannedEnd.value) {
     fetchedForDate = forDate || localDate()
@@ -169,6 +176,7 @@ export function usePeriod() {
     end: computed(() => end.value),
     plannedStart: computed(() => plannedStart.value),
     plannedEnd: computed(() => plannedEnd.value),
+    isConfigured: computed(() => configured.value),  // ▼ НОВОЕ
     range,          // PLANNED_* — для материалов
     effectiveRange, // START/END — для арки
     isInPeriod,     // по PLANNED_*

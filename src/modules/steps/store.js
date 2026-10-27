@@ -62,45 +62,22 @@ function plannedTo(summary) {
   return summary?.PLANNED_TO || summary?.PERIOD?.PLANNED_TO || null
 }
 
+/**
+ * Флаг «админ задал реальный период».
+ * PERIOD_CONFIGURED есть в summary.PERIOD (новый контракт).
+ * Legacy-ответы (без поля) считаем «настроен» — старое поведение.
+ */
+function isConfigured(summary) {
+  const v = summary?.PERIOD?.PERIOD_CONFIGURED
+  if (typeof v === 'boolean') return v
+  return true
+}
+
 function parseIsoLocal(iso) {
   if (!iso || typeof iso !== 'string') return null
   const [y, m, d] = iso.split('-').map(Number)
   if (!y || !m || !d) return null
   return new Date(y, m - 1, d)
-}
-
-/**
- * Определяет состояние «сегодняшней отправки» шагов.
- * Единственный источник истины — summary.TODAY_STATUS:
- *   'none' | 'pending' | 'approved' | 'rejected'
- *
- * Fallback для старых ответов (без TODAY_STATUS).
- */
-function deriveTodayStatus(summary, lastSubmittedAt) {
-  const st = summary?.TODAY_STATUS
-
-  if (st === 'approved' || st === 'pending' || st === 'rejected' || st === 'none') {
-    return st
-  }
-
-  // ── Fallback для старых ответов ──
-  if (summary) {
-    if (summary.TODAY_CONFIRMED === true) return 'approved'
-    if (Number(summary.TODAY_STEPS) > 0) return 'approved'
-    if (summary.TODAY_SUBMITTED === true) return 'pending'
-    return 'none'
-  }
-
-  if (lastSubmittedAt) {
-    const last = new Date(lastSubmittedAt)
-    const today = new Date()
-    const sameDay =
-      last.getDate() === today.getDate() &&
-      last.getMonth() === today.getMonth() &&
-      last.getFullYear() === today.getFullYear()
-    if (sameDay) return 'pending'
-  }
-  return 'none'
 }
 
 const inFlightLB = new Map()
@@ -134,12 +111,11 @@ export const useStepsStore = defineStore('steps', {
     rank: (s) => s.summary?.RANK || 0,
     totalUsers: (s) => s.summary?.TOTAL_USERS || 0,
     totalSteps: (s) => s.summary?.TOTAL_STEPS || 0,
-
-    // Сумма ТОЛЬКО подтверждённых (approved) шагов
     todaySteps: (s) => s.summary?.TODAY_STEPS || 0,
-
-    // Сколько шагов было в последней отправке (pending / rejected / approved)
     lastSentSteps: (s) => Number(s.summary?.TODAY_SENT_STEPS) || 0,
+
+    // ▼ Флаг «период настроен админом» ▼
+    isPeriodConfigured: (s) => isConfigured(s.summary),
 
     confirmedDays: (s) => {
       const cnt = Number(s.summary?.CONFIRMED_DAYS_COUNT)
@@ -149,6 +125,7 @@ export const useStepsStore = defineStore('steps', {
     },
 
     totalDays: (s) => {
+      if (!isConfigured(s.summary)) return 0
       const n = daysInclusive(plannedFrom(s.summary), plannedTo(s.summary))
       if (n > 0) return n
       const p = s.summary?.PERIOD
@@ -156,6 +133,9 @@ export const useStepsStore = defineStore('steps', {
     },
 
     progressPercent: (s) => {
+      // При ненастроенном периоде арка пустая (марафон не стартовал)
+      if (!isConfigured(s.summary)) return 0
+
       const total = daysInclusive(plannedFrom(s.summary), plannedTo(s.summary))
         || daysInclusive(s.summary?.PERIOD?.FROM, s.summary?.PERIOD?.TO)
       if (total <= 0) return 0
@@ -169,6 +149,9 @@ export const useStepsStore = defineStore('steps', {
     },
 
     plannedPeriod: (s) => {
+      // При ненастроенном периоде UI-даты не показываем
+      if (!isConfigured(s.summary)) return null
+
       const from = plannedFrom(s.summary)
       const to = plannedTo(s.summary)
       if (!from || !to) return null
@@ -179,6 +162,9 @@ export const useStepsStore = defineStore('steps', {
     progressToGoal: (s) => Number(s.summary?.PROGRESS_PERCENT) || 0,
 
     daysLeft: (s) => {
+      // При ненастроенном периоде «осталось N дней» бессмысленно
+      if (!isConfigured(s.summary)) return null
+
       const to = plannedTo(s.summary)
       if (!to) return null
       const toTs = new Date(to).getTime()
@@ -249,32 +235,67 @@ export const useStepsStore = defineStore('steps', {
       return lb?.UPDATED_AT || s.schoolStats?.UPDATED_AT || null
     },
 
-    // ── Статус «сегодняшней отправки» ─────────────────────────
-    todayStatus: (s) => deriveTodayStatus(s.summary, s.lastSubmittedAt),
+    todayStatus: (s) => {
+      const st = s.summary?.TODAY_STATUS
+      if (st === 'approved' || st === 'pending' || st === 'rejected' || st === 'none') return st
+      if (s.summary) {
+        if (s.summary.TODAY_CONFIRMED === true) return 'approved'
+        if (Number(s.summary.TODAY_STEPS) > 0) return 'approved'
+        if (s.summary.TODAY_SUBMITTED === true) return 'pending'
+        return 'none'
+      }
+      if (s.lastSubmittedAt) {
+        const last = new Date(s.lastSubmittedAt)
+        const today = new Date()
+        const sameDay =
+          last.getDate() === today.getDate() &&
+          last.getMonth() === today.getMonth() &&
+          last.getFullYear() === today.getFullYear()
+        if (sameDay) return 'pending'
+      }
+      return 'none'
+    },
 
-    // 'form' | 'pending' | 'confirmed' | 'rejected'
     todayState: (s) => {
-      const st = deriveTodayStatus(s.summary, s.lastSubmittedAt)
+      const st = s.summary?.TODAY_STATUS
       if (st === 'approved') return 'confirmed'
       if (st === 'pending') return 'pending'
       if (st === 'rejected') return 'rejected'
+      // Legacy
+      if (s.summary?.TODAY_CONFIRMED === true) return 'confirmed'
+      if (Number(s.summary?.TODAY_STEPS) > 0) return 'confirmed'
+      if (s.summary?.TODAY_SUBMITTED === true) return 'pending'
       return 'form'
     },
 
     isSubmittedToday: (s) => {
-      const st = deriveTodayStatus(s.summary, s.lastSubmittedAt)
-      return st === 'pending' || st === 'approved'
+      const st = s.summary?.TODAY_STATUS
+      if (st === 'pending' || st === 'approved') return true
+      if (st === 'rejected' || st === 'none') return false
+      // Legacy
+      if (Number(s.summary?.TODAY_STEPS) > 0) return true
+      if (s.summary?.TODAY_SUBMITTED === true) return true
+      if (!s.lastSubmittedAt) return false
+      const lastDate = new Date(s.lastSubmittedAt)
+      const today = new Date()
+      return (
+        lastDate.getDate() === today.getDate() &&
+        lastDate.getMonth() === today.getMonth() &&
+        lastDate.getFullYear() === today.getFullYear()
+      )
     },
 
     isConfirmedToday: (s) => {
-      const st = deriveTodayStatus(s.summary, s.lastSubmittedAt)
-      return st === 'approved'
+      const st = s.summary?.TODAY_STATUS
+      if (st === 'approved') return true
+      if (st === 'pending' || st === 'rejected' || st === 'none') return false
+      // Legacy
+      if (!s.summary) return false
+      if (s.summary.TODAY_CONFIRMED !== undefined) return s.summary.TODAY_CONFIRMED === true
+      return Number(s.summary.TODAY_STEPS) > 0
     },
 
-    isRejectedToday: (s) => {
-      const st = deriveTodayStatus(s.summary, s.lastSubmittedAt)
-      return st === 'rejected'
-    },
+    isRejectedToday: (s) => s.summary?.TODAY_STATUS === 'rejected',
 
     rejectReason: (s) => {
       if (!s.summary) return ''
@@ -305,34 +326,6 @@ export const useStepsStore = defineStore('steps', {
       } finally {
         this.loadingSummary = false
       }
-    },
-
-    /**
-     * Мержит TODAY_* из ответа /steps/send в текущий summary.
-     * Не трогает TOTAL_STEPS / RANK / прочие агрегаты — они обновятся
-     * при следующем полном loadSummary().
-     *
-     * @returns {boolean} true если хоть одно поле TODAY_* было в ответе
-     */
-    _applyTodayFromResponse(res) {
-      if (!res || typeof res !== 'object') return false
-
-      const hasStatus  = typeof res.TODAY_STATUS === 'string'
-      const hasReason  = res.TODAY_REJECT_REASON !== undefined
-      const hasSent    = res.TODAY_SENT_STEPS !== undefined
-      const hasToday   = res.TODAY_STEPS !== undefined
-
-      if (!hasStatus && !hasReason && !hasSent && !hasToday) return false
-
-      const current = this.summary || {}
-      this.summary = {
-        ...current,
-        ...(hasStatus ? { TODAY_STATUS: res.TODAY_STATUS } : {}),
-        ...(hasReason ? { TODAY_REJECT_REASON: res.TODAY_REJECT_REASON } : {}),
-        ...(hasSent   ? { TODAY_SENT_STEPS: res.TODAY_SENT_STEPS } : {}),
-        ...(hasToday  ? { TODAY_STEPS: res.TODAY_STEPS } : {}),
-      }
-      return true
     },
 
     async loadSchoolStats({ force = false } = {}) {
@@ -438,20 +431,27 @@ export const useStepsStore = defineStore('steps', {
       return promise
     },
 
-    /**
-     * Отправка шагов.
-     *
-     * Возвращает объект:
-     *   { ok: boolean, alreadySent: boolean, message?: string }
-     *
-     * - ok=true            → отправка прошла, состояние переключилось на pending
-     * - ok=false, alreadySent=true → сервер сообщил, что сегодня уже отправлено
-     * - ok=false, alreadySent=false → ошибка (сеть, валидация и т.п.)
-     *
-     * Если сервер прислал TODAY_* в ответе — применяем их локально
-     * и НЕ дёргаем /steps/summary (экономия запроса). Иначе fallback
-     * на loadSummary({ force: true }).
-     */
+    _applyTodayFromResponse(res) {
+      if (!res || typeof res !== 'object') return false
+
+      const hasStatus  = typeof res.TODAY_STATUS === 'string'
+      const hasReason  = res.TODAY_REJECT_REASON !== undefined
+      const hasSent    = res.TODAY_SENT_STEPS !== undefined
+      const hasToday   = res.TODAY_STEPS !== undefined
+
+      if (!hasStatus && !hasReason && !hasSent && !hasToday) return false
+
+      const current = this.summary || {}
+      this.summary = {
+        ...current,
+        ...(hasStatus ? { TODAY_STATUS: res.TODAY_STATUS } : {}),
+        ...(hasReason ? { TODAY_REJECT_REASON: res.TODAY_REJECT_REASON } : {}),
+        ...(hasSent   ? { TODAY_SENT_STEPS: res.TODAY_SENT_STEPS } : {}),
+        ...(hasToday  ? { TODAY_STEPS: res.TODAY_STEPS } : {}),
+      }
+      return true
+    },
+
     async send({ steps, images, consent }) {
       const auth = useAuthStore()
       if (!auth.idUser) {
@@ -477,10 +477,8 @@ export const useStepsStore = defineStore('steps', {
           LOCAL_DATETIME: localDateTime(),
         })
 
-        // Применяем TODAY_* из ответа (если есть)
         const applied = this._applyTodayFromResponse(res)
 
-        // ── OK ──
         if (isSuccess(res)) {
           this.lastSubmittedAt = Date.now()
           localStorage.setItem(LS_LAST_SUBMIT, String(this.lastSubmittedAt))
@@ -493,7 +491,6 @@ export const useStepsStore = defineStore('steps', {
 
           try { useMascotStore().trigger('steps') } catch { /* ignore */ }
 
-          // Инвалидируем кэш сегодняшнего лидерборда
           try {
             const todayKey = localDate()
             delete this.leaderboards[todayKey]
@@ -502,7 +499,6 @@ export const useStepsStore = defineStore('steps', {
             localStorage.removeItem(`${LS_LB_CACHE_AT}.${todayKey}`)
           } catch {}
 
-          // Fallback для старых серверов без TODAY_* в ответе
           if (!applied) {
             await this.loadSummary({ force: true })
           }
@@ -510,21 +506,13 @@ export const useStepsStore = defineStore('steps', {
           return { ok: true, alreadySent: false }
         }
 
-        // ── ALREADY_SENT_TODAY ──
         if (res?.RESULT === 'ALREADY_SENT_TODAY') {
           const msg = res.MESSAGE || 'Сегодня вы уже отправляли шаги.'
           this.error = msg
-
-          // State уже применён через _applyTodayFromResponse выше.
-          // Если сервер не прислал TODAY_* — подтягиваем summary.
-          if (!applied) {
-            await this.loadSummary({ force: true })
-          }
-
+          if (!applied) await this.loadSummary({ force: true })
           return { ok: false, alreadySent: true, message: msg }
         }
 
-        // ── Прочие ошибки ──
         const errMsg = res?.MESSAGE || 'Ошибка при отправке данных'
         this.error = errMsg
         return { ok: false, alreadySent: false, message: errMsg }
