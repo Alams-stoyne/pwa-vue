@@ -109,16 +109,21 @@ const canSubmit = computed(() => {
 
 async function submit() {
   if (!canSubmit.value || store.sending) return
-  if (!canSubmitWithConsent.value) {
-    // Защита от обхода disabled
-    return
-  }
-  const ok = await store.send({
+  if (!canSubmitWithConsent.value) return
+
+  const result = await store.send({
     steps: Math.round(Number(steps.value)),
     images: images.value,
     consent: localConsent.value,
   })
-  if (ok) sent.value = true
+
+  if (result.ok) {
+    sent.value = true
+  } else if (result.alreadySent) {
+    sent.value = true
+    // можно показать message через toast, но тут его нет
+  }
+  // real errors — просто остаёмся на форме, store.error доступен
 }
 
 function reset() {

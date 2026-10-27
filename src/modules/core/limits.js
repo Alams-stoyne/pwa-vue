@@ -16,7 +16,7 @@
 import { ref, computed } from 'vue'
 import { localDate, localDateTime } from './utils/date'
 import { fetchWithTimeout, isOffline } from './utils/network'
-import { isSuccess } from './utils/response'
+import { isSuccess, isBlocked } from './utils/response'
 
 const CDN = import.meta.env.VITE_CDN_URL
 const API = import.meta.env.VITE_API_URL
@@ -29,7 +29,6 @@ const RULES_TTL           = 60 * 60 * 1000  // 1 час
 const USED_REFRESH_MIN_MS = 5 * 60 * 1000   // 5 минут
 const TICK_MS             = 60 * 1000       // 1 минута
 
-/** Канонический список типов лимитов. */
 const TYPES = ['lecture_theme', 'lecture_general', 'charging', 'task']
 
 const limits     = ref({})
@@ -40,20 +39,12 @@ let inited            = false
 let watcherStarted    = false
 let _tickId           = null
 
-// ── helpers ────────────────────────────────────────────────────
-
 function canonicalKey(k) {
   if (!k) return null
   const lower = String(k).toLowerCase()
   return TYPES.includes(lower) ? lower : null
 }
 
-/**
- * Маппинг bucket лекции → тип награды.
- *   lecture-general   → lecture_general
- *   lecture-charging  → charging
- *   lecture-<themeId> → lecture_theme
- */
 function bucketToRewardType(bucket) {
   if (!bucket) return null
   if (bucket === 'lecture-general')  return 'lecture_general'
@@ -62,10 +53,6 @@ function bucketToRewardType(bucket) {
   return null
 }
 
-/**
- * Восстановить bucket из dbKey вида `${bucket}:${date}:${id}`.
- * Нужно для старых элементов офлайн-очереди, где _rewardType не сохранён.
- */
 function bucketFromDbKey(dbKey) {
   if (!dbKey) return null
   const m = String(dbKey).match(/^(lecture-[^:]+):/)
@@ -109,8 +96,6 @@ function loadUsedFromLS() {
   }
 }
 
-// ── rules (CDN) ───────────────────────────────────────────────
-
 function loadRulesFromCache() {
   const cached = readLS(LS_RULES, null)
   if (!cached?.LIMITS) return
@@ -148,8 +133,6 @@ async function loadRules({ force = false } = {}) {
   if (!force && Date.now() - at < RULES_TTL) return true
   return fetchRules()
 }
-
-// ── внешние источники ─────────────────────────────────────────
 
 function applyAuthLimits(limitsUsed) {
   if (!limitsUsed || typeof limitsUsed !== 'object') return
@@ -205,8 +188,6 @@ function applyConfigLimits(data) {
   return false
 }
 
-// ── запись действий ──────────────────────────────────────────
-
 function recordReward(type, points) {
   const pts = Number(points) || 0
   if (pts <= 0) return
@@ -227,15 +208,6 @@ function recordLimitReached(type, info) {
   persist()
 }
 
-/**
- * Универсальный разбор ответа сервера с информацией о награде.
- * Учитывает REWARD_TYPE (если есть), иначе fallbackType.
- * Возвращает нормализованный объект для возврата из markRead/complete.
- *
- * @param {object} res — ответ сервера
- * @param {string} fallbackType — bucketToRewardType(bucket) или 'task'
- * @returns {{ rewardPoints:number, limitReached:boolean, limitInfo:object|null, rewardType:string|null }}
- */
 function handleRewardResponse(res, fallbackType) {
   const rewardType =
     canonicalKey(res?.REWARD_TYPE) ||
@@ -250,8 +222,6 @@ function handleRewardResponse(res, fallbackType) {
 
   return { rewardPoints: points, limitReached, limitInfo, rewardType }
 }
-
-// ── getters ──────────────────────────────────────────────────
 
 function isLimitReached(type) {
   const t = canonicalKey(type)
@@ -276,8 +246,6 @@ function getLimit(type) {
   }
 }
 
-// ── фоновое обновление ───────────────────────────────────────
-
 async function refreshUsed({ force = false } = {}) {
   if (isOffline()) return false
   const now = Date.now()
@@ -300,12 +268,21 @@ async function refreshUsed({ force = false } = {}) {
     })
     if (!res.ok) return false
     const data = await res.json()
+
+    // ▼ БЛОКИРОВКА ▼
+    if (isBlocked(data)) {
+      auth.setBlocked(data.MESSAGE)
+      return false
+    }
+
     if (!isSuccess(data)) return false
+
+    // ▼ Если пришли OK — блокировка снята ▼
+    if (auth.blocked) auth.clearBlocked()
+
     return applyConfigLimits(data)
   } catch { return false }
 }
-
-// ── суточный ролловер ────────────────────────────────────────
 
 function ensureToday() {
   const today = localDate()
@@ -315,8 +292,6 @@ function ensureToday() {
   persist()
   return true
 }
-
-// ── lifecycle ────────────────────────────────────────────────
 
 function init() {
   if (inited) return
@@ -347,8 +322,6 @@ const asMap = computed(() => {
   return out
 })
 
-// ── публичный API ────────────────────────────────────────────
-
 export function useLimits() {
   init()
   return {
@@ -373,5 +346,4 @@ export function useLimits() {
   }
 }
 
-// Экспорт хелперов для использования вне компонентов (например, в flushQueue).
 export { handleRewardResponse, bucketToRewardType, bucketFromDbKey }

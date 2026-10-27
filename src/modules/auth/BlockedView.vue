@@ -13,7 +13,9 @@
 </template>
 
 <script setup>
-defineProps({ message: { type: String, default: 'Доступ приостановлен.' } })
+defineProps({
+  message: { type: String, default: 'Доступ приостановлен.' },
+})
 </script>
 
 <style scoped>

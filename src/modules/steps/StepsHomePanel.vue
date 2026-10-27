@@ -7,9 +7,7 @@
       <div class="rating-text">
         <p>Каждый день загружайте шаги за предыдущий день.<br> Укажите количество и приложите скриншот из приложения-шагомера в разделе рефлексии. </p>
         <p>Максимально возможное количество шагов для внесения - {{ formatNum(MAX_STEPS) }} шагов в день</p>
-        <!-- <p v-if="periodText">Учитываем шаги {{ periodText }}.</p> -->
         <p>Учитываем шаги с 26 октября по 1 ноября.</p>
-        <!-- <p v-if="daysLeftText" class="days-left">{{ daysLeftText }}</p> -->
         <p>Крайний срок загрузки: 2 ноября, 12:00 МСК.</p>
       </div>
       <section class="arc-block">
@@ -39,9 +37,9 @@
           </div>
           <transition name="fade" appear>
             <div class="rating color-text-stroke" v-if="rank > 0">№ {{ formattedRank }}</div>
-          </transition>          
+          </transition>
         </div>
-      </section>      
+      </section>
       <div class="rating-text">
         <template v-if="rank > 0">
           <div class="rating-title">твой путь в шагах</div>
@@ -52,6 +50,24 @@
         </template>
       </div>
     </div>
+
+    <!-- ▼ Плашка «результат отклонён» — над формой ▼ -->
+    <div v-if="store.isRejectedToday" class="rejected-banner">
+      <div class="rejected-banner-head">
+        <span class="rejected-banner-icon">!</span>
+        <span class="rejected-banner-title">результат отклонён модератором</span>
+      </div>
+      <p v-if="store.rejectReason" class="rejected-banner-reason">
+        {{ store.rejectReason }}
+      </p>
+      <p v-else class="rejected-banner-reason">
+        отправьте данные заново — приложите читаемый скриншот из приложения-шагомера.
+      </p>
+      <p v-if="store.lastSentSteps > 0" class="rejected-banner-sent">
+        было отправлено: {{ formatNum(store.lastSentSteps) }} шагов
+      </p>
+    </div>
+
     <!-- 1. Блок отправки шагов -->
     <div v-if="!store.isSubmittedToday" class="steps-form d-grid g12">
       <div class="input-wrapper" v-if="canSubmitWithConsent">
@@ -64,7 +80,7 @@
           step="1"
           placeholder="укажите количество шагов"
           class="steps-input"
-        /> 
+        />
         <div v-if="imagePreview" class="image-preview">
           <img :src="imagePreview" alt="Скриншот" />
           <button type="button" class="remove-img" @click="removeImage">✕</button>
@@ -103,10 +119,11 @@
           :disabled="!canSubmit || store.sending || !canSubmitWithConsent"
           @click="submit"
         >
-          {{ store.sending ? 'Отправка…' : 'отправить' }}
+          {{ store.sending ? 'Отправка…' : (store.isRejectedToday ? 'отправить заново' : 'отправить') }}
         </button>
       </div>
     </div>
+
     <!-- 2. Отправлено, ждёт подтверждения -->
     <div v-else-if="!store.isConfirmedToday" class="result-card pending">
       <div class="ico">
@@ -121,6 +138,7 @@
         <button type="button" class="btn btn-primary btn-center" @click="refreshStatus">Обновить статус</button>
       </div>
     </div>
+
     <!-- 3. Подтверждено -->
     <div v-else class="result-card success">
       <div class="ico">
@@ -148,7 +166,7 @@ import { useToast } from '../core/composables/useToast'
 import AppIcon from '../../components/AppIcon.vue'
 import StepsLeaderboardWidget from './StepsLeaderboardWidget.vue'
 import { useAppBackground } from '../core/composables/useAppBackground'
-const { setBackground, clearBackground } = useAppBackground()
+const { setBackground } = useAppBackground()
 
 const store = useStepsStore()
 const consentStore = useConsentStore()
@@ -190,57 +208,17 @@ const totalDays = computed(() => store.totalDays)
 const hasSummary = computed(() => store.hasSummary)
 const loadingSummary = computed(() => store.loadingSummary)
 const rank = computed(() => store.rank)
-const totalUsers = computed(() => store.totalUsers)
 
 const formattedTotal = computed(() => formatNumber(store.totalSteps))
 const formattedRank = computed(() => formatNumber(store.rank))
 
-// ── Период (PLANNED_*) ───────────────────────────────────────
-const MONTHS_RU = [
-  'января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
-  'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря',
-]
-
-function formatPeriodText(fromIso, toIso) {
-  if (!fromIso || !toIso) return ''
-  const dFrom = new Date(fromIso)
-  const dTo = new Date(toIso)
-  if (!Number.isFinite(dFrom.getTime()) || !Number.isFinite(dTo.getTime())) return ''
-
-  const dayFrom = dFrom.getDate()
-  const dayTo = dTo.getDate()
-  const monFrom = dFrom.getMonth()
-  const monTo = dTo.getMonth()
-  const yearFrom = dFrom.getFullYear()
-  const yearTo = dTo.getFullYear()
-
-  if (yearFrom !== yearTo) {
-    return `с ${dayFrom} ${MONTHS_RU[monFrom]} ${yearFrom} по ${dayTo} ${MONTHS_RU[monTo]} ${yearTo}`
-  }
-  if (monFrom === monTo) {
-    return `с ${dayFrom} по ${dayTo} ${MONTHS_RU[monTo]}`
-  }
-  return `с ${dayFrom} ${MONTHS_RU[monFrom]} по ${dayTo} ${MONTHS_RU[monTo]}`
-}
-
-const periodText = computed(() => {
-  const p = store.plannedPeriod
-  if (!p) return ''
-  return formatPeriodText(p.FROM, p.TO)
-})
-
-const daysLeftText = computed(() => {
-  const n = store.daysLeft
-  if (n == null) return ''
-  if (n <= 0) return 'Челлендж завершён.'
-  if (n === 1) return 'Остался 1 день.'
-  if (n >= 2 && n <= 4) return `Осталось ${n} дня.`
-  return `Осталось ${n} дней.`
-})
-
 function formatNumber(n) {
   const v = Number(n) || 0
   return v.toLocaleString('ru-RU')
+}
+
+function formatNum(n) {
+  return Number(n || 0).toLocaleString('ru-RU')
 }
 
 // ─── Таймер до следующего дня ───
@@ -291,21 +269,24 @@ async function submit() {
   if (!canSubmit.value || store.sending) return
   if (!canSubmitWithConsent.value) return
 
-  const ok = await store.send({
+  const result = await store.send({
     steps: Math.round(Number(steps.value)),
     images: [selectedFile.value],
     consent: localConsent.value,
   })
 
-  if (ok) {
-    // store.send() сам вызвал loadSummary({force: true})
-  } else if (store.error) {
-    // error уже в store.error
+  if (result.ok) {
+    // Успех — TODAY_* из ответа переключил state на 'pending'.
+    // Форма скроется автоматически, покажется блок «на проверке».
+    steps.value = null
+    removeImage()
+  } else if (result.alreadySent) {
+    // Сервер говорит: сегодня уже отправляли. State обновлён,
+    // UI переключится автоматически. Информируем пользователя.
+    toast.info(result.message || 'Сегодня вы уже отправляли шаги.')
+  } else if (result.message) {
+    toast.error(result.message)
   }
-}
-
-function formatNum(n) {
-  return Number(n || 0).toLocaleString('ru-RU')
 }
 
 function refreshStatus() {
@@ -364,14 +345,12 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
 }
-
 .arc-wrap {
   position: relative;
   width: 100%;
   max-width: 400px;
   margin: 0 auto;
 }
-
 .progress-arc {
   width: 100%;
   height: auto;
@@ -380,7 +359,6 @@ onUnmounted(() => {
 .progress-arc__fill {
   transition: stroke-dasharray 700ms cubic-bezier(.2,.7,.2,1);
 }
-
 .arc-center {
   position: absolute;
   top: 50%;
@@ -390,7 +368,6 @@ onUnmounted(() => {
   width: 100%;
   pointer-events: none;
 }
-
 .arc-value {
   font-family: var(--third-family);
   font-weight: 400;
@@ -401,7 +378,6 @@ onUnmounted(() => {
   text-wrap: balance;
   color: var(--txt-dark-green);
 }
-
 .arc-days {
   margin-top: 2px;
   font-family: var(--font-family);
@@ -410,20 +386,6 @@ onUnmounted(() => {
   line-height: 120%;
   color: var(--txt-black-dark-green);
   opacity: .85;
-}
-
-.arc-goal {
-  font-size: 15px;
-  color: #6b7268;
-  margin-top: 2px;
-  font-variant-numeric: tabular-nums;
-}
-.arc-label {
-  font-size: 13px;
-  color: #015f01;
-  margin-top: 4px;
-  font-weight: 600;
-  text-transform: lowercase;
 }
 
 /* ─── Рейтинг ─── */
@@ -441,7 +403,6 @@ onUnmounted(() => {
   text-transform: lowercase;
   text-wrap: balance;
 }
-
 .rating-text {
   font-family: var(--font-family);
   font-weight: 400;
@@ -450,11 +411,6 @@ onUnmounted(() => {
   color: var(--black);
 }
 .rating-text p{ margin-bottom: 8px; }
-.rating-text .days-left {
-  color: var(--txt-dark-green);
-  font-weight: 500;
-  text-transform: lowercase;  
-}
 .rating-title {
   font-family: var(--font-family);
   font-weight: 700;
@@ -466,8 +422,65 @@ onUnmounted(() => {
   color: var(--txt-black-dark-green);
 }
 
+/* ─── Плашка «результат отклонён» ─── */
+.rejected-banner {
+  position: relative;
+  background: #FFF1F0;
+  border: 1px solid #FCD9D6;
+  border-radius: 14px;
+  padding: 14px 16px;
+  display: grid;
+  gap: 8px;
+}
+.rejected-banner-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.rejected-banner-icon {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #B91D0C;
+  color: #fff;
+  font-family: var(--second-family);
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.rejected-banner-title {
+  font-family: var(--font-family);
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 120%;
+  text-transform: lowercase;
+  color: #7a1710;
+}
+.rejected-banner-reason {
+  margin: 0;
+  font-family: var(--font-family);
+  font-weight: 400;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: #7a1710;
+  white-space: pre-wrap;
+}
+.rejected-banner-sent {
+  margin: 0;
+  font-family: var(--font-family);
+  font-weight: 500;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: #7a1710;
+  opacity: .8;
+  text-transform: lowercase;
+}
+
 /* ─── Форма ─── */
-.steps-form { margin-top: 24px; }
+.steps-form { margin-top: 0; }
 
 .input-wrapper {
   position: relative;
@@ -556,7 +569,6 @@ onUnmounted(() => {
   padding: 16px;
   gap: 16px;
 }
-
 .result-card .ico {
   width: 36px;
   display: flex;
@@ -572,7 +584,6 @@ onUnmounted(() => {
   display: grid;
   gap: 4px;
 }
-
 .result-card.success{
   border: 1px solid #c3eb91;
   background: var(--green-light);

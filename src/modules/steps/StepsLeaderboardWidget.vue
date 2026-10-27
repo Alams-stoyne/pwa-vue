@@ -51,7 +51,7 @@
       <div v-for="i in 5" :key="i" class="lb-card skeleton pulse" />
     </div>
 
-    <!-- Пустое состояние -->
+    <!-- Пустое состояние
     <div v-else-if="!top5.length" class="lb-empty">
       <p>
         {{ emptyText }}
@@ -59,10 +59,10 @@
       <button v-if="!store.online" class="btn btn-secondary mt-16" @click="refresh">
         Обновить
       </button>
-    </div>
+    </div> -->
 
     <!-- Список топ-5 -->
-    <div v-else class="lb-list">
+    <div v-else-if="!top5.length" class="lb-list">
       <div
         v-for="(user, index) in top5"
         :key="index"

@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { registerRequest } from './api'
-import { isSuccess } from '../core/utils/response'
+import { isSuccess, isBlocked } from '../core/utils/response'
 import { useThemeStore } from '../theme/store'
 import { useHomeStore } from '../home/store'
 import { useLimits } from '../core/limits'
@@ -19,6 +19,8 @@ const LS_CONFIRMED = 'auth.confirmed'
 const LS_UID_BOUND = 'auth.uid_bound'
 const LS_LAST_ATTEMPT = 'auth.last_attempt'
 const LS_ATTEMPTS = 'auth.attempts_count'
+const LS_BLOCKED = 'auth.blocked'
+const LS_BLOCKED_MESSAGE = 'auth.blockedMessage'
 
 const MIN_INTERVAL_MS = 5000
 const MAX_ATTEMPTS = 10
@@ -53,6 +55,10 @@ export const useAuthStore = defineStore('auth', {
 
     lastResult: null,
     retryAfterMs: 0,
+
+    // ▼ Блокировка администратором ▼
+    blocked: localStorage.getItem(LS_BLOCKED) === '1',
+    blockedMessage: localStorage.getItem(LS_BLOCKED_MESSAGE) || '',
   }),
 
   getters: {
@@ -69,6 +75,26 @@ export const useAuthStore = defineStore('auth', {
       this.isRegistered = localStorage.getItem(LS_REGISTERED) === '1'
       this.isConfirmed = localStorage.getItem(LS_CONFIRMED) === '1'
       this.boundUid = readBoundUid()
+      this.blocked = localStorage.getItem(LS_BLOCKED) === '1'
+      this.blockedMessage = localStorage.getItem(LS_BLOCKED_MESSAGE) || ''
+    },
+
+    setBlocked(message) {
+      this.blocked = true
+      this.blockedMessage = message || 'Доступ приостановлен.'
+      try {
+        localStorage.setItem(LS_BLOCKED, '1')
+        localStorage.setItem(LS_BLOCKED_MESSAGE, this.blockedMessage)
+      } catch {}
+    },
+
+    clearBlocked() {
+      this.blocked = false
+      this.blockedMessage = ''
+      try {
+        localStorage.removeItem(LS_BLOCKED)
+        localStorage.removeItem(LS_BLOCKED_MESSAGE)
+      } catch {}
     },
 
     confirmRegistration() {
@@ -125,6 +151,14 @@ export const useAuthStore = defineStore('auth', {
           deviceIdCreatedAt: deviceIdCreatedAt || undefined,
           deviceRotatedAt: deviceRotatedAt || undefined,
         })
+
+        // ▼ БЛОКИРОВКА (приоритетно, до остальных кодов) ▼
+        if (isBlocked(data)) {
+          this.setBlocked(data.MESSAGE)
+          this.error = data.MESSAGE || 'Доступ приостановлен.'
+          this.lastResult = 'BLOCKED'
+          return false
+        }
 
         if (data?.RESULT === 'UID_TAKEN') {
           this.lastResult = 'UID_TAKEN'
@@ -185,7 +219,6 @@ export const useAuthStore = defineStore('auth', {
           try { applyHabits(data.HABITS) } catch {}
         }
 
-        // ▼ НОВОЕ: лимиты из ответа /auth ▼
         if (data.LIMITS_USED) {
           try { useLimits().applyAuthLimits(data.LIMITS_USED) } catch (e) {
             console.warn('[auth] applyAuthLimits failed:', e)
@@ -201,6 +234,9 @@ export const useAuthStore = defineStore('auth', {
         this.boundUid = uid
         this.isRegistered = true
         resetAttempts()
+
+        // ▼ Сервер вернул OK — если блокировка была, снимаем ▼
+        if (this.blocked) this.clearBlocked()
 
         return true
       } catch (e) {
@@ -228,7 +264,9 @@ export const useAuthStore = defineStore('auth', {
       localStorage.removeItem(LS_CONFIRMED)
       resetAttempts()
 
-      // ▼ Сброс лимитов на диск (in-memory сбросится при следующем useLimits-init) ▼
+      // Снимаем блокировку — при следующем логине проверим заново
+      this.clearBlocked()
+
       try {
         localStorage.removeItem('limits.used')
       } catch {}
@@ -250,7 +288,7 @@ export const useAuthStore = defineStore('auth', {
         'tasks.doneKeys', 'tasks.queue', 'tasks.lastSyncAt',
         'habits.state', 'habits.queue', 'habits.lastSyncAt',
         'habits.cache', 'habits.cacheAt', 'habits.cacheTheme',
-        'habits.selectedHabitId', 'habits.selectedHabitData', 
+        'habits.selectedHabitId', 'habits.selectedHabitData',
         'stats.local', 'stats.server', 'stats.global', 'stats.times',
         'stats.personal.v3', 'stats.global.v3', 'stats.times.v3',
         'stats.pendingApples',

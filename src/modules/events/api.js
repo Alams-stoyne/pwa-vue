@@ -10,15 +10,14 @@ const API = import.meta.env.VITE_API_URL
  */
 export async function fetchEventsForDate(date = localDate()) {
   if (isOffline()) throw new OfflineError()
-  
+
   const res = await fetchWithTimeout(`${CDN}/events/${date}.json`)
-  
-  // Если файла на этот день нет — это не ошибка, просто нет событий
+
   if (res.status === 404) return []
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
-  
+
   const text = await res.text()
-  try { 
+  try {
     const data = JSON.parse(text)
     return Array.isArray(data) ? data : (data.events || [])
   } catch {
@@ -29,7 +28,7 @@ export async function fetchEventsForDate(date = localDate()) {
 /**
  * Синхронизация статусов событий пользователя.
  * POST {API}/events/status { ID_USER }
- * Ожидаемый ответ: { RESULT: 'OK', STATES: { [eventId]: { CLICKED_AT, CONFIRMED_AT } } }
+ * Ответ: { RESULT: 'OK', STATES: { [eventId]: { CLICKED_AT, CONFIRMED_AT } } }
  */
 export async function fetchEventsStatus({ ID_USER }) {
   if (isOffline()) throw new OfflineError()
@@ -47,14 +46,20 @@ export async function fetchEventsStatus({ ID_USER }) {
  * Запись действия (клик или подтверждение).
  * POST {API}/events/action { ID_USER, EVENT_ID, ACTION }
  * ACTION: 'click' | 'confirm'
+ *
+ * @param {{ ID_USER: string, EVENT_ID: string, ACTION: 'click'|'confirm' }} payload
+ * @param {{ keepalive?: boolean }} opts
+ *   keepalive=true — критично для click: браузер не отменяет запрос,
+ *   когда вкладка уходит в фон (после window.open ссылки).
  */
-export async function sendEventAction({ ID_USER, EVENT_ID, ACTION }) {
+export async function sendEventAction(payload, { keepalive = false } = {}) {
   if (isOffline()) throw new OfflineError()
   const res = await fetchWithTimeout(`${API}/events/action`, {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ID_USER, EVENT_ID, ACTION }),
+    body: JSON.stringify(payload),
+    keepalive,
   })
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
   return res.json()

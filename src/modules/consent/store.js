@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { fetchConsentStatus, saveConsent } from './api'
 import { useAuthStore } from '../auth/store'
 import { localDateTime } from '../core/utils/date'
+import { isBlocked } from '../core/utils/response'
 
 const LS_ANSWERED = 'consent.answered'
 const LS_GRANTED = 'consent.granted'
@@ -55,7 +56,6 @@ export const useConsentStore = defineStore('consent', {
   },
 
   actions: {
-    /** Перечитать состояние из localStorage (после applyState). */
     reload() {
       const fresh = readLocal()
       this.answered = fresh.answered
@@ -63,7 +63,27 @@ export const useConsentStore = defineStore('consent', {
       this.at = fresh.at
     },
 
-    async loadStatus() {
+    /**
+     * Загрузка статуса согласия с сервера.
+     *
+     * ВАЖНО: согласие нельзя отозвать (только дать). Значит после
+     * первой успешной загрузки состояние НИКОГДА не меняется.
+     *
+     * Запрос нужен ТОЛЬКО когда в localStorage нет ответа —
+     * например, при переустановке приложения (LS потерян, а на сервере
+     * согласие уже есть).
+     *
+     * Guard: если isAnswered = true и не force — сразу return true,
+     * без сетевого запроса.
+     *
+     * @param {{ force?: boolean }} opts — force нужен только для отладки
+     */
+    async loadStatus({ force = false } = {}) {
+      // Guard: не дёргаем сеть, если согласие уже известно и не force
+      if (!force && this.answered) return true
+      // Guard от параллельных вызовов
+      if (this.loading) return false
+
       this.loading = true
       this.error = null
       try {
@@ -77,14 +97,34 @@ export const useConsentStore = defineStore('consent', {
           ),
         ])
 
+        if (isBlocked(res)) {
+          auth.setBlocked(res.MESSAGE)
+          return false
+        }
+
         if (res && res.RESULT === 'OK') {
+          // ── Формат 1: плоские поля (текущий ответ сервера) ──
+          //   { CONSENT: true, CONSENT_AT: '...', HAS_CONSENT: true }
+          if (res.CONSENT === true || res.HAS_CONSENT === true) {
+            this.answered = true
+            this.granted = true
+            this.at = res.CONSENT_AT ? new Date(res.CONSENT_AT).getTime() : Date.now()
+            writeLocal({ granted: this.granted, at: this.at })
+            return true
+          }
+
+          // ── Формат 2: вложенный объект (старый) ──
+          //   { CONSENT: { granted: true, at: '...' } }
           if (res.CONSENT && typeof res.CONSENT === 'object') {
             this.answered = true
             this.granted = !!res.CONSENT.granted
             this.at = res.CONSENT.at ? new Date(res.CONSENT.at).getTime() : null
             writeLocal({ granted: this.granted, at: this.at })
+            return true
           }
-          return true
+
+          // RESULT=OK, но согласия нет (новый пользователь) — не answered
+          return false
         }
         return false
       } catch {
@@ -117,6 +157,11 @@ export const useConsentStore = defineStore('consent', {
               setTimeout(() => reject(new Error('timeout')), SYNC_TIMEOUT_MS),
             ),
           ])
+
+          if (isBlocked(res)) {
+            auth.setBlocked(res.MESSAGE)
+            return false
+          }
 
           if (res && res.RESULT === 'OK' && res.AT) {
             this.at = new Date(res.AT).getTime()

@@ -1,34 +1,49 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '../modules/auth/store'
-import { useConsentStore } from '../modules/consent/store'
-import { useQuizStore } from '../modules/quiz/store'
+import RegisteringView from '../modules/auth/RegisteringView.vue'
+
 import { useInstall } from '../modules/install/useInstall'
 import { useAccess } from '../modules/install/useAccess'
+import AccessDenied from '../modules/install/AccessDenied.vue'
+import InstallGate from '../modules/install/InstallGate.vue'
+
+import { useConsentStore } from '../modules/consent/store'
+import ConsentView from '../modules/consent/ConsentView.vue'
+
+
 import { resolveNextOnboardingRoute } from '../modules/onboarding/navigation'
 import { setDocumentTitle } from '../modules/core/composables/usePageTitle'
 
 import HomeView from '../modules/home/HomeView.vue'
 import HomeHeartView from '../modules/home/HomeHeartView.vue'
-import ConsentView from '../modules/consent/ConsentView.vue'
+
 import OnboardingProfileView from '../modules/profile/OnboardingProfileView.vue'
 import HabitsCatalogView from '../modules/habits/CatalogView.vue'
 import TutorialView from '../modules/tutorial/TutorialView.vue'
+
 import ThemeSelectView from '../modules/theme/ThemeSelectView.vue'
 import RecommendationView from '../modules/theme/RecommendationView.vue'
+
+import { useQuizStore } from '../modules/quiz/store'
 import QuizWelcomeView from '../modules/quiz/WelcomeView.vue'
 import QuizView from '../modules/quiz/QuizView.vue'
+
 import ProfileView from '../modules/profile/ProfileView.vue'
 import ProfileViewEditor from '../modules/profile/ProfileViewEditor.vue'
-import AccessDenied from '../modules/install/AccessDenied.vue'
-import InstallGate from '../modules/install/InstallGate.vue'
-import RegisteringView from '../modules/auth/RegisteringView.vue'
+
+
 import TrainingView from '../modules/lectures/TrainingView.vue'
 import LectureDetailView from '../modules/lectures/LectureDetailView.vue'
 import LectureStorageView from '../modules/lectures/LectureStorageView.vue'
+import TasksViewDetail from '../modules/tasks/TasksViewDetail.vue'
+
 import StatsView from '../modules/stats/StatsView.vue'
-import StatsRulesView from '../modules/stats/StatsRulesView.vue' // <-- ДОБАВЛЕН ИМПОРТ
+import StatsRulesView from '../modules/stats/StatsRulesView.vue'
+import StatsRewardsView from '../modules/stats/rewards/RewardsView.vue'
+
 import DayTaskView from '../modules/dayTask/DayTaskView.vue'
 import StepsRulesView from '../modules/steps/StepsRulesView.vue'
+
 import SupportView from '../modules/support/SupportView.vue'
 import SupportTicketsView from '../modules/support/SupportTicketsView.vue'
 import SupportTicketDetailView from '../modules/support/SupportTicketDetailView.vue'
@@ -43,7 +58,6 @@ const CONSENT_LOCKED_PATHS = [
 ]
 
 const routes = [
-  // Экран «установите приложение» — единственный доступный в браузере
   { path: '/install', component: InstallGate, meta: { title: 'Установка', back: false, public: true } },
 
   { path: '/access-error', component: AccessDenied, meta: { title: 'Доступ не подтверждён', back: false } },
@@ -59,33 +73,32 @@ const routes = [
   { path: '/themes', component: ThemeSelectView, meta: { auth: true, title: (r) => r.query.change === '1' ? 'Смена направления' : 'Выбор направления', back: false, backTo: (r) => r.query.change === '1' ? { path: '/profile' } : null } },
   { path: '/profile', component: ProfileView, meta: { auth: true, title: 'Профиль', viewBackTitle: true, back: true, backTo: { path: '/home' } } },
   { path: '/profile/edit', component: ProfileViewEditor, meta: { auth: true, title: 'Редактировать профиль', viewBackTitle: true, back: true, backTo: { path: '/profile' } } },
+  
   { path: '/training', component: TrainingView, meta: { auth: true, title: 'Обучение', viewBackTitle: true, back: true, backTo: { path: '/home' } } },
   { path: '/training/lectures/:dbKey', component: LectureDetailView, props: true, meta: { auth: true, title: 'Лекция', viewBackTitle: true, back: true, hideNav: true, backTo: (r) => r.query.from === 'storage' ? { path: '/training/storage' } : { path: '/training' } } },
-  { path: '/training/practices/:id', name: 'PracticeDetail', component: () => import('../modules/tasks/TasksViewDetail.vue'), meta: { auth: true, title: 'Практика', viewBackTitle: true, back: true, backTo: { path: '/training', query: { tab: 'practice' } } } },
+  { path: '/training/practices/:id', name: 'PracticeDetail',  component: TasksViewDetail, meta: { auth: true, title: 'Практика', viewBackTitle: true, back: true, backTo: { path: '/training', query: { tab: 'practice' } } }  },
   { path: '/training/storage', component: LectureStorageView, meta: { auth: true, title: 'архив материалов', viewBackTitle: true, back: true, backTo: { path: '/training' } } },
-  
-  // ▼ ДОБАВЛЕН МАРШРУТ ПРАВИЛ ▼
+
+  { path: '/stats', component: StatsView, meta: { auth: true, title: 'Статистика', viewBackTitle: true, back: true, backTo: { path: '/home' } } },   
   { path: '/stats/rules', component: StatsRulesView, meta: { auth: true, title: 'Правила зачёта', viewBackTitle: true, back: true, backTo: { path: '/stats' } } },
-  
-  { path: '/stats', component: StatsView, meta: { auth: true, title: 'Статистика', viewBackTitle: true, back: true, backTo: { path: '/home' } } },
+  { path: '/stats/rewards', component: StatsRewardsView, meta: { auth: true, title: 'За что яблоки', viewBackTitle: true, back: true, backTo: { path: '/stats' } } },
 
   { path: '/heart', component: HomeHeartView, meta: { auth: true, title: 'Донорство', hideNav: true, back: true, backTo: { path: '/home' } } },
 
-  // Support routes — доступны всем, в том числе без установки (для жалобы на проблему установки)
-  { 
-    path: '/support', 
-    component: SupportView, 
-    meta: { 
-      public: true, 
-      title: 'Написать', 
-      viewBackTitle: true, 
-      back: true, 
-      hideNav: true, 
+  {
+    path: '/support',
+    component: SupportView,
+    meta: {
+      public: true,
+      title: 'Написать',
+      viewBackTitle: true,
+      back: true,
+      hideNav: true,
       backTo: () => {
         const { isInstalled } = useInstall()
         return isInstalled.value ? { path: '/profile' } : { path: '/install' }
       }
-    } 
+    }
   },
   { path: '/support/tickets', component: SupportTicketsView, meta: { auth: true, title: 'Мои обращения', viewBackTitle: true, back: true, hideNav: true, backTo: { path: '/support' } } },
   { path: '/support/tickets/:id', component: SupportTicketDetailView, props: true, meta: { auth: true, title: 'Обращение', viewBackTitle: true, back: true, hideNav: true, backTo: { path: '/support/tickets' } } },
@@ -137,6 +150,17 @@ router.beforeEach((to) => {
 
   const auth = useAuthStore()
   auth.load()
+
+  // ▼ БЛОКИРОВКА: разрешаем только /support*, /access-error, /install, /home ▼
+  // (на /home App.vue покажет BlockedView — см. App.vue)
+  if (auth.blocked) {
+    if (to.path.startsWith('/support')) return true
+    if (to.path === '/access-error') return true
+    if (to.path === '/install') return true
+    if (to.path === '/home') return true
+    return { path: '/home' }
+  }
+
   const registrationComplete = auth.isAuthed && auth.isRegistered && auth.isConfirmed
 
   if (!registrationComplete && hasUid.value) {

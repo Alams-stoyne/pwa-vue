@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia'
+import { watch } from 'vue'
 import {
   fetchGeneralLectures, fetchThemeLectures, fetchChargingLectures,
   sendLectureRead, fetchReads,
@@ -35,6 +36,7 @@ const HOUR = 60 * 60 * 1000
 
 let _timer = null
 let _netWatched = false
+let _periodWatched = false
 
 function readKeysFromLS() {
   try { return JSON.parse(localStorage.getItem(LS_READ) || '[]') } catch { return [] }
@@ -82,9 +84,16 @@ export const useLecturesStore = defineStore('lectures', {
     async init() {
       this._watchNet()
       this._startTimer()
+      this._watchPeriod()
 
-      // ▼ Очистка IDB от данных вне периода — до первой загрузки ▼
       const period = usePeriod()
+
+      // Ждём, пока период загрузится (или упадёт → markReady).
+      // Fail-open в isInPeriod позволит грузить лекции, даже если период
+      // так и не пришёл — лучше показать данные, чем пустой экран.
+      await period.whenReady()
+
+      // cleanup безопасен и при null-периоде — просто no-op.
       try {
         if (period.range.value) {
           const removed = await cleanupLecturesOutsidePeriod(period.range.value)
@@ -110,6 +119,24 @@ export const useLecturesStore = defineStore('lectures', {
       this.themeList = []
       await this.loadAll()
       this.syncArchive({ force: true }).catch(() => {})
+    },
+
+    _watchPeriod() {
+      if (_periodWatched) return
+      _periodWatched = true
+      const period = usePeriod()
+      watch(
+        () => period.range.value,
+        (newRange, oldRange) => {
+          // Период появился / изменился — перезагружаем с фильтром
+          if (!newRange) return
+          const same = oldRange
+            && oldRange.from === newRange.from
+            && oldRange.to === newRange.to
+          if (same) return
+          this.loadAll({ force: true }).catch(() => {})
+        },
+      )
     },
 
     _watchNet() {
@@ -142,8 +169,14 @@ export const useLecturesStore = defineStore('lectures', {
       const period = usePeriod()
       const today = localDate()
 
-      // Если сегодня вне периода — нет смысла грузить лекции за сегодня
-      if (!period.isInPeriod(today)) {
+      // Fail-open: если период ещё не загружен — грузим без фильтра.
+      // Фильтрацию применим, когда период появится (через watch).
+      const inPeriod = (dateIso) => {
+        if (!period.range.value) return true
+        return period.isInPeriod(dateIso)
+      }
+
+      if (!inPeriod(today)) {
         this.generalList = []
         this.themeList = []
         this.chargingList = []
@@ -166,16 +199,16 @@ export const useLecturesStore = defineStore('lectures', {
         return
       }
 
-      const inPeriod = (l) => !l.publishedDate || period.isInPeriod(l.publishedDate)
+      const isItemInPeriod = (l) => !l.publishedDate || inPeriod(l.publishedDate)
 
       const [gC, tC, chC] = await Promise.all([
         idbLecturesByBucket('lecture-general',    { onlyDate: today }),
         idbLecturesByBucket(`lecture-${themeId}`, { onlyDate: today }),
         idbLecturesByBucket('lecture-charging',   { onlyDate: today }),
       ])
-      this.generalList = gC.filter(inPeriod)
-      this.themeList = tC.filter(inPeriod)
-      this.chargingList = chC.filter(inPeriod)
+      this.generalList = gC.filter(isItemInPeriod)
+      this.themeList = tC.filter(isItemInPeriod)
+      this.chargingList = chC.filter(isItemInPeriod)
       this.loadedTheme = themeId
       this.loadedDate = today
 
@@ -225,9 +258,9 @@ export const useLecturesStore = defineStore('lectures', {
         idbLecturesByBucket(`lecture-${themeId}`, { onlyDate: today }),
         idbLecturesByBucket('lecture-charging',   { onlyDate: today }),
       ])
-      this.generalList = g.filter(inPeriod)
-      this.themeList = t.filter(inPeriod)
-      this.chargingList = ch.filter(inPeriod)
+      this.generalList = g.filter(isItemInPeriod)
+      this.themeList = t.filter(isItemInPeriod)
+      this.chargingList = ch.filter(isItemInPeriod)
 
       this.loading = false
       this.refreshing = false
@@ -261,7 +294,6 @@ export const useLecturesStore = defineStore('lectures', {
           d.setDate(d.getDate() - i)
           const date = localDate(d)
 
-          // ▼ Не грузим даты вне периода ▼
           if (!period.isInPeriod(date)) continue
 
           const jobs = [
@@ -398,9 +430,9 @@ export const useLecturesStore = defineStore('lectures', {
       if (this.readKeys.includes(dbKey)) return { done: false, reason: 'ALREADY_READ' }
       if (publishedDate !== localDate()) return { done: false, reason: 'NOT_TODAY' }
 
-      // ▼ Защита: не даём отметить вне периода ▼
       const period = usePeriod()
-      if (!period.isInPeriod(publishedDate)) {
+      // Fail-open: если период не загружен — не блокируем.
+      if (period.range.value && !period.isInPeriod(publishedDate)) {
         return { done: false, reason: 'OUT_OF_PERIOD' }
       }
 

@@ -7,15 +7,6 @@
     </div>
 
     <section v-show="tab === 'lectures'" class="pane">
-      <!-- <LectureSlider
-        title="Общие лекции"
-        emoji="🌐"
-        :list="lectures.generalList"
-        :is-read="lectures.isRead"
-        :loading="lectures.loading"
-        :show-all-link="{ path: '/training/storage', query: { filter: 'lecture-general' } }"
-      /> -->
-
       <LectureSlider
         :title="`Для направления ${themeName}`"
         :emoji="themeEmoji"
@@ -50,31 +41,24 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import HelpIcon from '../../components/HelpIcon.vue'
 import LectureSlider from './LectureSlider.vue'
 import PracticeList from './PracticeList.vue'
 import { useLecturesStore } from './store'
 import { useThemeStore } from '../theme/store'
-import { useToast } from '../core/composables/useToast'
 import { useAppBackground } from '../core/composables/useAppBackground'
-const { setBackground, clearBackground } = useAppBackground()
 
+const { setBackground } = useAppBackground()
 
 const lectures = useLecturesStore()
 const theme = useThemeStore()
-const toast = useToast()
 const route = useRoute()
 const router = useRouter()
 
-// Возврат из детального просмотра практики (meta.backTo) приходит с
-// ?tab=practice. На случай старых ссылок (?tab=practices) — принимаем оба.
 const initialTab = (route.query.tab === 'practice' || route.query.tab === 'practices')
   ? 'practice'
   : 'lectures'
 const tab = ref(initialTab)
 
-// Синхронизируем выбранный таб с query — чтобы «Назад» из детального
-// просмотра возвращал именно на нужную вкладку, и ссылку можно было шарить.
 watch(tab, (v) => {
   const query = { ...route.query }
   if (v === 'practice') query.tab = 'practice'
@@ -85,28 +69,26 @@ watch(tab, (v) => {
 const themeName = computed(() => theme.currentTheme?.name || '—')
 const themeEmoji = computed(() => theme.currentTheme?.emoji || '')
 
-const anyData = computed(() =>
-  lectures.generalList.length + lectures.themeList.length + lectures.chargingList.length > 0
-)
-
-function refresh() {
-  if (lectures.online) lectures.loadAll({ force: true })
-}
-
-onMounted(() => {
-  // setBackground({ background: 'linear-gradient(180deg, #86d0fb -14.79%, rgba(255, 255, 255, 0) 100%)' })
-  
+onMounted(async () => {
   setBackground({ url: '/backgrounds/bg_frame.jpg' })
   theme.load()
-  lectures.initNetworkWatcher()
+
+  // init() сам делает:
+  //   1. _watchNet / _startTimer / _watchPeriod
+  //   2. await period.whenReady()   — ждём, пока период загрузится
+  //   3. cleanupLecturesOutsidePeriod(period) — чистим IDB от старых
+  //   4. loadAll()                  — грузим лекции (после cleanup!)
+  //   5. syncFromServer / syncMissingPhotos
+  //
+  // Раньше здесь был ещё отдельный lectures.loadAll() — это вызывало
+  // рассинхрон: cleanup срабатывал ПОСЛЕ загрузки, в сторе оставались
+  // лекции, которых уже нет в IDB.
+  await lectures.init()
   lectures.flushReadQueue()
-  lectures.loadAll()
 })
 </script>
 
 <style scoped>
-/* .training-page { padding-top: 12px; } */
-
 .head {
   display: flex;
   align-items: center;
@@ -116,7 +98,6 @@ onMounted(() => {
 }
 .head h1 { margin: 0; }
 .head-actions { display: flex; gap: 4px; }
- 
 
 .pane { animation: fadePane var(--t-base) both; }
 @keyframes fadePane {

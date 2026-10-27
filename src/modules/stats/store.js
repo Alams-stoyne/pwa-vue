@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { localDateTime, localDate } from '../core/utils/date'
-import { isSuccess } from '../core/utils/response'
+import { isSuccess, isBlocked } from '../core/utils/response'
 import { useAuthStore } from '../auth/store'
 import { isOffline } from '../core/utils/network'
 import { fetchGlobalStats, fetchPersonalStats } from './api'
@@ -11,7 +11,7 @@ const LS_TIMES = 'stats.times.v3'
 const LS_PENDING_APPLES = 'stats.pendingApples'
 
 const PERSONAL_TTL = 15 * 60 * 1000 // 15 минут
-const GLOBAL_TTL = 15 * 60 * 1000   // 15 минут (как вы и просили)
+const GLOBAL_TTL = 15 * 60 * 1000   // 15 минут
 
 function loadLS(key, fallback) {
   try {
@@ -40,12 +40,8 @@ export const useStatsStore = defineStore('stats', {
   }),
 
   getters: {
-    /** Итоговый баланс для UI (серверный + локальные начисления) */
     apples: (s) => (Number(s.personal?.APPLES) || 0) + s.pendingApples,
-
-    /** Период марафона (из global.json) */
     period: (s) => s.global?.PERIOD || { FROM: null, TO: null },
-
     isPeriodActive: (s) => {
       const from = s.global?.PERIOD?.FROM
       const to = s.global?.PERIOD?.TO
@@ -53,11 +49,7 @@ export const useStatsStore = defineStore('stats', {
       const today = localDate()
       return today >= from && today <= to
     },
-
-    /** Данные компаний для рейтинга */
     companiesList: (s) => s.global?.COMPANIES?.LIST || [],
-
-    /** Эффективность компании пользователя */
     userCompany: (s) => {
       if (!s.personal?.COMPANY_CODE || !s.global?.COMPANIES?.LIST) return null
       return s.global.COMPANIES.LIST.find(c => c.ID === s.personal.COMPANY_CODE) || null
@@ -70,6 +62,17 @@ export const useStatsStore = defineStore('stats', {
       this._startTimer()
       this.fetchPersonal()
       this.fetchGlobal()
+    },
+
+    /**
+     * Остановка периодического опроса. Вызывается из StatsView.onBeforeUnmount —
+     * чтобы 15-минутный таймер не «тикал» после ухода со страницы статистики.
+     */
+    stop() {
+      if (_timer) {
+        clearInterval(_timer)
+        _timer = null
+      }
     },
 
     _watchNet() {
@@ -89,7 +92,7 @@ export const useStatsStore = defineStore('stats', {
       if (_timer) return
       _timer = setInterval(() => {
         this.fetchPersonal()
-        this.fetchGlobal() // <-- ДОБАВЛЕНО: обновляем общую статистику каждые 15 минут
+        this.fetchGlobal()
       }, PERSONAL_TTL)
     },
 
@@ -103,7 +106,7 @@ export const useStatsStore = defineStore('stats', {
     async fetchPersonal({ force = false } = {}) {
       if (this.loadingPersonal) return
       const now = Date.now()
-      
+
       if (!force && this.personal && now - this.times.lastPersonal < PERSONAL_TTL) return
       if (isOffline()) return
 
@@ -116,24 +119,31 @@ export const useStatsStore = defineStore('stats', {
           ID_USER: auth.idUser,
           LOCAL_DATETIME: localDateTime()
         })
-        
+
+        // ▼ БЛОКИРОВКА — приоритетная обработка ▼
+        if (isBlocked(data)) {
+          auth.setBlocked(data.MESSAGE)
+          this.stop()
+          return
+        }
+
+        // ▼ Если пришли сюда, а блокировка стоит — значит, сервер снял блок ▼
+        if (auth.blocked) auth.clearBlocked()
+
         if (isSuccess(data)) {
           if (data.USER_PROGRESS) {
             this.personal = data.USER_PROGRESS
           } else {
-            // Если null (новый пользователь/нет активности) — ставим дефолт
             this.personal = { APPLES: 0, RANK: 0, LECTURES_READ: 0, TASKS_DONE: 0, HABITS_DAYS: 0, STEPS_CONFIRMED: 0 }
           }
-          
+
           // СЕРВЕР - ИСТИНА: сбрасываем локальные начисления
           this.pendingApples = 0
           localStorage.removeItem(LS_PENDING_APPLES)
-          
+
           this.times.lastPersonal = now
           saveLS(LS_PERSONAL, this.personal)
           saveLS(LS_TIMES, this.times)
-        } else if (data.RESULT === 'BLOCKED') {
-          this.error = data.MESSAGE
         }
       } catch (e) {
         console.warn('[stats] personal fetch failed', e)
@@ -145,16 +155,20 @@ export const useStatsStore = defineStore('stats', {
     async fetchGlobal({ force = false } = {}) {
       if (this.loadingGlobal) return
       const now = Date.now()
-      
-      // ▼ ДОБАВЛЕНА ПРОВЕРКА: если в кэше нет COMPANIES — форсируем запрос ▼
+
       const hasCompanies = !!(this.global && this.global.COMPANIES)
       if (!force && hasCompanies && now - this.times.lastGlobal < GLOBAL_TTL) return
-      
+
       if (isOffline()) return
 
       this.loadingGlobal = true
       try {
         const data = await fetchGlobalStats()
+        // fetchGlobalStats идёт на CDN — BLOCKED там быть не может, но проверим на всякий
+        if (isBlocked(data)) {
+          useAuthStore().setBlocked(data.MESSAGE)
+          return
+        }
         if (data && data.GLOBAL_PROGRESS) {
           this.global = data
           this.times.lastGlobal = now

@@ -10,8 +10,13 @@
 
   <InstallGate v-else-if="!isInstalled" />
 
+  <!-- ▼ Блокировка администратором ▼ -->
+  <BlockedView
+    v-else-if="auth.blocked && !isSupportRoute"
+    :message="auth.blockedMessage"
+  />
+
   <div v-else class="app-shell" :class="{ 'has-nav': showNav }">
-    <!-- Баннер «только просмотр» — если нет согласия ПД -->
     <ConsentBanner v-if="showConsentBanner && !showBack" />
 
     <router-view v-slot="{ Component }">
@@ -43,6 +48,7 @@ import BottomNav from './components/BottomNav.vue'
 import AppBackground from './components/AppBackground.vue'
 import BackButton from './components/BackButton.vue'
 import ToastHost from './components/ToastHost.vue'
+import BlockedView from './modules/auth/BlockedView.vue'
 
 import { useAuthStore } from './modules/auth/store'
 import { useThemeStore } from './modules/theme/store'
@@ -68,7 +74,10 @@ const needsUidRecovery = computed(() =>
   isInstalled.value && !hasUid.value && !uidMismatch.value
 )
 
+const isSupportRoute = computed(() => route.path.startsWith('/support'))
+
 const showConsentBanner = computed(() => {
+  if (auth.blocked) return false
   if (!auth.isAuthed) return false
   if (consent.isGranted) return false
   if (!consent.isAnswered) return false
@@ -81,11 +90,16 @@ const onboarded = computed(() =>
 )
 
 onMounted(() => {
+  // Загрузка auth / theme / profile / quiz — идемпотентные чтения из LS.
+  //
+  // ВАЖНО: consent.loadStatus() НЕ вызываем — это делает main.js.
+  // Согласие нельзя отозвать, состояние живёт в localStorage вечно.
+  // Запрос нужен только при переустановке (isAnswered = false),
+  // и main.js уже обрабатывает этот кейс единожды.
   auth.load()
   theme.load()
   profile.load()
   quiz.load()
-  if (auth.idUser) consent.loadStatus().catch(() => {})
 })
 
 watch(
@@ -102,8 +116,8 @@ const isChangeTheme = computed(() =>
   route.path === '/themes' && route.query.change === '1'
 )
 
-// ▼ ИСПРАВЛЕНО: back теперь может быть функцией ▼
 const showBack = computed(() => {
+  if (auth.blocked) return false
   if (!chromeVisible.value) return false
   if (hasOpenModal.value) return true
   if (isChangeTheme.value) return true
@@ -113,8 +127,8 @@ const showBack = computed(() => {
   return metaBack === true
 })
 
-// ▼ ИСПРАВЛЕНО: hideNav теперь может быть функцией ▼
 const showNav = computed(() => {
+  if (auth.blocked) return false
   if (!chromeVisible.value) return false
   if (!auth.isAuthed) return false
   if (!consent.isAnswered) return false

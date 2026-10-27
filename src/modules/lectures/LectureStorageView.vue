@@ -44,7 +44,6 @@
             :to="lectureLink(l.dbKey)"
             class="card clickable lecture-row"
           >
-            <!-- Обложка -->
             <div class="lecture-cover" :style="getCoverStyle(l.dbKey)">
               <span v-if="!coverUrls[l.dbKey] && !l.cover" class="cover-fallback">📖</span>
               <span v-if="l.videoLink" class="video-badge">▶</span>
@@ -58,7 +57,7 @@
             </div>
           </router-link>
         </div>
-      </section>      
+      </section>
     </div>
     <div class="bottom-action d-grid g10">
       <button
@@ -103,9 +102,8 @@ const toast = useToast()
 
 const items = ref([])
 const loading = ref(true)
-const filter = ref('')   // '' = все
+const filter = ref('')
 
-// Кэш Object URL для обложек
 const coverUrls = ref({})
 
 const busy = computed(() =>
@@ -220,7 +218,6 @@ function lectureLink(dbKey) {
   }
 }
 
-// ─── Логика обложек ───────────────────────────────────────────
 function getCoverStyle(dbKey) {
   const url = coverUrls.value[dbKey]
   return url ? { backgroundImage: `url("${url}")` } : {}
@@ -236,10 +233,9 @@ function revokeCovers() {
 }
 
 async function loadCovers(items) {
-  // Сначала находим все нужные blob-ы
   for (const l of items) {
     if (!l.coverKey) continue
-    
+
     try {
       const blob = await idbGet('photos', l.coverKey)
       if (blob) {
@@ -252,7 +248,7 @@ async function loadCovers(items) {
 }
 
 async function reload() {
-  revokeCovers() // Очищаем старые URL перед загрузкой новых
+  revokeCovers()
   items.value = await store.loadArchive()
   await loadCovers(items.value)
 }
@@ -302,7 +298,7 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.torage-page{
+.storage-page{
   position: relative;
   max-height: 100dvh;
 }
@@ -335,13 +331,12 @@ onBeforeUnmount(() => {
 .sync-spin { animation: spin 800ms linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-.sync-hint { 
-  font-size: 12px; 
-  text-align: center; 
-  margin: 0; 
+.sync-hint {
+  font-size: 12px;
+  text-align: center;
+  margin: 0;
 }
 
-/* Чипы фильтра */
 .chips {
   position: relative;
   display: flex;
@@ -378,7 +373,6 @@ onBeforeUnmount(() => {
     color: var(--txt-green-dsrk);
     border-color: var(--txt-green-dsrk);
 }
-/* .chip.active .chip-count { color: rgba(255,255,255,.8); } */
 .chip-count {
   font-size: 11px;
   font-variant-numeric: tabular-nums;
@@ -389,7 +383,7 @@ onBeforeUnmount(() => {
 .group-list{
   position: relative;
   max-height: calc(100dvh - 288px);
-  overflow: hidden;  
+  overflow: hidden;
   overflow-y: auto;
   scrollbar-width: none;
 }
@@ -404,14 +398,12 @@ onBeforeUnmount(() => {
 
 .list { display: grid; gap: 10px; }
 
-/* ─── Карточка в списке (строка) ─── */
 .lecture-row {
   display: flex; align-items: center; gap: 12px;
   text-decoration: none; color: var(--text);
   padding: 10px;
 }
 
-/* ─── Обложка ─── */
 .lecture-cover {
   position: relative;
   width: 72px;

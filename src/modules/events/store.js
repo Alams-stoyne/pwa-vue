@@ -27,6 +27,60 @@ function writeLS(key, val) {
   try { localStorage.setItem(key, JSON.stringify(val)) } catch {}
 }
 
+/**
+ * Разбор ответа сервера /events/action.
+ *
+ * Контракт сервера:
+ *   Успех:      { RESULT: 'OK',    CLICKED_AT?, CONFIRMED_AT?, REWARD_POINTS?, REWARD_TEXT?, ALREADY? }
+ *   Ошибка:     { RESULT: 'ERROR', REASON: 'NO_CLICK' | 'TOO_EARLY' | 'RATE_LIMITED'
+ *                                  | 'ALREADY_CONFIRMED' | 'EXPIRED', MESSAGE }
+ *
+ * @returns {{
+ *   ok: boolean,
+ *   reason?: string,
+ *   already?: boolean,
+ *   clickedAt?: number,
+ *   confirmedAt?: number,
+ *   rewardPoints?: number,
+ *   rewardText?: string,
+ *   message?: string,
+ * }}
+ */
+function parseActionResponse(res) {
+  if (!res || typeof res !== 'object') {
+    return { ok: false, reason: 'BAD_RESPONSE', message: 'Некорректный ответ сервера' }
+  }
+
+  const clickedAt = res.CLICKED_AT ? new Date(res.CLICKED_AT).getTime() : undefined
+  const confirmedAt = res.CONFIRMED_AT ? new Date(res.CONFIRMED_AT).getTime() : undefined
+  const rewardPoints = Number(res.REWARD_POINTS) || 0
+  const rewardText = res.REWARD_TEXT || ''
+  const already = res.ALREADY === true
+
+  if (isSuccess(res)) {
+    return {
+      ok: true,
+      already,
+      clickedAt,
+      confirmedAt,
+      rewardPoints,
+      rewardText,
+      message: res.MESSAGE,
+    }
+  }
+
+  return {
+    ok: false,
+    reason: res.REASON || null,
+    already,
+    clickedAt,
+    confirmedAt,
+    rewardPoints,
+    rewardText,
+    message: res.MESSAGE || 'Ошибка сервера',
+  }
+}
+
 let _tickTimer = null
 let _netWatched = false
 let _authWatched = false
@@ -48,26 +102,46 @@ export const useEventsStore = defineStore('events', {
       const event = s.config.find((e) => e.id === eventId)
       if (!event) return { status: 'unknown', timeLeft: 0 }
 
-      const userState = s.states[eventId] || {}
+      const st = s.states[eventId] || {}
 
-      if (userState.confirmedAt) {
-        return { status: 'done', timeLeft: 0 }
+      // 1. Подтверждено
+      if (st.confirmedAt) return { status: 'done', timeLeft: 0 }
+
+      // 2. Click отправляется
+      if (st.clickPending) return { status: 'click_pending', timeLeft: 0 }
+
+      // 3. Click в очереди (офлайн)
+      if (st.clickQueued) return { status: 'click_queued', timeLeft: 0 }
+
+      // 4. Click провалился
+      if (st.clickError) {
+        return { status: 'click_failed', timeLeft: 0, error: st.clickError }
       }
 
-      if (userState.clickedAt) {
+      // 5. Клик был — считаем таймер
+      if (st.clickedAt) {
         const cooldownMs = (event.timerMins || 0) * 60 * 1000
-        const expireAt = userState.clickedAt + cooldownMs
+        const expireAt = st.clickedAt + cooldownMs
         const timeLeft = expireAt - s.now
 
-        if (timeLeft > 0) {
-          return { status: 'timer', timeLeft }
-        } else {
-          return { status: 'ready_to_confirm', timeLeft: 0 }
+        if (timeLeft > 0) return { status: 'timer', timeLeft }
+
+        // Таймер вышел, но клик сервером не подтверждён
+        if (!st.clickConfirmed) {
+          return { status: 'click_failed', timeLeft: 0, error: 'клик не подтверждён сервером' }
+        }
+
+        if (st.confirmQueued) return { status: 'confirm_queued', timeLeft: 0 }
+
+        return {
+          status: 'ready_to_confirm',
+          timeLeft: 0,
+          confirmPending: !!st.confirmPending,
         }
       }
 
       return { status: 'available', timeLeft: 0 }
-    }
+    },
   },
 
   actions: {
@@ -120,7 +194,6 @@ export const useEventsStore = defineStore('events', {
         (newRange, oldRange) => {
           if (!newRange || !oldRange) return
           if (newRange.from === oldRange.from && newRange.to === oldRange.to) return
-          // Период изменился — перезагружаем события
           this.loadEvents({ force: true })
         },
       )
@@ -130,7 +203,6 @@ export const useEventsStore = defineStore('events', {
       const period = usePeriod()
       const today = localDate()
 
-      // ▼ Вне периода — очищаем и не грузим ▼
       if (!period.isInPeriod(today)) {
         if (this.config.length) {
           this.config = []
@@ -180,19 +252,17 @@ export const useEventsStore = defineStore('events', {
         const lastSync = Number(localStorage.getItem(LS_STATE_SYNC_AT) || 0)
         const isFresh = Date.now() - lastSync < STATUS_TTL
 
-        if (isFresh && this.config.length > 0) {
-          return
-        }
+        if (isFresh && this.config.length > 0) return
 
         if (this.config.length > 0) {
           const hasUnstable = this.config.some(e => {
             const st = this.eventState(e.id)
-            return st.status === 'available' || st.status === 'ready_to_confirm'
+            return st.status === 'available'
+              || st.status === 'ready_to_confirm'
+              || st.status === 'click_failed'
+              || st.status === 'click_queued'
           })
-
-          if (!hasUnstable) {
-            return
-          }
+          if (!hasUnstable) return
         }
       }
 
@@ -219,13 +289,18 @@ export const useEventsStore = defineStore('events', {
                 ...local,
                 clickedAt: finalClicked,
                 confirmedAt: finalConfirmed,
+                clickConfirmed: !!finalClicked,
+                clickPending: false,
+                clickQueued: false,
+                clickError: null,
+                confirmPending: false,
+                confirmQueued: false,
               }
             }
           }
 
           this.states = merged
           writeLS(LS_STATE, this.states)
-
           localStorage.setItem(LS_STATE_SYNC_AT, String(Date.now()))
         }
       } catch (e) {
@@ -233,120 +308,279 @@ export const useEventsStore = defineStore('events', {
       }
     },
 
+    /**
+     * Клик по событию.
+     *
+     * @returns {{ success: boolean, queued?: boolean, already?: boolean, error?: string }}
+     */
     async clickEvent(eventId) {
-      if (!this.states[eventId]?.clickedAt) {
-        this.states[eventId] = { ...this.states[eventId], clickedAt: Date.now() }
-        writeLS(LS_STATE, this.states)
-        this.now = Date.now()
-      }
-
       const auth = useAuthStore()
-      if (!auth.idUser) return
+      if (!auth.idUser) return { success: false, error: 'не авторизован' }
+
+      if (this.states[eventId]?.clickPending) return { success: false }
+
+      const now = Date.now()
+
+      this.states[eventId] = {
+        ...this.states[eventId],
+        clickedAt: this.states[eventId]?.clickedAt || now,
+        clickPending: true,
+        clickQueued: false,
+        clickError: null,
+        clickConfirmed: false,
+      }
+      writeLS(LS_STATE, this.states)
+      this.now = now
 
       const payload = { ID_USER: auth.idUser, EVENT_ID: eventId, ACTION: 'click' }
 
       if (isOffline()) {
         const q = readLS(LS_QUEUE, [])
-        q.push(payload)
+        q.push({ ...payload, _ts: now })
         writeLS(LS_QUEUE, q)
-        return
+        this.states[eventId] = {
+          ...this.states[eventId],
+          clickPending: false,
+          clickQueued: true,
+        }
+        writeLS(LS_STATE, this.states)
+        return { success: false, queued: true }
       }
 
       try {
-        const res = await sendEventAction(payload)
+        // keepalive: запрос не отменится при уходе вкладки в фон
+        const res = await sendEventAction(payload, { keepalive: true })
+        const parsed = parseActionResponse(res)
 
-        if (res.CLICKED_AT) {
+        if (parsed.ok) {
+          // Успех (в т.ч. ALREADY: true — клик уже был)
           this.states[eventId] = {
             ...this.states[eventId],
-            clickedAt: new Date(res.CLICKED_AT).getTime()
+            clickedAt: parsed.clickedAt || now,
+            clickConfirmed: true,
+            clickPending: false,
+            clickQueued: false,
+            clickError: null,
+            // Если событие уже было подтверждено (ALREADY: true + CONFIRMED_AT)
+            ...(parsed.confirmedAt ? { confirmedAt: parsed.confirmedAt } : {}),
           }
+          writeLS(LS_STATE, this.states)
+          this._removeQueuedClick(eventId)
+
+          // Если сервер сообщил, что событие уже было подтверждено —
+          // не начисляем повторно, но синхронизируем локальное состояние
+          if (parsed.confirmedAt) {
+            this.now = Date.now()
+            return { success: true, already: true }
+          }
+
+          return { success: true, already: parsed.already }
         }
 
-        if (res.CONFIRMED_AT) {
-          this.states[eventId] = {
-            ...this.states[eventId],
-            confirmedAt: new Date(res.CONFIRMED_AT).getTime()
-          }
+        // Ошибка клика
+        this.states[eventId] = {
+          ...this.states[eventId],
+          clickConfirmed: false,
+          clickPending: false,
+          clickQueued: false,
+          clickError: parsed.message || 'клик отклонён сервером',
         }
-
         writeLS(LS_STATE, this.states)
-
-        if (res.REWARD_POINTS) {
-           const ev = this.config.find(e => e.id === eventId)
-           if (ev) {
-             ev.rewardPoints = res.REWARD_POINTS
-             writeLS(LS_CACHE, this.config)
-           }
-        }
+        return { success: false, error: parsed.message || 'клик отклонён' }
       } catch (e) {
         const q = readLS(LS_QUEUE, [])
-        q.push(payload)
+        q.push({ ...payload, _ts: now })
         writeLS(LS_QUEUE, q)
+        this.states[eventId] = {
+          ...this.states[eventId],
+          clickConfirmed: false,
+          clickPending: false,
+          clickQueued: true,
+        }
+        writeLS(LS_STATE, this.states)
+        return { success: false, queued: true }
       }
     },
 
-    async confirmEvent(eventId) {
+    /**
+     * Подтверждение события.
+     *
+     * Гарантия: confirm отправляется на сервер только после того,
+     * как click подтверждён (clickConfirmed = true).
+     * Если сервер вернул NO_CLICK — один автоматический retry (click → confirm).
+     *
+     * @param {string} eventId
+     * @param {number} _retryCount — внутренний
+     * @returns {Promise<{
+     *   success: boolean, already?: boolean, queued?: boolean,
+     *   message?: string, rewardPoints?: number, rewardText?: string
+     * }>}
+     */
+    async confirmEvent(eventId, _retryCount = 0) {
+      if (this.states[eventId]?.confirmPending) return { success: false }
+
       const auth = useAuthStore()
+      if (!auth.idUser) return { success: false, message: 'не авторизован' }
 
-      this.states[eventId] = { ...this.states[eventId], confirmedAt: Date.now() }
+      this.states[eventId] = { ...this.states[eventId], confirmPending: true }
       writeLS(LS_STATE, this.states)
-      this.now = Date.now()
 
-      if (!auth.idUser) return { success: true, already: false }
+      // ── Шаг 1: если клик не подтверждён сервером — досылаем click ──
+      if (!this.states[eventId]?.clickConfirmed) {
+        const clickResult = await this.clickEvent(eventId)
+        if (!clickResult.success) {
+          this.states[eventId] = { ...this.states[eventId], confirmPending: false }
+          writeLS(LS_STATE, this.states)
+
+          if (clickResult.queued) {
+            return {
+              success: false,
+              message: 'Клик будет отправлен при подключении к сети. Повторите подтверждение.',
+            }
+          }
+          return {
+            success: false,
+            message: clickResult.error || 'Клик не прошёл. Нажмите на событие ещё раз.',
+          }
+        }
+      }
 
       const payload = { ID_USER: auth.idUser, EVENT_ID: eventId, ACTION: 'confirm' }
 
       if (isOffline()) {
         const q = readLS(LS_QUEUE, [])
-        q.push(payload)
+        q.push({ ...payload, _ts: Date.now() })
         writeLS(LS_QUEUE, q)
-        return { success: true, already: false }
+        this.states[eventId] = {
+          ...this.states[eventId],
+          confirmPending: false,
+          confirmQueued: true,
+        }
+        writeLS(LS_STATE, this.states)
+        return { success: true, queued: true }
       }
 
       try {
         const res = await sendEventAction(payload)
+        const parsed = parseActionResponse(res)
 
-        if (res.RESULT === 'ALREADY_CONFIRMED') {
-          if (res.CONFIRMED_AT) {
-            this.states[eventId].confirmedAt = new Date(res.CONFIRMED_AT).getTime()
-            writeLS(LS_STATE, this.states)
+        // ── Успех или ALREADY ──
+        if (parsed.ok) {
+          const at = parsed.confirmedAt || Date.now()
+          this.states[eventId] = {
+            ...this.states[eventId],
+            confirmedAt: at,
+            clickConfirmed: true,
+            clickPending: false,
+            clickQueued: false,
+            clickError: null,
+            confirmPending: false,
+            confirmQueued: false,
           }
-          return { success: true, already: true, message: 'Вы уже получили награду за это событие.' }
-        }
-
-        if (res.RESULT === 'TOO_EARLY') {
-          delete this.states[eventId].confirmedAt
           writeLS(LS_STATE, this.states)
+          this.now = Date.now()
 
-          let msg = 'Слишком рано подтверждать.'
-          if (res.RETRY_AFTER_SECONDS) {
-            msg = `Подождите еще ${Math.ceil(res.RETRY_AFTER_SECONDS / 60)} мин.`
+          if (parsed.rewardPoints > 0 && !parsed.already) {
+            try { useStatsStore().addApplesLocally(parsed.rewardPoints) } catch { /* ignore */ }
           }
-          return { success: false, message: msg }
+
+          return {
+            success: true,
+            already: parsed.already,
+            rewardPoints: parsed.rewardPoints,
+            rewardText: parsed.rewardText,
+          }
         }
 
-        if (res.RESULT === 'RATE_LIMITED') {
-          delete this.states[eventId].confirmedAt
+        // ── NO_CLICK — сервер не видит клика ──
+        if (parsed.reason === 'NO_CLICK') {
+          this.states[eventId] = {
+            ...this.states[eventId],
+            clickConfirmed: false,
+            clickPending: false,
+            clickQueued: false,
+            clickError: 'клик не зафиксирован сервером',
+            confirmPending: false,
+            confirmQueued: false,
+          }
           writeLS(LS_STATE, this.states)
-          return { success: false, message: res.MESSAGE || 'Слишком часто. Попробуйте позже.' }
+
+          if (_retryCount < 1) {
+            return this.confirmEvent(eventId, _retryCount + 1)
+          }
+          return {
+            success: false,
+            message: 'Клик не зафиксирован сервером. Нажмите на событие ещё раз и получите награду.',
+          }
         }
 
-        if (!isSuccess(res)) {
-          delete this.states[eventId].confirmedAt
+        // ── ALREADY_CONFIRMED (как ошибка) ──
+        if (parsed.reason === 'ALREADY_CONFIRMED') {
+          const at = parsed.confirmedAt || Date.now()
+          this.states[eventId] = {
+            ...this.states[eventId],
+            confirmedAt: at,
+            clickConfirmed: true,
+            confirmPending: false,
+            confirmQueued: false,
+          }
           writeLS(LS_STATE, this.states)
-          return { success: false, message: res.MESSAGE || 'Ошибка подтверждения' }
+          this.now = Date.now()
+          return {
+            success: true,
+            already: true,
+            message: parsed.message || 'Вы уже получили награду за это событие.',
+          }
         }
 
-        if (res.REWARD_POINTS) {
-          try { useStatsStore().addApplesLocally(res.REWARD_POINTS) } catch { /* ignore */ }
+        // ── TOO_EARLY ──
+        if (parsed.reason === 'TOO_EARLY') {
+          this.states[eventId] = { ...this.states[eventId], confirmPending: false }
+          writeLS(LS_STATE, this.states)
+          return {
+            success: false,
+            message: parsed.message || 'Слишком рано подтверждать.',
+          }
         }
 
-        return { success: true, already: false }
+        // ── RATE_LIMITED ──
+        if (parsed.reason === 'RATE_LIMITED') {
+          this.states[eventId] = { ...this.states[eventId], confirmPending: false }
+          writeLS(LS_STATE, this.states)
+          return {
+            success: false,
+            message: parsed.message || 'Слишком часто. Попробуйте позже.',
+          }
+        }
+
+        // ── EXPIRED ──
+        if (parsed.reason === 'EXPIRED') {
+          this.states[eventId] = { ...this.states[eventId], confirmPending: false }
+          writeLS(LS_STATE, this.states)
+          return {
+            success: false,
+            message: parsed.message || 'Событие больше неактивно.',
+          }
+        }
+
+        // ── Прочие ошибки ──
+        this.states[eventId] = { ...this.states[eventId], confirmPending: false }
+        writeLS(LS_STATE, this.states)
+        return {
+          success: false,
+          message: parsed.message || 'Ошибка подтверждения',
+        }
       } catch (e) {
         const q = readLS(LS_QUEUE, [])
-        q.push(payload)
+        q.push({ ...payload, _ts: Date.now() })
         writeLS(LS_QUEUE, q)
-        return { success: true, already: false }
+        this.states[eventId] = {
+          ...this.states[eventId],
+          confirmPending: false,
+          confirmQueued: true,
+        }
+        writeLS(LS_STATE, this.states)
+        return { success: true, queued: true }
       }
     },
 
@@ -355,15 +589,84 @@ export const useEventsStore = defineStore('events', {
       const q = readLS(LS_QUEUE, [])
       if (!q.length) return
 
+      // Сортируем: сначала все click, потом confirm — чтобы избежать NO_CLICK
+      const sorted = [...q].sort((a, b) => {
+        if (a.ACTION === b.ACTION) return (a._ts || 0) - (b._ts || 0)
+        return a.ACTION === 'click' ? -1 : 1
+      })
+
       const remain = []
-      for (const p of q) {
+      for (const p of sorted) {
+        const { _ts, ...cleanPayload } = p
         try {
-          await sendEventAction(p)
+          const res = await sendEventAction(cleanPayload)
+          this._applyActionResponse(cleanPayload, res)
         } catch {
           remain.push(p)
         }
       }
       writeLS(LS_QUEUE, remain)
-    }
-  }
+    },
+
+    _applyActionResponse(payload, res) {
+      const { EVENT_ID, ACTION } = payload
+      if (!EVENT_ID || !res) return
+
+      const parsed = parseActionResponse(res)
+
+      if (ACTION === 'click') {
+        if (parsed.ok) {
+          this.states[EVENT_ID] = {
+            ...this.states[EVENT_ID],
+            clickedAt: parsed.clickedAt || Date.now(),
+            clickConfirmed: true,
+            clickPending: false,
+            clickQueued: false,
+            clickError: null,
+            ...(parsed.confirmedAt ? { confirmedAt: parsed.confirmedAt } : {}),
+          }
+        } else {
+          this.states[EVENT_ID] = {
+            ...this.states[EVENT_ID],
+            clickConfirmed: false,
+            clickPending: false,
+            clickQueued: false,
+            clickError: parsed.message || 'клик отклонён',
+          }
+        }
+        writeLS(LS_STATE, this.states)
+        return
+      }
+
+      if (ACTION === 'confirm') {
+        if (parsed.ok || parsed.reason === 'ALREADY_CONFIRMED') {
+          this.states[EVENT_ID] = {
+            ...this.states[EVENT_ID],
+            confirmedAt: parsed.confirmedAt || Date.now(),
+            clickConfirmed: true,
+            clickQueued: false,
+            clickError: null,
+            confirmPending: false,
+            confirmQueued: false,
+          }
+          writeLS(LS_STATE, this.states)
+        } else {
+          this.states[EVENT_ID] = {
+            ...this.states[EVENT_ID],
+            confirmPending: false,
+            confirmQueued: false,
+          }
+          writeLS(LS_STATE, this.states)
+        }
+      }
+    },
+
+    _removeQueuedClick(eventId) {
+      const q = readLS(LS_QUEUE, [])
+      const filtered = q.filter(
+        (p) => !(p.EVENT_ID === eventId && p.ACTION === 'click'),
+      )
+      if (filtered.length !== q.length) writeLS(LS_QUEUE, filtered)
+    },
+  },
 })

@@ -11,9 +11,9 @@
       </div>
 
       <div class="event-action">
-        <!-- 1. Доступно -->
+        <!-- 1. Доступно — открыть + отправить click -->
         <button
-          v-if="getState(event.id).status === 'available'"
+          v-if="stateMap[event.id].status === 'available'"
           type="button"
           class="btn btn-primary btn-center btn-full"
           @click="handleClick(event)"
@@ -21,36 +21,88 @@
           {{ event.buttonText || 'Открыть' }}
         </button>
 
-        <!-- 2. Таймер -->
-        <a
-          :href="event.link"
-          target="_blank" rel="noopener noreferrer"
-          v-else-if="getState(event.id).status === 'timer'"
-          class="btn btn-secondary btn-center btn-full"
-          :title="'через' + formatTimeLeft(getState(event.id).timeLeft)"
-        >
-          {{ event.buttonText || 'Открыть' }}
-        </a>
-
-        <!-- 3. Готово к подтверждению -->
+        <!-- 2. Click отправляется -->
         <button
-          v-else-if="getState(event.id).status === 'ready_to_confirm'"
+          v-else-if="stateMap[event.id].status === 'click_pending'"
           type="button"
-          class="btn btn-primary btn-center btn-full"
-          :disabled="confirming"
-          @click="handleConfirm(event)"
+          class="btn btn-secondary btn-center btn-full"
+          disabled
         >
-          <span class="text">Получить</span>
-          <span class="badge" v-if="event.rewardPoints">+{{ event.rewardPoints }} <span class="apple"><AppIcon name="apple" :size="21" /></span></span>
+          <span class="spinner" aria-hidden="true">↻</span>
+          подключение…
         </button>
 
-        <!-- 4. Выполнено -->
+        <!-- 3. Click в очереди (офлайн) -->
+        <button
+          v-else-if="stateMap[event.id].status === 'click_queued'"
+          type="button"
+          class="btn btn-secondary btn-center btn-full"
+          disabled
+        >
+          ожидает подключения
+        </button>
+
+        <!-- 4. Click не удался — повторить -->
+        <button
+          v-else-if="stateMap[event.id].status === 'click_failed'"
+          type="button"
+          class="btn btn-primary btn-center btn-full"
+          @click="handleClick(event)"
+        >
+          <span class="text">{{ event.buttonText || 'повторить клик' }} </span>
+        </button>
+
+        <!-- 5. Таймер идёт (клик подтверждён сервером) -->
+        <a
+          v-else-if="stateMap[event.id].status === 'timer'"
+          :href="event.link"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="btn btn-secondary btn-center btn-full"
+          :title="'через ' + formatTimeLeft(stateMap[event.id].timeLeft)"
+        >
+          {{ event.buttonText || 'открыть' }}
+        </a>
+
+        <!-- 6. Готово к подтверждению -->
+        <button
+          v-else-if="stateMap[event.id].status === 'ready_to_confirm'"
+          type="button"
+          class="btn btn-primary btn-center btn-full"
+          :disabled="stateMap[event.id].confirmPending"
+          @click="handleConfirm(event)"
+        >
+          <template v-if="stateMap[event.id].confirmPending">
+            <span class="spinner" aria-hidden="true">↻</span>
+            отправка…
+          </template>
+          <template v-else>
+            <span class="text">получить</span>
+            <span class="badge" v-if="event.rewardPoints">
+              +{{ event.rewardPoints }}
+              <span class="apple"><AppIcon name="apple" :size="21" /></span>
+            </span>
+          </template>
+        </button>
+
+        <!-- 7. Confirm в очереди (офлайн) -->
         <div
-          v-else-if="getState(event.id).status === 'done'"
+          v-else-if="stateMap[event.id].status === 'confirm_queued'"
+          class="btn btn-white btn-center btn-full disabled"
+        >
+          <span class="text">Награда будет зачислена</span>
+        </div>
+
+        <!-- 8. Выполнено -->
+        <div
+          v-else-if="stateMap[event.id].status === 'done'"
           class="btn btn-white btn-center btn-full disabled"
         >
           <span class="text">{{ event.rewardPoints ? 'Награда получена' : 'Посещено' }}</span>
-          <span class="badge" v-if="event.rewardPoints">+{{ event.rewardPoints }} <span class="apple"><AppIcon name="apple" :size="21" /></span></span>
+          <span class="badge" v-if="event.rewardPoints">
+            +{{ event.rewardPoints }}
+            <span class="apple"><AppIcon name="apple" :size="21" /></span>
+          </span>
         </div>
       </div>
     </article>
@@ -58,16 +110,22 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useEventsStore } from './store'
 import { useToast } from '../core/composables/useToast'
 import AppIcon from '../../components/AppIcon.vue'
 
 const events = useEventsStore()
 const toast = useToast()
-const confirming = ref(false)
 
-const getState = (id) => events.eventState(id)
+// Кешируем состояния всех событий — один вызов eventState на событие
+const stateMap = computed(() => {
+  const map = {}
+  for (const ev of events.todayEvents) {
+    map[ev.id] = events.eventState(ev.id)
+  }
+  return map
+})
 
 function formatTimeLeft(ms) {
   const totalMins = Math.ceil(ms / 60000)
@@ -78,35 +136,44 @@ function formatTimeLeft(ms) {
 }
 
 function viewClick(event) {
-  console.log(event);
+  console.log(event)
 }
 
-function handleClick(event) {
+/**
+ * Открывает ссылку и отправляет click.
+ * window.open СИНХРОННО до await — иначе браузер заблокирует popup.
+ * clickEvent — с keepalive:true, чтобы fetch не отменился при уходе с вкладки.
+ */
+async function handleClick(event) {
   if (event.link) {
     window.open(event.link, '_blank', 'noopener,noreferrer')
   }
-  events.clickEvent(event.id)
+  const res = await events.clickEvent(event.id)
+  if (!res.success && !res.queued && res.error) {
+    toast.warn(res.error)
+  }
 }
 
 async function handleConfirm(event) {
-  if (confirming.value) return
-  confirming.value = true
+  const state = stateMap.value[event.id]
+  if (state.confirmPending) return
 
   const res = await events.confirmEvent(event.id)
-  
+
   if (res.success) {
     if (res.already) {
       toast.info(res.message || 'Вы уже получили награду')
-    } else if (event.rewardPoints) {
-      toast.success(`Получено: ${event.rewardPoints}`)
+    } else if (res.queued) {
+      toast.info('Награда будет зачислена при подключении к сети')
+    } else if (res.rewardPoints > 0) {
+      // Используем серверный текст, если есть; иначе собираем из POINTS
+      toast.success(res.rewardText || `Получено: ${res.rewardPoints}`)
     } else {
       toast.success('Посещение подтверждено')
     }
   } else {
     toast.error(res.message || 'Не удалось подтвердить')
   }
-  
-  confirming.value = false
 }
 
 onMounted(() => {
@@ -115,7 +182,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* Стили оставлены без изменений */
 .events-widget {
   display: grid;
   gap: 16px;
@@ -132,7 +198,7 @@ onMounted(() => {
 }
 .event-content{
   font-family: var(--font-family);
-  text-transform: lowercase;  
+  text-transform: lowercase;
   display: grid;
   gap: 8px;
 }
@@ -152,45 +218,17 @@ onMounted(() => {
 }
 
 .event-action { width: 100%; }
-.event-btn {
-  width: 100%;
-  height: 48px;
-  border-radius: 100px;
-  border: 2px solid #015F01;
-  background: #D3FF4F;
-  color: #015F01;
-  font-family: var(--font-family);
+
+/* Спиннер для «Отправка…» / «Подключение…» */
+.spinner {
+  display: inline-block;
+  margin-right: 6px;
   font-size: 16px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  cursor: pointer;
-  box-shadow: 0 3px 0 0 #015F01;
-  transition: transform 0.1s, box-shadow 0.1s;
+  line-height: 1;
+  animation: evSpin 800ms linear infinite;
 }
-.event-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 0 #015F01; }
-.event-btn:disabled { opacity: 0.7; cursor: not-allowed; }
-.event-reward {
-  background: #FFFFFF;
-  padding: 4px 10px;
-  border-radius: 100px;
-  font-size: 13px;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  border: 1px solid #AFE6DD;
-}
-.event-timer {
-  height: 48px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 16px;
-  font-weight: 700;
-  color: #015F01;
-}
+@keyframes evSpin { to { transform: rotate(360deg); } }
+
 .event-done {
   font-family: var(--font-family);
   font-weight: 500;

@@ -82,7 +82,6 @@ export const useTasksStore = defineStore('tasks', {
       const period = usePeriod()
       const today = localDate()
 
-      // ▼ Если сегодня вне периода — ничего не грузим и чистим ▼
       if (!period.isInPeriod(today)) {
         this.list = []
         this.doneKeys = this.doneKeys.filter((k) => {
@@ -99,7 +98,6 @@ export const useTasksStore = defineStore('tasks', {
 
       if (!force && this.loadedTheme === themeId && this.loadedDate === today) return
 
-      // Фильтрация doneKeys: только даты внутри периода
       this.doneKeys = this.doneKeys.filter((k) => {
         const date = String(k).split(':')[0]
         return period.isInPeriod(date)
@@ -140,10 +138,14 @@ export const useTasksStore = defineStore('tasks', {
 
       const date = task.DATE || localDate()
 
-      // ▼ Защита: не даём выполнить вне периода ▼
       const period = usePeriod()
       if (!period.isInPeriod(date)) {
         return { done: false, reason: 'OUT_OF_PERIOD' }
+      }
+
+      // ▼ Защита от накрутки: нельзя отметить практику за прошлый день ▼
+      if (date !== localDate()) {
+        return { done: false, reason: 'NOT_TODAY' }
       }
 
       const key = `${date}:${task.ID_TASK}`
@@ -240,7 +242,6 @@ export const useTasksStore = defineStore('tasks', {
           return { merged: false, error: 'BAD_RESPONSE' }
         }
 
-        // Мерджим и фильтруем по периоду
         const merged = new Set([...this.doneKeys, ...res.TASKS])
         const before = this.doneKeys.length
         this.doneKeys = [...merged].filter((k) => {

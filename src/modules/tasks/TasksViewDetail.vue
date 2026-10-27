@@ -36,35 +36,23 @@
       <div class="detail-actions">
         <span v-if="isDone" class="badge-done">✓ Практика выполнена</span>
 
-        <!-- <template v-else> -->
-
-          <!-- <p v-if="!hasConsent" class="consent-warning">
-            Чтобы отметить практику выполненной, необходимо
-            <router-link to="/onboarding/consent">согласие на обработку персональных данных</router-link>.
-          </p> -->
-
-          <!-- ▼ ДОБАВЛЕНО: блок лимита по практикам ▼ -->
-          <!-- <p v-else-if="taskLimit.reached" class="limit-warning">
-            Лимит дня по практикам исчерпан.
-            Награда за действия начнёт начисляться завтра.
-          </p>
-          <p v-else-if="taskLimit.limit > 0" class="limit-hint">
-            Сегодня по практикам: {{ taskLimit.used }} из {{ taskLimit.limit }}.
-          </p> -->
-        <!-- </template> -->
+        <!-- ▼ НОВОЕ: плашка для прошлых дней ▼ -->
+        <p v-else-if="!isToday" class="archive-note">
+          Это архив. Отметить выполнение можно было только в день публикации.
+        </p>
 
         <p v-if="error" class="error-text">{{ error }}</p>
       </div>
 
       <div class="bottom-action">
         <ConsentBanner
-          v-if="!hasConsent"
+          v-if="!hasConsent && isToday"
           :class="'relative'"
           text="Чтобы отметить практику выполненной, необходимо согласие на обработку персональных данных."
         />
 
         <button
-          v-if="!isDone && hasConsent && task.REWARD_POINTS && !taskLimit.reached"
+          v-if="!isDone && hasConsent && task.REWARD_POINTS && !taskLimit.reached && isToday"
           class="btn btn-primary btn-center"
           type="button"
           :disabled="marking"
@@ -91,6 +79,7 @@ import ConsentBanner from '../consent/ConsentBanner.vue'
 import { useLimits } from '../core/limits'
 import { useToast } from '../core/composables/useToast'
 import { fetchTasksByThemeDate } from './api'
+import { localDate } from '../core/utils/date'
 import AppIcon from '../../components/AppIcon.vue'
 import FacecastPlayer from '../../components/FacecastPlayer.vue'
 import { useAppBackground } from '../core/composables/useAppBackground'
@@ -116,6 +105,9 @@ function parseId(id) {
 }
 
 const taskDate = computed(() => task.value?.DATE || parseId(taskId).date)
+
+// ▼ НОВОЕ: сегодняшняя ли практика ▼
+const isToday = computed(() => taskDate.value === localDate())
 
 const isDone = computed(() => {
   if (!task.value) return false
@@ -163,15 +155,23 @@ async function loadTask() {
   }
 }
 
-// ▼ ДОБАВЛЕНО: обработка нового формата результата complete ▼
 async function markDone() {
   if (!task.value || !hasConsent.value || isDone.value) return
+
+  // ▼ Защита от накрутки: нельзя отметить за прошлый день ▼
+  if (!isToday.value) {
+    toast.warn('Отметить можно только в день публикации')
+    return
+  }
+
   marking.value = true
   error.value = ''
   try {
     const result = await tasksStore.complete(task.value)
     if (!result?.done) {
       if (result?.reason === 'ALREADY_DONE') toast.info('Уже отмечено')
+      else if (result?.reason === 'NOT_TODAY') toast.warn('Отметить можно только в день публикации')
+      else if (result?.reason === 'OUT_OF_PERIOD') toast.warn('Вне периода активности')
       return
     }
     if (result.queued) {
@@ -255,6 +255,19 @@ function viewClick(event) {
   display: inline-block; padding: 8px 14px;
   border-radius: 8px; background: #EEF7E5; color: #015F01;
   font-size: 14px; font-weight: 600;
+}
+
+/* ▼ НОВОЕ: плашка «архив» для прошлых дней ▼ */
+.archive-note {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #f0f0f0;
+  border: 1px solid var(--border);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--muted);
+  text-transform: lowercase;
 }
 
 .consent-warning {
