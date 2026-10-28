@@ -71,7 +71,7 @@ const { setBackground, clearBackground } = useAppBackground()
 const consentStore = useConsentStore()
 const canSubmitWithConsent = computed(() => consentStore.isGranted)
 
-const MAX_TEXT = 750
+const MAX_TEXT = 15
 
 const store = useReflectionStore()
 

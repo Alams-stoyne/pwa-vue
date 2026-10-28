@@ -20,12 +20,68 @@ const SCHOOL_TTL_MS = 30 * 60 * 1000
 const SUMMARY_MIN_INTERVAL_MS = 2 * 60 * 1000
 const NEGATIVE_TTL_MS = 5 * 60 * 1000
 
-function fileToBase64(file) {
+/**
+ * Сжатие изображения через canvas.
+ *
+ * Использует URL.createObjectURL вместо FileReader.
+ * Причина: на Android (Samsung S20+ / Android 13 / Chrome) FileReader
+ * регулярно падает с NotReadableError ("The requested file could not
+ * be read, typically due to permission problems...") — особенно для
+ * HEIC и файлов из Samsung Gallery / Google Photos.
+ *
+ * URL.createObjectURL + Image работают надёжнее: браузер сам забирает
+ * данные из источника, пока тот ещё доступен.
+ *
+ * Если файл битый или формат не поддерживается (HEIC на некоторых
+ * сборках Chrome) — сработает img.onerror, и мы покажем пользователю
+ * понятный текст.
+ */
+function compressImage(file, { maxDim = 1600, quality = 0.8 } = {}) {
   return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.readAsDataURL(file)
-    reader.onload = () => resolve(reader.result)
-    reader.onerror = (error) => reject(error)
+    let url
+    try {
+      url = URL.createObjectURL(file)
+    } catch (e) {
+      reject(new Error('не удалось получить доступ к файлу'))
+      return
+    }
+
+    const cleanup = () => {
+      try { URL.revokeObjectURL(url) } catch { /* ignore */ }
+    }
+
+    const img = new Image()
+
+    img.onload = () => {
+      cleanup()
+      try {
+        const canvas = document.createElement('canvas')
+        let w = img.width
+        let h = img.height
+        if (w > h) {
+          if (w > maxDim) { h = Math.round((h * maxDim) / w); w = maxDim }
+        } else {
+          if (h > maxDim) { w = Math.round((w * maxDim) / h); h = maxDim }
+        }
+        canvas.width = w
+        canvas.height = h
+        const ctx = canvas.getContext('2d')
+        ctx.drawImage(img, 0, 0, w, h)
+        resolve(canvas.toDataURL('image/jpeg', quality))
+      } catch (e) {
+        reject(new Error('не удалось сжать изображение: ' + (e?.message || 'unknown')))
+      }
+    }
+
+    img.onerror = () => {
+      cleanup()
+      reject(new Error(
+        'не удалось прочитать изображение. попробуйте другое фото ' +
+        'или сделайте скриншот экрана заново'
+      ))
+    }
+
+    img.src = url
   })
 }
 
@@ -114,7 +170,6 @@ export const useStepsStore = defineStore('steps', {
     todaySteps: (s) => s.summary?.TODAY_STEPS || 0,
     lastSentSteps: (s) => Number(s.summary?.TODAY_SENT_STEPS) || 0,
 
-    // ▼ Флаг «период настроен админом» ▼
     isPeriodConfigured: (s) => isConfigured(s.summary),
 
     confirmedDays: (s) => {
@@ -133,7 +188,6 @@ export const useStepsStore = defineStore('steps', {
     },
 
     progressPercent: (s) => {
-      // При ненастроенном периоде арка пустая (марафон не стартовал)
       if (!isConfigured(s.summary)) return 0
 
       const total = daysInclusive(plannedFrom(s.summary), plannedTo(s.summary))
@@ -149,7 +203,6 @@ export const useStepsStore = defineStore('steps', {
     },
 
     plannedPeriod: (s) => {
-      // При ненастроенном периоде UI-даты не показываем
       if (!isConfigured(s.summary)) return null
 
       const from = plannedFrom(s.summary)
@@ -162,7 +215,6 @@ export const useStepsStore = defineStore('steps', {
     progressToGoal: (s) => Number(s.summary?.PROGRESS_PERCENT) || 0,
 
     daysLeft: (s) => {
-      // При ненастроенном периоде «осталось N дней» бессмысленно
       if (!isConfigured(s.summary)) return null
 
       const to = plannedTo(s.summary)
@@ -261,7 +313,6 @@ export const useStepsStore = defineStore('steps', {
       if (st === 'approved') return 'confirmed'
       if (st === 'pending') return 'pending'
       if (st === 'rejected') return 'rejected'
-      // Legacy
       if (s.summary?.TODAY_CONFIRMED === true) return 'confirmed'
       if (Number(s.summary?.TODAY_STEPS) > 0) return 'confirmed'
       if (s.summary?.TODAY_SUBMITTED === true) return 'pending'
@@ -272,7 +323,6 @@ export const useStepsStore = defineStore('steps', {
       const st = s.summary?.TODAY_STATUS
       if (st === 'pending' || st === 'approved') return true
       if (st === 'rejected' || st === 'none') return false
-      // Legacy
       if (Number(s.summary?.TODAY_STEPS) > 0) return true
       if (s.summary?.TODAY_SUBMITTED === true) return true
       if (!s.lastSubmittedAt) return false
@@ -289,7 +339,6 @@ export const useStepsStore = defineStore('steps', {
       const st = s.summary?.TODAY_STATUS
       if (st === 'approved') return true
       if (st === 'pending' || st === 'rejected' || st === 'none') return false
-      // Legacy
       if (!s.summary) return false
       if (s.summary.TODAY_CONFIRMED !== undefined) return s.summary.TODAY_CONFIRMED === true
       return Number(s.summary.TODAY_STEPS) > 0
@@ -464,8 +513,25 @@ export const useStepsStore = defineStore('steps', {
       try {
         const base64Images = []
         for (const file of images) {
-          if (file instanceof File) {
-            base64Images.push(await fileToBase64(file))
+          if (!(file instanceof File)) continue
+
+          // Защита от гигантских файлов — ещё до чтения в память
+          if (file.size > 10 * 1024 * 1024) {
+            throw new Error('файл слишком большой (макс. 10МБ)')
+          }
+
+          try {
+            const compressed = await compressImage(file)
+            base64Images.push(compressed)
+          } catch (e) {
+            console.error('[steps] image prepare failed:', {
+              name: e?.name,
+              message: e?.message,
+              fileName: file.name,
+              fileType: file.type,
+              fileSize: file.size,
+            })
+            throw new Error(e?.message || 'не удалось подготовить изображение')
           }
         }
 
@@ -481,7 +547,7 @@ export const useStepsStore = defineStore('steps', {
 
         if (isSuccess(res)) {
           this.lastSubmittedAt = Date.now()
-          localStorage.setItem(LS_LAST_SUBMIT, String(this.lastSubmittedAt))
+          try { localStorage.setItem(LS_LAST_SUBMIT, String(this.lastSubmittedAt)) } catch {}
 
           try {
             if (res.REWARD_POINTS) {
@@ -517,7 +583,24 @@ export const useStepsStore = defineStore('steps', {
         this.error = errMsg
         return { ok: false, alreadySent: false, message: errMsg }
       } catch (e) {
-        const msg = e.message || 'Не удалось отправить данные'
+        // Детальное логирование — по нему видно, что именно упало
+        console.error('[steps] send failed:', {
+          name: e?.name,
+          message: e?.message,
+          code: e?.code,
+          stack: e?.stack,
+        })
+
+        let msg
+        if (e?.name === 'OfflineError' || e?.code === 'OFFLINE') {
+          msg = 'нет соединения с интернетом'
+        } else if (e?.name === 'TimeoutError' || e?.code === 'TIMEOUT') {
+          msg = 'превышено время ожидания. проверьте соединение и попробуйте снова'
+        } else if (e?.message && e.message !== 'undefined') {
+          msg = e.message
+        } else {
+          msg = 'не удалось отправить данные. попробуйте ещё раз'
+        }
         this.error = msg
         return { ok: false, alreadySent: false, message: msg }
       } finally {

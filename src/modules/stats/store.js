@@ -64,10 +64,6 @@ export const useStatsStore = defineStore('stats', {
       this.fetchGlobal()
     },
 
-    /**
-     * Остановка периодического опроса. Вызывается из StatsView.onBeforeUnmount —
-     * чтобы 15-минутный таймер не «тикал» после ухода со страницы статистики.
-     */
     stop() {
       if (_timer) {
         clearInterval(_timer)
@@ -100,6 +96,7 @@ export const useStatsStore = defineStore('stats', {
       if (!amount || amount <= 0) return
       this.pendingApples += Number(amount)
       localStorage.setItem(LS_PENDING_APPLES, String(this.pendingApples))
+      try { localStorage.setItem('rewards.dirty', '1') } catch {}
       console.log(`[stats] +${amount} яблок добавлено локально. Ожидает сверки.`)
     },
 
@@ -120,14 +117,12 @@ export const useStatsStore = defineStore('stats', {
           LOCAL_DATETIME: localDateTime()
         })
 
-        // ▼ БЛОКИРОВКА — приоритетная обработка ▼
         if (isBlocked(data)) {
           auth.setBlocked(data.MESSAGE)
           this.stop()
           return
         }
 
-        // ▼ Если пришли сюда, а блокировка стоит — значит, сервер снял блок ▼
         if (auth.blocked) auth.clearBlocked()
 
         if (isSuccess(data)) {
@@ -137,7 +132,6 @@ export const useStatsStore = defineStore('stats', {
             this.personal = { APPLES: 0, RANK: 0, LECTURES_READ: 0, TASKS_DONE: 0, HABITS_DAYS: 0, STEPS_CONFIRMED: 0 }
           }
 
-          // СЕРВЕР - ИСТИНА: сбрасываем локальные начисления
           this.pendingApples = 0
           localStorage.removeItem(LS_PENDING_APPLES)
 
@@ -164,7 +158,6 @@ export const useStatsStore = defineStore('stats', {
       this.loadingGlobal = true
       try {
         const data = await fetchGlobalStats()
-        // fetchGlobalStats идёт на CDN — BLOCKED там быть не может, но проверим на всякий
         if (isBlocked(data)) {
           useAuthStore().setBlocked(data.MESSAGE)
           return

@@ -2,9 +2,15 @@
   <div class="page install-gate">
 
     <header class="head_install text-center">
-      <div class="title color-text-stroke">разместите ярлык недели здоровья на своем экране</div>
+      <div class="title color-text-stroke">присоединяйтесь к неделе здоровья</div>
       <!-- <div class="subtitle">Это займёт несколько секунд</div> -->
       <div class="text">
+        <p>Когда задач становится больше, важно сохранять эффективность и находить способы справляться с нагрузкой без потери энергии. Именно этому посвящена Неделя здоровья и безопасности в Х5.</p>
+        <p>с 26 по 30 октября вас ждут полезные активности о том, как поддерживать себя, эффективнее организовывать работу и сохранять баланс в течение дня</p>
+        <p>знакомьтесь с программой <a href="https://sfera.x5.ru/hrcontent/news/6ad757207bea2c7dbd542903" target="_blank" rel="noopener noreferrer">Недели здоровья</a></p>
+        <p>заполните небольшую анкету и Зефирчик подберет вам индивидуальную программу</p>
+      </div>             
+      <div class="text lowercase">
         <p><strong>выберите ниже своё устройство и следуйте инструкции</strong></p>
         <p>на android и компьютере нажмите кнопку установки на странице и подтвердите установку</p>
         <p>на iphone откройте страницу в safari и добавьте её на экран «Домой» через меню поделиться</p>
@@ -185,11 +191,13 @@ watch(isInstalled, (v) => {
   font-size: 14px;
   line-height: 87%;
   text-align: center;
-  text-transform: lowercase;
   text-wrap: balance;
   color: var(--white);
   display: grid;
   gap: 10px;
+}
+.head_install .text a{
+  color: var(--green-light);
 }
 .head_install .text p{
   font-family: var(--font-family);

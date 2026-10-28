@@ -1,181 +1,182 @@
 <template>
   <div class="page rewards-page">
-    <!-- <div class="tabs" role="tablist">
-      <button
-        class="tab"
-        :class="{ active: tab === 'earned' }"
-        role="tab"
-        :aria-selected="tab === 'earned'"
-        @click="tab = 'earned'"
-      >получены яблоки</button>
-      <button
-        class="tab"
-        :class="{ active: tab === 'pending' }"
-        role="tab"
-        :aria-selected="tab === 'pending'"
-        @click="tab = 'pending'"
-      >просмотрено</button>
-      <span
-        class="tab-indicator"
-        :style="{ transform: `translateX(${tab === 'earned' ? 0 : 100}%)` }"
+    <!-- Заглушка при отсутствии согласия на ПД -->
+    <div v-if="!consent.isGranted" class="consent-wrap">
+      <ConsentBanner
+        :class="'relative'"
+        text="Для просмотра истории начислений необходимо согласие на обработку персональных данных."
       />
-    </div> -->
-
-    <!-- <div v-if="store.partial" class="partial-hint">
-      часть истории не загрузилась — потяните вниз, чтобы повторить
-    </div> -->
-
-    <div class="rewards-wrap">
-      <div
-        class="pull-indicator"
-        :class="{ 'is-ready': isReady, 'is-refreshing': isRefreshing }"
-        :style="{ transform: `translateY(calc(-100% + ${pullOffset}px))` }"
-        aria-hidden="true"
-      >
-        <span v-if="isRefreshing" class="pull-spinner">↻</span>
-        <span v-else class="pull-arrow" :class="{ 'is-ready': isReady }">↓</span>
-        <span class="pull-text">{{ pullText }}</span>
-      </div>
-
-      <div
-        ref="scrollRef"
-        class="rewards-scroll"
-        :class="{ 'is-pulling': isPulling }"
-        :style="{ transform: `translateY(${pullOffset}px)` }"
-        v-bind="pullHandlers"
-      >
-        <!-- ── ТАБ «ПОЛУЧЕНЫ ЯБЛОКИ» ── -->
-        <section v-show="tab === 'earned'" class="pane">
-          <div v-if="loading && !earnedGrouped.length" class="state muted">загрузка…</div>
-
-          <template v-else-if="earnedGrouped.length">
-            <!-- <div class="card total-row">
-              <span class="total-label">всего заработано:</span>
-              <span class="total-value">
-                {{ formatNum(store.totalEarned) }}
-                <span class="apple"><AppIcon name="apple" :size="22" /></span>
-              </span>
-            </div> -->
-
-            <section v-for="g in earnedGrouped" :key="g.date" class="date-group">
-              <div class="date-label">{{ formatDate(g.date) }}</div>
-              <div class="items">
-                <component
-                  :is="itemLink(item).clickable ? 'router-link' : 'div'"
-                  v-for="(item, idx) in g.items"
-                  :key="itemKey(item, 'earned', g.date, idx)"
-                  :to="itemLink(item).to"
-                  class="card reward-card"
-                  :class="{ clickable: itemLink(item).clickable }"
-                >
-                  <div
-                    v-if="item._lecture"
-                    class="reward-cover"
-                    :style="coverStyle(item._lecture)"
-                  />
-                  <div class="reward-main">
-                    <div class="reward-title">{{ item._lecture?.title || item.TITLE }}</div>
-                    <div class="reward-meta">
-                      <span class="badge badge--type">{{ typeLabel(item.TYPE) }}</span>
-                      <span
-                        v-if="item._lecture && lectureThemeName(item._lecture)"
-                        class="badge badge--theme"
-                      >{{ lectureThemeName(item._lecture) }}</span>
-                    </div>
-                  </div>
-                  <span class="item-points">
-                    +{{ formatNum(item.POINTS) }}
-                    <span class="apple"><AppIcon name="apple" :size="18" /></span>
-                  </span>
-                </component>
-              </div>
-            </section>
-          </template>
-
-          <div v-else-if="error" class="state error">{{ error }}</div>
-
-          <div v-else class="empty-block">
-            <div class="empty-title">пока нет начислений</div>
-            <div class="empty-text">
-              выполните действие на главной или в разделе «Обучение» — здесь появятся яблоки за них.
-            </div>
-          </div>
-        </section>
-
-        <!-- ── ТАБ «ПРОСМОТРЕНО» ── -->
-        <section v-show="tab === 'pending'" class="pane">
-          <div v-if="loading && !pendingGrouped.length" class="state muted">загрузка…</div>
-
-          <template v-else-if="pendingGrouped.length">
-            <p class="pending-hint muted">
-              материалы, по которым награда ещё не начислена
-            </p>
-
-            <section v-for="g in pendingGrouped" :key="g.date" class="date-group">
-              <div class="date-label">{{ formatDate(g.date) }}</div>
-              <div class="items">
-                <component
-                  :is="itemLink(item).clickable ? 'router-link' : 'div'"
-                  v-for="(item, idx) in g.items"
-                  :key="itemKey(item, 'pending', g.date, idx)"
-                  :to="itemLink(item).to"
-                  class="card reward-card"
-                  :class="{ clickable: itemLink(item).clickable }"
-                >
-                  <div
-                    v-if="item._lecture"
-                    class="reward-cover"
-                    :style="coverStyle(item._lecture)"
-                  />
-                  <div class="reward-main">
-                    <div class="reward-title">{{ item._lecture?.title || item.TITLE }}</div>
-                    <div class="reward-meta">
-                      <span class="badge badge--type">{{ typeLabel(item.TYPE) }}</span>
-                      <span
-                        v-if="item._lecture && lectureThemeName(item._lecture)"
-                        class="badge badge--theme"
-                      >{{ lectureThemeName(item._lecture) }}</span>
-                      <span class="badge" :class="reasonClass(item.REASON)">
-                        {{ reasonLabel(item) }}
-                      </span>
-                    </div>
-                  </div>
-                  <span
-                    v-if="Number(item.POINTS) > 0"
-                    class="item-points item-points--muted"
-                  >
-                    ожидалось +{{ formatNum(item.POINTS) }}
-                    <span class="apple"><AppIcon name="apple" :size="18" /></span>
-                  </span>
-                </component>
-              </div>
-            </section>
-          </template>
-
-          <div v-else-if="error" class="state error">{{ error }}</div>
-
-          <div v-else class="empty-block">
-            <div class="empty-title">пока нет информации</div>
-            <div class="empty-text">
-              здесь появятся материалы, за которые награда не начислена, но материал просмотрен.
-            </div>
-          </div>
-        </section>
-      </div>
     </div>
+
+    <!-- Основной контент (доступен только при наличии согласия) -->
+    <template v-else>
+      <!-- Табы: Получены / Эффективность -->
+      <div class="tabs" role="tablist">
+        <button
+          class="tab"
+          :class="{ active: tab === 'earned' }"
+          role="tab"
+          :aria-selected="tab === 'earned'"
+          @click="tab = 'earned'"
+        >получены яблоки</button>
+        <button
+          class="tab"
+          :class="{ active: tab === 'efficiency' }"
+          role="tab"
+          :aria-selected="tab === 'efficiency'"
+          @click="tab = 'efficiency'"
+        >эффективность</button>
+        <span
+          class="tab-indicator"
+          :style="{ transform: `translateX(${tab === 'earned' ? 0 : 100}%)` }"
+        />
+      </div>
+
+      <div class="rewards-wrap">
+        <div
+          class="pull-indicator"
+          :class="{ 'is-ready': isReady, 'is-refreshing': isRefreshing }"
+          :style="{ transform: `translateY(calc(-100% + ${pullOffset}px))` }"
+          aria-hidden="true"
+        >
+          <span v-if="isRefreshing" class="pull-spinner">↻</span>
+          <span v-else class="pull-arrow" :class="{ 'is-ready': isReady }">↓</span>
+          <span class="pull-text">{{ pullText }}</span>
+        </div>
+
+        <div
+          ref="scrollRef"
+          class="rewards-scroll"
+          :class="{ 'is-pulling': isPulling }"
+          :style="{ transform: `translateY(${pullOffset}px)` }"
+          v-bind="pullHandlers"
+        >
+          <!-- ── ТАБ «ПОЛУЧЕНЫ ЯБЛОКИ» ── -->
+          <section v-show="tab === 'earned'" class="pane">
+            <div v-if="loading && !earnedGrouped.length" class="state muted">загрузка…</div>
+
+            <template v-else-if="earnedGrouped.length">
+              <section v-for="g in earnedGrouped" :key="g.date" class="date-group">
+                <div class="date-label">{{ formatDate(g.date) }}</div>
+                <div class="items">
+                  <component
+                    :is="itemLink(item).clickable ? 'router-link' : 'div'"
+                    v-for="(item, idx) in g.items"
+                    :key="itemKey(item, 'earned', g.date, idx)"
+                    :to="itemLink(item).to"
+                    class="card reward-card"
+                    :class="{ clickable: itemLink(item).clickable }"
+                  >
+                    <div
+                      v-if="item._lecture"
+                      class="reward-cover"
+                      :style="coverStyle(item._lecture)"
+                    />
+                    <div class="reward-main">
+                      <div class="reward-title">{{ item._lecture?.title || item.TITLE }}</div>
+                      <div class="reward-meta">
+                        <span class="badge badge--type">{{ typeLabel(item.TYPE) }}</span>
+                        <span
+                          v-if="item._lecture && lectureThemeName(item._lecture)"
+                          class="badge badge--theme"
+                        >{{ lectureThemeName(item._lecture) }}</span>
+                      </div>
+                    </div>
+                    <span class="btn-badge">
+                      +{{ formatNum(item.POINTS) }}
+                      <span class="apple"><AppIcon name="apple" :size="18" /></span>
+                    </span>
+                  </component>
+                </div>
+              </section>
+            </template>
+
+            <div v-else-if="error" class="state error">{{ error }}</div>
+
+            <div v-else class="empty-block">
+              <div class="empty-title">пока нет начислений</div>
+              <div class="empty-text">
+                выполните действие на главной или в разделе «Обучение» — здесь появятся яблоки за них.
+              </div>
+            </div>
+          </section>
+
+          <!-- ── ТАБ «ЭФФЕКТИВНОСТЬ» ── -->
+          <section v-show="tab === 'efficiency'" class="pane">
+            <div v-if="loading && !store.dailyEfficiency.length" class="state muted">загрузка…</div>
+
+            <template v-else-if="store.dailyEfficiency.length">
+              <div class="eff-total">
+                <div class="eff-total-line">
+                  <div class="eff-total-label">средняя эффективность:</div>
+                  <div class="eff-total-hint muted">{{ activeDaysLabel }}</div>                  
+                </div>
+                <div class="eff-total-value color-text-stroke">{{ averagePercentLabel }}</div>
+              </div>
+
+              <div class="eff-list">
+                <div
+                  v-for="d in store.dailyEfficiency"
+                  :key="d.DATE"
+                  class="eff-row"
+                >
+                  <div class="eff-head">
+                    <span class="eff-date">{{ formatDate(d.DATE) }}</span>
+                    <span
+                      class="eff-percent"
+                      :class="{ 'is-null': d.PERCENT == null }"
+                    >{{ formatPercent(d.PERCENT) }}</span>
+                  </div>
+                  <div class="eff-bar">
+                    <div
+                      class="eff-bar-fill"
+                      :style="{ width: barWidth(d.PERCENT) }"
+                    />
+                  </div>
+                  <div class="eff-meta">
+                    <template v-if="d.MAX > 0">
+                      {{ d.EARNED }} из {{ d.MAX }}
+                      <template v-if="d.ITEMS_COUNT > 0">
+                        <span class="eff-dot">·</span>
+                        {{ pluralActions(d.ITEMS_COUNT) }}
+                      </template>
+                    </template>
+                    <template v-else>нет активностей в этот день</template>
+                  </div>
+                </div>
+              </div>
+            </template>
+
+            <div v-else-if="error" class="state error">{{ error }}</div>
+
+            <div v-else class="empty-block">
+              <div class="empty-title">{{ emptyReason }}</div>
+              <div class="empty-text">
+                график эффективности появится после первого дня с активностями.
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </template>
   </div>
 </template>
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRewardsStore } from './store'
+import { useConsentStore } from '../../consent/store'
 import { usePullToRefresh } from '../../core/composables/usePullToRefresh'
 import { getTheme } from '../../theme/themes'
+import { usePeriod } from '../../core/period'
+import ConsentBanner from '../../consent/ConsentBanner.vue'
 import AppIcon from '../../../components/AppIcon.vue'
 import { useAppBackground } from '../../core/composables/useAppBackground'
 
 const { setBackground } = useAppBackground()
 const store = useRewardsStore()
+const consent = useConsentStore()
+const periodApi = usePeriod()
 
 const tab = ref('earned')
 const scrollRef = ref(null)
@@ -217,7 +218,6 @@ function reasonClass(reason) {
   }
 }
 
-// Название направления из bucket лекции (lecture-energy → энергия)
 function lectureThemeName(lecture) {
   const bucket = lecture?.bucket || ''
   if (!bucket.startsWith('lecture-')) return ''
@@ -231,10 +231,6 @@ function coverStyle(lecture) {
   return { backgroundImage: `url("${lecture.cover}")` }
 }
 
-/**
- * Переход возможен только для лекций (у них есть _lecture из IDB).
- * Практики, привычки, шаги, события, рефлексия — некликабельны.
- */
 function itemLink(item) {
   if (item._lecture?.dbKey) {
     return {
@@ -247,7 +243,8 @@ function itemLink(item) {
   }
   return { clickable: false, to: undefined }
 }
-// ── Группировка по датам ──────────────────────────────────
+
+// ── Группировка по датам (для таба «Получены») ───────────
 function groupByDate(items) {
   const map = new Map()
   for (const item of items) {
@@ -268,7 +265,6 @@ function groupByDate(items) {
 }
 
 const earnedGrouped = computed(() => groupByDate(store.earned))
-const pendingGrouped = computed(() => groupByDate(store.pending))
 
 function itemKey(item, tabName, date, idx) {
   if (item.ID != null) return `id_${item.ID}`
@@ -276,7 +272,54 @@ function itemKey(item, tabName, date, idx) {
   return `${tabName}_${date}_${item.TYPE || 'x'}_${idx}`
 }
 
-// ── Форматирование ────────────────────────────────────────
+// ── Таб «Эффективность» — производные ─────────────────────
+const emptyReason = computed(() => {
+  if (!periodApi.isConfigured.value) return 'марафон ещё не настроен'
+  return 'марафон ещё не начался'
+})
+
+const averagePercentLabel = computed(() => {
+  const days = store.dailyEfficiency.filter((d) => d.PERCENT != null && Number(d.MAX) > 0)
+  if (!days.length) return '—'
+  const avg = days.reduce((sum, d) => sum + Number(d.PERCENT || 0), 0) / days.length
+  return `${avg.toFixed(0)}%`
+})
+
+const activeDaysLabel = computed(() => {
+  const total = store.dailyEfficiency.length
+  const withActions = store.dailyEfficiency.filter((d) => Number(d.EARNED) > 0).length
+  return `${withActions} из ${total} ${pluralDays(total)}`
+})
+
+function pluralDays(n) {
+  const v = Number(n) || 0
+  if (v % 10 === 1 && v % 100 !== 11) return 'дня'
+  if ([2, 3, 4].includes(v % 10) && ![12, 13, 14].includes(v % 100)) return 'дней'
+  return 'дней'
+}
+
+function pluralActions(n) {
+  const v = Number(n) || 0
+  if (v === 1) return '1 действие'
+  if (v >= 2 && v <= 4) return `${v} действия`
+  return `${v} действий`
+}
+
+function formatPercent(p) {
+  if (p == null) return '—'
+  const n = Number(p)
+  if (!Number.isFinite(n)) return '—'
+  return `${Math.round(n)}%`
+}
+
+function barWidth(p) {
+  if (p == null) return '0%'
+  const n = Number(p)
+  if (!Number.isFinite(n)) return '0%'
+  return `${Math.max(0, Math.min(100, n))}%`
+}
+
+// ── Общее форматирование ─────────────────────────────────
 function formatNum(n) {
   return Number(n || 0).toLocaleString('ru-RU')
 }
@@ -289,7 +332,7 @@ function formatDate(iso) {
   return `${Number(d)} ${MONTHS[Number(m) - 1]}`
 }
 
-// ── Pull-to-refresh ───────────────────────────────────────
+// ── Pull-to-refresh ──────────────────────────────────────
 const {
   isPulling,
   isRefreshing,
@@ -317,7 +360,9 @@ watch(tab, () => {
 
 onMounted(async () => {
   setBackground({ url: '/backgrounds/bg_frame.jpg' })
-  await store.load()
+  if (consent.isGranted) {
+    await store.load()
+  }
   document.addEventListener('visibilitychange', onVisibilityChange)
 })
 
@@ -327,8 +372,6 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-/* ── Только то, чего нет в style.css ── */
-
 .rewards-page {
   position: relative;
   display: grid;
@@ -337,16 +380,24 @@ onBeforeUnmount(() => {
   max-height: 100dvh;
 }
 
+/* Обертка для ConsentBanner, чтобы он был по центру */
+.consent-wrap {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 40px 0;
+}
+
 .rewards-wrap {
   position: relative;
   overflow: hidden;
-  max-height: calc(100dvh - 180px);
+  max-height: calc(100dvh - 220px);
   border-radius: 14px;
 }
 .rewards-scroll {
   position: relative;
   height: 100%;
-  max-height: calc(100dvh - 180px);
+  max-height: calc(100dvh - 220px);
   overflow-y: auto;
   scrollbar-width: none;
   overscroll-behavior-y: contain;
@@ -390,19 +441,6 @@ onBeforeUnmount(() => {
 }
 @keyframes pullSpin { to { transform: rotate(360deg); } }
 
-.partial-hint {
-  padding: 10px 12px;
-  background: #FFF8EC;
-  border: 1px solid #FBE5C6;
-  border-radius: 10px;
-  font-family: var(--font-family);
-  font-size: 12.5px;
-  line-height: 1.4;
-  color: #7a4b00;
-  text-transform: lowercase;
-  text-wrap: balance;
-}
-
 .pane { display: grid; gap: 16px; padding: 4px 0 16px; }
 
 .state {
@@ -410,33 +448,6 @@ onBeforeUnmount(() => {
   padding: 32px 16px;
   font-size: 14px;
 }
-
-.pending-hint { margin: 0; font-size: 12.5px; }
-
-.total-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 16px;
-  margin-bottom: 0;
-}
-.total-label {
-  font-family: var(--font-family);
-  font-weight: 500;
-  font-size: 14px;
-  color: var(--txt-black-dark-green);
-  text-transform: lowercase;
-}
-.total-value {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-family: var(--third-family);
-  font-weight: 500;
-  font-size: 20px;
-  color: var(--txt-dark-green);
-}
-.total-value .apple svg { color: transparent; }
 
 .date-group { display: grid; gap: 8px; }
 .date-label {
@@ -487,22 +498,97 @@ onBeforeUnmount(() => {
   flex-wrap: wrap;
   gap: 6px;
 }
-.item-points {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  flex-shrink: 0;
-  font-family: var(--third-family);
+
+/* ── Эффективность ── */
+.eff-total {
+  border: 1px solid var(--border);
+  background: #fff;
+  border-radius: 14px;
+  gap: 6px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  align-content: flex-start;
+}
+.eff-total-line {
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  display: grid;
+}
+.eff-total-label {
+  font-family: var(--font-family);
   font-weight: 500;
   font-size: 14px;
+  color: var(--txt-black-dark-green);
+  text-transform: lowercase;
+}
+.eff-total-value {
+  font-size: 34px;
+  line-height: 1;
+}
+.eff-total-hint {
+  font-family: var(--font-family);
+  font-size: 12.5px;
+  text-transform: lowercase;
+}
+
+.eff-list { 
+  display: grid; 
+  gap: 12px; 
+}
+.eff-row {
+  gap: 8px;
+  padding: 10px;
+  display: grid;
+}
+.eff-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+.eff-date {
+  font-family: var(--font-family);
+  font-weight: 500;
+  font-size: 14px;
+  color: var(--txt-black-dark-green);
+  text-transform: lowercase;
+}
+.eff-percent {
+  font-family: var(--font-family);
   color: var(--txt-dark-green);
   white-space: nowrap;
+  font-size: 16px;
+  font-weight: 700;
 }
-.item-points .apple svg { color: transparent; }
-.item-points--muted {
+.eff-percent.is-null {
   color: var(--muted);
-  opacity: 0.85;
+  font-family: var(--font-family);
   font-weight: 400;
+}
+.eff-bar {
+  height: 8px;
+  background: var(--grey-light);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.eff-bar-fill {
+  height: 100%;
+  background: #94E91E;
+  border-radius: 100px;
+  transition: width 0.3s ease;
+}
+.eff-meta {
+  font-family: var(--font-family);
+  font-size: 12.5px;
+  color: var(--muted);
+  text-transform: lowercase;
+}
+.eff-dot {
+  margin: 0 4px;
+  opacity: 0.6;
 }
 
 .badge {

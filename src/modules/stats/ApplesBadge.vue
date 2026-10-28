@@ -13,6 +13,7 @@
 <script setup>
 import { computed } from 'vue'
 import { useStatsStore } from './store'
+import { useConsentStore } from '../consent/store'
 import AppIcon from '../../components/AppIcon.vue'
 
 const props = defineProps({
@@ -21,16 +22,17 @@ const props = defineProps({
 })
 
 const store = useStatsStore()
+const consent = useConsentStore()
 
-// Используем геттер apples (сервер + локальные pending)
+// Без согласия на обработку ПД — всегда 0.
+// С согласием — сервер + локальные pending.
 const formattedApples = computed(() => {
+  if (!consent.isGranted) return '0'
   return Number(store.apples || 0).toLocaleString('ru-RU')
 })
 </script>
 
 <style scoped>
-/* Классы btn-badge и rating-badge у вас уже есть в глобальном CSS или HomeView.
-   Но на всякий случай продублируем базовые стили, если их нет глобально. */
 .btn-badge {
   display: inline-flex;
   align-items: center;

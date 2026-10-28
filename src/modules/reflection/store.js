@@ -16,8 +16,8 @@ const LS_SENT_DATE = 'reflection.sentDate'
 const LS_TITLES = 'reflection.titles'
 const LS_TITLES_AT = 'reflection.titlesAt'
 const TITLES_TTL = 6 * 60 * 60 * 1000
-const MIN_TEXT = 50
-const MAX_TEXT = 750
+const MIN_TEXT = 5
+const MAX_TEXT = 15
 
 function readLS(key, fallback) {
   try {
@@ -43,8 +43,8 @@ export const useReflectionStore = defineStore('reflection', {
 
   getters: {
     canSubmit: (s) =>
-      s.text.trim().length > 15 &&
-      s.text.length <= 750 &&
+      s.text.trim().length > MIN_TEXT &&
+      s.text.length <= MAX_TEXT &&
       !s.sentToday &&
       !s.sending,
 

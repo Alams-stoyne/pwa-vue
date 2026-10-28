@@ -1,12 +1,14 @@
 import { defineStore } from 'pinia'
 import { isSuccess, isBlocked } from '../../core/utils/response'
 import { useAuthStore } from '../../auth/store'
+import { useConsentStore } from '../../consent/store'
 import { useStatsStore } from '../store'
 import { fetchApplesHistory } from './api'
 
 const LS_CACHE = 'rewards.history'
 const LS_CACHE_AT = 'rewards.historyAt'
-const TTL = 5 * 60 * 1000
+const LS_DIRTY = 'rewards.dirty'
+const TTL = 60 * 60 * 1000          // 60 минут
 const MAX_PAGES = 20
 
 const LECTURE_TYPES = new Set(['lecture', 'lecture_theme', 'lecture_general', 'charging'])
@@ -36,20 +38,19 @@ function clearCache() {
   } catch {}
 }
 
-/**
- * Сумма яблок по rewarded-записям.
- * Используется для сверки с серверным счётчиком из статистики.
- */
+function isDirty() {
+  try { return localStorage.getItem(LS_DIRTY) === '1' } catch { return false }
+}
+function clearDirty() {
+  try { localStorage.removeItem(LS_DIRTY) } catch {}
+}
+
 function sumRewardedPoints(items) {
   return (items || [])
     .filter((it) => it && it.STATUS === 'rewarded')
     .reduce((sum, it) => sum + (Number(it.POINTS) || 0), 0)
 }
 
-/**
- * BUCKET с сервера — без префикса (energy / general / charging / ...).
- * В IDB ключ лекции = `lecture-{bucket}:{date}:{id}`. Добавляем префикс.
- */
 function bucketToDbBucket(bucket) {
   if (!bucket) return null
   const b = String(bucket)
@@ -61,7 +62,6 @@ function parseActionId(actionId) {
   if (!actionId || typeof actionId !== 'string') {
     return { date: null, elementId: null, typePrefix: null }
   }
-
   const parts = actionId.split(':')
 
   if (parts.length === 1) {
@@ -89,7 +89,6 @@ function parseActionId(actionId) {
     }
     return { date, elementId: middle.join(':'), typePrefix: null }
   }
-
   return { date: null, elementId: actionId, typePrefix: null }
 }
 
@@ -142,7 +141,6 @@ function dedupeByActionId(items) {
     const tn = it.CREATED_AT ? new Date(it.CREATED_AT).getTime() : 0
     if (tn > te) byKey.set(key, it)
   }
-
   return [...byKey.values(), ...withoutKey]
 }
 
@@ -221,13 +219,13 @@ async function enrichItems(items) {
 export const useRewardsStore = defineStore('rewards', {
   state: () => ({
     items: [],
+    dailyEfficiency: [],
     total: 0,
     loading: false,
     error: null,
     lastLoadedAt: 0,
     loadedUserId: null,
     partial: false,
-    // ▼ Для диагностики последней сверки с серверным счётчиком ▼
     lastSyncCheck: null,
   }),
 
@@ -241,31 +239,38 @@ export const useRewardsStore = defineStore('rewards', {
     pendingCount: (s) =>
       s.items.filter((it) => it.STATUS !== 'rewarded').length,
     hasData: (s) => s.items.length > 0,
+    hasEfficiency: (s) => s.dailyEfficiency.length > 0,
   },
 
   actions: {
     async load({ force = false } = {}) {
       const auth = useAuthStore()
       if (!auth.idUser) return false
+
+      // ▼ ПРОВЕРКА СОГЛАСИЯ ▼
+      const consent = useConsentStore()
+      if (!consent.isGranted) {
+        this.clear()
+        return false
+      }
+
       if (this.loading) return false
 
       if (this.loadedUserId && this.loadedUserId !== auth.idUser) {
         this.clear()
       }
 
+      const dirty = isDirty()
+      const effectiveForce = force || dirty
+
       // ── Кеш ──
-      if (!force) {
+      if (!effectiveForce) {
         const cached = readCache(auth.idUser)
         const cachedAt = readCacheAt()
         if (cached && Date.now() - cachedAt < TTL) {
           const rawItems = Array.isArray(cached.ITEMS) ? cached.ITEMS : []
           const cachedSum = sumRewardedPoints(rawItems)
 
-          // ▼ Сверка с серверным счётчиком из /stats/personal ▼
-          // Сравниваем с personal.APPLES (без pendingApples), потому что
-          // pendingApples — оптимистичные локальные начисления, которых
-          // в /apples/history на сервере ещё нет. Сравнение с store.apples
-          // давало бы ложные срабатывания при каждом новом действии.
           const stats = useStatsStore()
           const serverApples = stats.personal?.APPLES
           const canCompare = typeof serverApples === 'number'
@@ -280,8 +285,10 @@ export const useRewardsStore = defineStore('rewards', {
           }
 
           if (!mismatch) {
-            // Кеш валиден — используем без запроса
             this.items = await enrichItems(rawItems)
+            this.dailyEfficiency = Array.isArray(cached.DAILY_EFFICIENCY)
+              ? cached.DAILY_EFFICIENCY
+              : []
             this.total = rawItems.length
             this.partial = !!cached.PARTIAL
             this.loadedUserId = auth.idUser
@@ -290,12 +297,10 @@ export const useRewardsStore = defineStore('rewards', {
             return true
           }
 
-          // Расхождение — форсим загрузку с сервера
           console.log('[rewards] сумма яблок не совпадает со статистикой, перезапрашиваем:', {
             cached: cachedSum,
             server: serverApples,
           })
-          // Падаем в общую ветку загрузки с сервера
         }
       }
 
@@ -337,18 +342,22 @@ export const useRewardsStore = defineStore('rewards', {
         }
 
         const clean = normalizeItems(collected)
+        const daily = Array.isArray(first.DAILY_EFFICIENCY) ? first.DAILY_EFFICIENCY : []
 
         writeCache(auth.idUser, {
           ITEMS: clean,
+          DAILY_EFFICIENCY: daily,
           TOTAL: clean.length,
           PARTIAL: this.partial,
         })
 
         this.items = await enrichItems(clean)
+        this.dailyEfficiency = daily
         this.total = clean.length
         this.loadedUserId = auth.idUser
         this.lastLoadedAt = Date.now()
 
+        clearDirty()
         return true
       } catch (e) {
         this.error = e.message || 'Ошибка загрузки'
@@ -360,6 +369,7 @@ export const useRewardsStore = defineStore('rewards', {
 
     clear() {
       this.items = []
+      this.dailyEfficiency = []
       this.total = 0
       this.partial = false
       this.loadedUserId = null

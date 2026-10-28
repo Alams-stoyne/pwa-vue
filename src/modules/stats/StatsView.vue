@@ -568,10 +568,10 @@ onBeforeUnmount(() => {
 }
 
 .companies-list {
-  display: flex;
-  flex-direction: column;
+  display: grid;
   gap: 16px;
 }
+
 .company-item {
   display: flex;
   flex-direction: column;
