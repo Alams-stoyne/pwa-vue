@@ -6,7 +6,7 @@ import './style.css'
 import { installPwaGuard } from './modules/install/pwaGuard'
 import { installNoZoomGuards } from './modules/core/composables/useNoZoom'
 import { useInstall } from './modules/install/useInstall'
-import { useAccess } from './modules/install/useAccess'
+import { useAccess, refreshFromUrl, readDeviceId } from './modules/install/useAccess'
 import { useAuthStore } from './modules/auth/store'
 import { useThemeStore } from './modules/theme/store'
 import { useConsentStore } from './modules/consent/store'
@@ -14,13 +14,15 @@ import { useHabitsStore } from './modules/habits/store'
 import { useLimits } from './modules/core/limits'
 import { usePeriod } from './modules/core/period'
 import { subscribeToPush, getSubscription } from './modules/push/push'
+import { init as initAnalytics, configureAnalytics, trackAppOpen, startSession, endSession } from './modules/analytics'
 
 const pinia = createPinia()
 setActivePinia(pinia)
 
-// ── Отладочный сброс по ?reset=1 ───────────────────────────────
+// ── Отладочный сброс по ?reset=1 и захват UID из URL ───────────
 try {
   const url = new URL(location.href)
+  
   if (url.searchParams.get('reset') === '1') {
     localStorage.clear()
     sessionStorage.clear()
@@ -32,13 +34,15 @@ try {
     url.searchParams.delete('reset')
     history.replaceState({}, '', url.pathname + url.search + url.hash)
   }
+
+  // ▼ КРИТИЧНО: захватываем UID из URL до старта роутера и редиректов ▼
+  refreshFromUrl()
 } catch {}
 
 useInstall()
 installNoZoomGuards()
 
 // ── Период активности — запускаем как можно раньше ────────────
-// (события, лекции, задачи, привычки фильтруются по нему)
 usePeriod()
 
 const app = createApp(App)
@@ -47,6 +51,20 @@ app.use(router)
 
 const auth = useAuthStore()
 auth.load()
+
+// ▼ ИНИЦИАЛИЗАЦИЯ АНАЛИТИКИ ▼
+configureAnalytics({
+  getDeviceId: readDeviceId,
+  getUserId: () => useAuthStore().idUser,
+})
+initAnalytics()
+startSession()
+trackAppOpen()
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') endSession('hidden')
+})
+window.addEventListener('pagehide', () => endSession('pagehide'))
 
 app.mount('#app')
 

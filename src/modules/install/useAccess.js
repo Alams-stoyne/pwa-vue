@@ -96,8 +96,7 @@ function evaluate() {
   return { granted: false, reason: 'no-uid', uid: '', boundUid: '' }
 }
 
-// Реактивное состояние — чтобы hasUid / uidMismatch пересчитывались,
-// когда uid появляется (например, после setUidManually).
+// Реактивное состояние
 const _state = ref(evaluate())
 
 // ─── Публичные функции ─────────────────────────────────────────
@@ -109,22 +108,11 @@ export function readBoundUid() {
   return readBoundFromStorage()
 }
 
-/**
- * Читает deviceId, а также следит за «ротацией»:
- * если deviceId в прошлый раз существовал, а сейчас его нет —
- * генерируем новый и помечаем факт ротации.
- *
- * Это нужно на случай, если пользователь вручную почистил localStorage:
- * сервер получит новый deviceId + свежий timestamp ротации и сможет
- * отклонить попытку как подозрительную.
- */
 export function readDeviceId() {
   let hadBefore = false
   try { hadBefore = !!localStorage.getItem('app.device_id') } catch {}
   const id = getOrCreateDeviceId()
   if (!hadBefore) {
-    // deviceId только что сгенерирован. Если он вообще когда-то был
-    // (created_at существует), это ротация, а не первый запуск.
     const created = getDeviceIdCreatedAt()
     if (created > 0) {
       markDeviceRotated()
@@ -133,20 +121,14 @@ export function readDeviceId() {
   return id
 }
 
-/** Timestamp создания deviceId (0, если данных нет). */
 export function readDeviceIdCreatedAt() {
   return getDeviceIdCreatedAt()
 }
 
-/** Timestamp последней ротации deviceId (0, если ротации не было). */
 export function readDeviceRotatedAt() {
   return getDeviceRotatedAt()
 }
 
-/**
- * Ручная привязка uid.
- * Сценарий: iOS standalone запустился без uid, пользователь ввёл код вручную.
- */
 export function setUidManually(rawUid) {
   const uid = String(rawUid || '').trim()
   if (!uid) return false
@@ -164,7 +146,6 @@ export function setUidManually(rawUid) {
   return true
 }
 
-/** Попытка «подхватить» uid из URL уже после инициализации модуля. */
 export function refreshFromUrl() {
   const fromUrl = readUidFromUrl()
   if (!fromUrl) return false
@@ -184,6 +165,9 @@ export function refreshFromUrl() {
 
 export function useAccess() {
   const { isInstalled } = useInstall()
+
+  // ▼ Автоматически подхватываем UID из URL, если в памяти пусто ▼
+  if (!_state.value.uid) refreshFromUrl()
 
   return {
     isGranted: computed(() => isInstalled.value || _state.value.granted),

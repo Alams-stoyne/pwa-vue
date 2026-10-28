@@ -4,6 +4,8 @@ import { useAuthStore } from '../auth/store'
 import { localDateTime } from '../core/utils/date'
 import { isBlocked } from '../core/utils/response'
 import { useStatsStore } from '../stats/store'
+import { track } from '../analytics'
+import { EVT } from '../analytics/events'
 
 const LS_ANSWERED = 'consent.answered'
 const LS_GRANTED = 'consent.granted'
@@ -65,7 +67,6 @@ export const useConsentStore = defineStore('consent', {
     },
 
     async loadStatus({ force = false } = {}) {
-      // Guard: не дёргаем сеть, если согласие уже известно и не force
       if (!force && this.answered) return true
       if (this.loading) return false
 
@@ -88,7 +89,6 @@ export const useConsentStore = defineStore('consent', {
         }
 
         if (res && res.RESULT === 'OK') {
-          // Плоские поля (текущий ответ)
           if (res.CONSENT === true || res.HAS_CONSENT === true) {
             this.answered = true
             this.granted = true
@@ -96,7 +96,6 @@ export const useConsentStore = defineStore('consent', {
             writeLocal({ granted: this.granted, at: this.at })
             return true
           }
-          // Вложенный объект (старый)
           if (res.CONSENT && typeof res.CONSENT === 'object') {
             this.answered = true
             this.granted = !!res.CONSENT.granted
@@ -156,15 +155,16 @@ export const useConsentStore = defineStore('consent', {
         this.saving = false
       }
 
-      // ▼ НОВОЕ: после получения согласия форсим подтягивание
-      //   персональных данных. Иначе ApplesBadge / статистика останутся
-      //   на 0 до следующего визита в /stats или 15-минутного таймера.
       if (granted) {
         try {
           const stats = useStatsStore()
           stats.fetchPersonal({ force: true }).catch(() => {})
           stats.fetchGlobal({ force: true }).catch(() => {})
         } catch { /* ignore */ }
+
+        track(EVT.CONSENT_GRANTED, {})
+      } else {
+        track(EVT.CONSENT_DECLINED, {})
       }
 
       return true

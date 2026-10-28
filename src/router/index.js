@@ -48,6 +48,8 @@ import SupportView from '../modules/support/SupportView.vue'
 import SupportTicketsView from '../modules/support/SupportTicketsView.vue'
 import SupportTicketDetailView from '../modules/support/SupportTicketDetailView.vue'
 
+import { trackScreenView } from '../modules/analytics'
+
 const ONBOARDING_LOCKED_PATHS = [
   '/onboarding/profile', '/onboarding/habits',
   '/onboarding/tutorial', '/quiz', '/quiz/welcome', '/themes',
@@ -76,7 +78,6 @@ const routes = [
   
   { path: '/training', component: TrainingView, meta: { auth: true, title: 'Обучение', viewBackTitle: true, back: true, backTo: { path: '/home' } } },
 
-  // ▼ Лекции: backTo — функция с тремя ветками (storage / rewards / fallback) ▼
   { 
     path: '/training/lectures/:dbKey', 
     component: LectureDetailView, 
@@ -94,7 +95,6 @@ const routes = [
     } 
   },
 
-  // ▼ Практика: backTo без изменений — возврат всегда на вкладку «Практики» ▼
   { 
     path: '/training/practices/:id', 
     name: 'PracticeDetail', 
@@ -149,21 +149,20 @@ const router = createRouter({
 })
 
 router.beforeEach((to) => {
+  useAccess()
+
   const { isInstalled } = useInstall()
 
-  // 1. Пока приложение не установлено — разрешён только /install и /support.
   if (!isInstalled.value) {
     if (to.path === '/install') return true
     if (to.path === '/support') return true
-    return { path: '/install' }
+    return { path: '/install', query: to.query }
   }
 
-  // 2. Установлено, но пользователь на /install — выкидываем внутрь.
   if (to.path === '/install') {
     return { path: '/' }
   }
 
-  // 3. Далее обычная логика (проверки UID, авторизации, онбординга).
   const { isGranted, hasUid, uidMismatch } = useAccess()
   const isPublicSupport = to.path === '/support'
 
@@ -182,8 +181,6 @@ router.beforeEach((to) => {
   const auth = useAuthStore()
   auth.load()
 
-  // ▼ БЛОКИРОВКА: разрешаем только /support*, /access-error, /install, /home ▼
-  // (на /home App.vue покажет BlockedView — см. App.vue)
   if (auth.blocked) {
     if (to.path.startsWith('/support')) return true
     if (to.path === '/access-error') return true
@@ -233,10 +230,13 @@ router.beforeEach((to) => {
   return { path: expected }
 })
 
-router.afterEach((to) => {
+router.afterEach((to, from) => {
   const meta = to.meta?.title
   if (typeof meta === 'function') return setDocumentTitle(meta(to))
   setDocumentTitle(meta || '')
+  
+  // ▼ АНАЛИТИКА ЭКРАНА ▼
+  trackScreenView(to, from)
 })
 
 export default router

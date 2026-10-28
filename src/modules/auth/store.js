@@ -4,6 +4,8 @@ import { isSuccess, isBlocked } from '../core/utils/response'
 import { useThemeStore } from '../theme/store'
 import { useHomeStore } from '../home/store'
 import { useLimits } from '../core/limits'
+import { track } from '../analytics'
+import { EVT } from '../analytics/events'
 import {
   readUid,
   readDeviceId,
@@ -56,7 +58,6 @@ export const useAuthStore = defineStore('auth', {
     lastResult: null,
     retryAfterMs: 0,
 
-    // ▼ Блокировка администратором ▼
     blocked: localStorage.getItem(LS_BLOCKED) === '1',
     blockedMessage: localStorage.getItem(LS_BLOCKED_MESSAGE) || '',
   }),
@@ -126,6 +127,7 @@ export const useAuthStore = defineStore('auth', {
 
       if (!uid) {
         this.error = 'Не найден uid'
+        track(EVT.REGISTRATION_FAILED, { reason: 'NO_UID' })
         return false
       }
 
@@ -133,6 +135,9 @@ export const useAuthStore = defineStore('auth', {
       this.error = null
       this.lastResult = null
       this.retryAfterMs = 0
+      const startedAt = Date.now()
+
+      track(EVT.REGISTRATION_STARTED, {})
 
       const short = (s) => (s ? String(s).slice(0, 8) + '…' : '—')
       console.log('[auth] register →', {
@@ -152,23 +157,25 @@ export const useAuthStore = defineStore('auth', {
           deviceRotatedAt: deviceRotatedAt || undefined,
         })
 
-        // ▼ БЛОКИРОВКА (приоритетно, до остальных кодов) ▼
         if (isBlocked(data)) {
           this.setBlocked(data.MESSAGE)
           this.error = data.MESSAGE || 'Доступ приостановлен.'
           this.lastResult = 'BLOCKED'
+          track(EVT.REGISTRATION_FAILED, { reason: 'BLOCKED' })
           return false
         }
 
         if (data?.RESULT === 'UID_TAKEN') {
           this.lastResult = 'UID_TAKEN'
           this.error = 'UID_TAKEN'
+          track(EVT.REGISTRATION_FAILED, { reason: 'UID_TAKEN' })
           return false
         }
 
         if (data?.RESULT === 'DEVICE_ROTATED') {
           this.lastResult = 'DEVICE_ROTATED'
           this.error = 'DEVICE_ROTATED'
+          track(EVT.REGISTRATION_FAILED, { reason: 'DEVICE_ROTATED' })
           return false
         }
 
@@ -182,12 +189,14 @@ export const useAuthStore = defineStore('auth', {
           this.boundUid = data.LOCKED_UID || this.boundUid
           this.lastResult = 'UID_LOCKED'
           this.error = 'UID_LOCKED'
+          track(EVT.REGISTRATION_FAILED, { reason: 'UID_LOCKED' })
           return false
         }
 
         if (data?.RESULT === 'UID_NOT_FOUND') {
           this.lastResult = 'UID_NOT_FOUND'
           this.error = 'UID_NOT_FOUND'
+          track(EVT.REGISTRATION_FAILED, { reason: 'UID_NOT_FOUND' })
           return false
         }
 
@@ -198,11 +207,13 @@ export const useAuthStore = defineStore('auth', {
           this.error = sec > 0
             ? `Слишком много попыток. Повторите через ${sec} с.`
             : 'Слишком много попыток. Подождите и попробуйте снова.'
+          track(EVT.REGISTRATION_FAILED, { reason: 'RATE_LIMITED' })
           return false
         }
 
         if (!isSuccess(data) || !data.ID_USER) {
           this.error = data?.MESSAGE || 'Сервер отклонил регистрацию'
+          track(EVT.REGISTRATION_FAILED, { reason: 'SERVER_ERROR' })
           return false
         }
 
@@ -235,9 +246,9 @@ export const useAuthStore = defineStore('auth', {
         this.isRegistered = true
         resetAttempts()
 
-        // ▼ Сервер вернул OK — если блокировка была, снимаем ▼
         if (this.blocked) this.clearBlocked()
 
+        track(EVT.REGISTRATION_SUCCESS, { durationMs: Date.now() - startedAt })
         return true
       } catch (e) {
         console.error('[auth] register error:', e)
@@ -246,6 +257,7 @@ export const useAuthStore = defineStore('auth', {
         if (readAttempts() >= MAX_ATTEMPTS) {
           this.error = 'Слишком много попыток. Перезапустите приложение.'
         }
+        track(EVT.REGISTRATION_FAILED, { reason: 'NETWORK' })
         return false
       } finally {
         this.registering = false
@@ -264,7 +276,6 @@ export const useAuthStore = defineStore('auth', {
       localStorage.removeItem(LS_CONFIRMED)
       resetAttempts()
 
-      // Снимаем блокировку — при следующем логине проверим заново
       this.clearBlocked()
 
       try {
