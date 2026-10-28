@@ -64,6 +64,8 @@ import { useRouter } from 'vue-router'
 import { useTutorialStore } from './store'
 import { useAppBackground } from '../core/composables/useAppBackground'
 import { resolveNextOnboardingRoute } from '../onboarding/navigation'
+import { track } from '../analytics'
+import { EVT } from '../analytics/events'
 
 const store = useTutorialStore()
 const router = useRouter()
@@ -103,6 +105,7 @@ watch(
 async function finish() {
   clearBackground()
   await store.finish()
+  track(EVT.ONBOARDING_TUTORIAL_DONE, { skipped: false })
   const next = await resolveNextOnboardingRoute()
   router.replace(next)
 }
@@ -110,6 +113,7 @@ async function finish() {
 async function skip() {
   clearBackground()
   await store.finish()
+  track(EVT.ONBOARDING_TUTORIAL_DONE, { skipped: true })
   const next = await resolveNextOnboardingRoute()
   router.replace(next)
 }
@@ -174,42 +178,8 @@ line-height: 88%;
   color: var(--white);
 }
 
-/* Карточка с текстом — полупрозрачный «стеклянный» слой,
-   чтобы текст читался на любой фоновой картинке. */
 .tut-card {
-  /* width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 14px;
-  padding: 24px 20px;
-  border-radius: var(--radius);
-  background: rgba(255, 255, 255, .85);
-  backdrop-filter: blur(8px) saturate(140%);
-  -webkit-backdrop-filter: blur(8px) saturate(140%);
-  box-shadow: 0 6px 24px rgba(0, 0, 0, .08); */
 }
-
-/* ─── Заголовок и текст ─── */
-/* .tut-title {
-  margin: 0;
-  font-family: var(--third-family);
-  font-weight: 400;
-  font-size: 32px;
-  line-height: 1;
-  letter-spacing: -0.01em;
-  color: #d3ff4f;
-  -webkit-text-stroke: 1.5px #015f01;
-}
-
-.tut-text {
-  margin: 0;
-  font-family: var(--font-family);
-  font-weight: 500;
-  font-size: 16px;
-  line-height: 1.3;
-  color: #015f01;
-} */
 
 /* ─── Точки ─── */
 .tut-dots {

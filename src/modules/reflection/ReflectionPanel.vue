@@ -24,7 +24,7 @@
           <textarea
             v-model="store.text"
             :maxlength="MAX_TEXT"
-            rows="10"
+            rows="7"
             :placeholder="store.todayDescription || 'Поделитесь своими мыслями...'"
           />
           <span class="field-counter muted">{{ store.text.length }} / {{ MAX_TEXT }}</span>
@@ -71,7 +71,8 @@ const { setBackground, clearBackground } = useAppBackground()
 const consentStore = useConsentStore()
 const canSubmitWithConsent = computed(() => consentStore.isGranted)
 
-const MAX_TEXT = 15
+const MIN_TEXT = 15
+const MAX_TEXT = 750
 
 const store = useReflectionStore()
 
@@ -165,7 +166,7 @@ function viewClick(event) {
   color: #21271f;
   outline: none;
   resize: vertical;
-  min-height: 200px;
+  min-height: 150px;
   transition: border-color .15s;
   resize: none;
 }

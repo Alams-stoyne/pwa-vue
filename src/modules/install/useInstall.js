@@ -1,8 +1,20 @@
 import { ref, computed } from 'vue'
+import { track } from '../analytics'
+import { EVT } from '../analytics/events'
 
 const isInstalled = ref(false)
 const deferredPrompt = ref(null)
 let inited = false
+
+function detectPlatform() {
+  if (typeof navigator === 'undefined') return 'unknown'
+  const ua = navigator.userAgent || ''
+  if (/iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) {
+    return 'ios'
+  }
+  if (/Android/i.test(ua)) return 'android'
+  return 'desktop'
+}
 
 function detect() {
   const standalone = window.matchMedia('(display-mode: standalone)').matches
@@ -35,6 +47,7 @@ function init() {
   window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault()
     deferredPrompt.value = e
+    track(EVT.INSTALL_PROMPT_SHOWN, { platform: detectPlatform() })
   })
 
   // Три коротких перепроверки сразу после старта — на случай, если
@@ -64,7 +77,11 @@ export function useInstall() {
     e.prompt()
     const res = await e.userChoice
     deferredPrompt.value = null
-    return res?.outcome === 'accepted'
+    const accepted = res?.outcome === 'accepted'
+    track(accepted ? EVT.INSTALL_ACCEPTED : EVT.INSTALL_REJECTED, {
+      platform: detectPlatform(),
+    })
+    return accepted
   }
 
   return {

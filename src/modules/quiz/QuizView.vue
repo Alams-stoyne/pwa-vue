@@ -10,18 +10,6 @@
       </header>
     </transition>
 
-    <!-- <transition name="fade" appear>
-      <header class="head">
-        <p class="muted head-label">
-          Шаг 2 из 3 · Подбор тематики · {{ store.step + 1 }} из {{ store.total }}
-        </p>
-        <h1>Что вам ближе?</h1>
-        <p class="muted head-sub">
-          Ответьте на несколько вопросов — мы предложим подходящее направление.
-        </p>
-      </header>
-    </transition> -->
-
     <div class="progress" role="progressbar"
          :aria-valuenow="store.progress" aria-valuemin="0" aria-valuemax="100">
       <div class="progress-bar" :style="{ width: store.progress + '%' }" />
@@ -71,6 +59,8 @@ import { useToast } from '../core/composables/useToast'
 import AppIcon from '../../components/AppIcon.vue'
 
 import { useAppBackground } from '../core/composables/useAppBackground'
+import { track } from '../analytics'
+import { EVT } from '../analytics/events'
 const { setBackground, clearBackground } = useAppBackground()
 
 const store = useQuizStore()
@@ -93,11 +83,14 @@ function next() {
   if (!store.canAdvance) return
 
   if (store.step >= store.total - 1) {
+    const wasDone = store.done
     store.finish()
+    if (!wasDone) {
+      track(EVT.QUIZ_DONE, { theme: store.recommended || null })
+    }
     theme.load()
 
     const recommendedId = store.recommended
-    // toast.success('Тест завершён — открываем рекомендованную тематику')
 
     if (recommendedId) {
       // сразу на детальную страницу рекомендованной темы
@@ -152,8 +145,6 @@ onMounted(async () => {
   color: var(--black);
   text-transform: lowercase;
 }
-/* .head h1 { margin: 0 0 8px; font-size: 24px; letter-spacing: -0.01em; }
-.head-sub { font-size: 14px; margin: 0; } */
 
 .progress { 
   height: var(--progress-bar-height, 16px); 

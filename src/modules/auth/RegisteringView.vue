@@ -6,7 +6,7 @@
         <h1>UID не совпадает</h1>
         <p class="muted">Это устройство уже активировано под другим UID. Сменить UID нельзя.</p>
         <button type="button" class="btn btn-primary btn-center mt-12" @click="goToSupport('UID_LOCKED')">
-          Написать администратору
+          Восстановить доступ
         </button>
         <button type="button" class="btn btn-secondary btn-center mt-8" @click="goAccessError">
           Понятно
@@ -15,10 +15,13 @@
 
       <template v-else-if="auth.error === 'UID_TAKEN'">
         <div class="gate-icon" aria-hidden="true">📱</div>
-        <h1>UID уже используется</h1>
-        <p class="muted">Этот код доступа уже активирован на другом устройстве. Один UID — одно устройство.</p>
+        <h1>Этот профиль уже используется</h1>
+        <p class="muted">
+          Этот код доступа уже активирован на другом устройстве.
+          Если вы сменили телефон — восстановите доступ через администратора.
+        </p>
         <button type="button" class="btn btn-primary btn-center mt-12" @click="goToSupport('UID_TAKEN')">
-          написать администратору
+          Восстановить доступ
         </button>
         <button type="button" class="btn btn-secondary btn-center mt-8" @click="goAccessError">
           Понятно
@@ -30,10 +33,10 @@
         <h1>Устройство переустановлено</h1>
         <p class="muted">
           Этот код доступа уже привязан к другому устройству.
-          Если вы сменили телефон — обратитесь к администратору, чтобы перенести доступ.
+          Если вы сменили телефон — восстановите доступ через администратора.
         </p>
         <button type="button" class="btn btn-primary btn-center mt-12" @click="goToSupport('DEVICE_ROTATED')">
-          Написать администратору
+          Восстановить доступ
         </button>
         <button type="button" class="btn btn-secondary btn-center mt-8" @click="goAccessError">
           Понятно
@@ -45,7 +48,7 @@
         <h1>Код не распознан</h1>
         <p class="muted">Код доступа не найден на сервере. Откройте персональную ссылку из корпоративного канала Х5.</p>
         <button type="button" class="btn btn-primary btn-center mt-12" @click="goToSupport('UID_NOT_FOUND')">
-          Написать администратору
+          Восстановить доступ
         </button>
         <button type="button" class="btn btn-secondary btn-center mt-8" @click="goAccessError">
           Понятно

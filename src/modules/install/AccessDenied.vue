@@ -21,8 +21,10 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useAccess } from './useAccess'
+import { track } from '../analytics'
+import { EVT } from '../analytics/events'
 
 const { uidMismatch, hasBoundUid } = useAccess()
 
@@ -39,6 +41,15 @@ const message = computed(() => {
   }
   return 'Чтобы установить приложение, перейдите по персональной ссылке ' +
          'с параметром uid. Обратитесь к тому, кто её выдал.'
+})
+
+onMounted(() => {
+  const reason = isMismatch.value
+    ? 'uid-mismatch'
+    : hasBoundUid.value
+      ? 'has-bound-uid'
+      : 'no-uid'
+  track(EVT.ACCESS_DENIED_SHOWN, { reason })
 })
 </script>
 

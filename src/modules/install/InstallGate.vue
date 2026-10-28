@@ -2,7 +2,7 @@
   <div class="page install-gate">
 
     <header class="head_install text-center">
-      <div class="title color-text-stroke">присоединяйтесь к неделе здоровья</div>
+      <div class="title color-text-stroke">присоединяйтесь к неделе здоровья</div>
       <!-- <div class="subtitle">Это займёт несколько секунд</div> -->
       <div class="text">
         <p>Когда задач становится больше, важно сохранять эффективность и находить способы справляться с нагрузкой без потери энергии. Именно этому посвящена Неделя здоровья и безопасности в Х5.</p>
@@ -97,12 +97,29 @@
 </template>
 
 <script setup>
-import { watch } from 'vue'
+import { onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useInstall } from './useInstall'
+import { track } from '../analytics'
+import { EVT } from '../analytics/events'
 
 const { hasPrompt, promptInstall, isInstalled } = useInstall()
 const router = useRouter()
+
+function detectIsIOS() {
+  if (typeof navigator === 'undefined') return false
+  return (
+    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+  )
+}
+
+onMounted(() => {
+  track(EVT.INSTALL_GATE_VIEWED, {
+    isIOS: detectIsIOS(),
+    hasPrompt: hasPrompt.value,
+  })
+})
 
 // Как только приложение установилось — уходим с /install.
 // Роутер сам разберётся, куда дальше (access, registering, home).

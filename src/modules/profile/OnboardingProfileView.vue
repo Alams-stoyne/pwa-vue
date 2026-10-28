@@ -55,6 +55,8 @@ import { useProfileStore } from './store'
 import { useQuizStore } from '../quiz/store'
 import { useToast } from '../core/composables/useToast'
 import { resolveNextOnboardingRoute } from '../onboarding/navigation'
+import { track } from '../analytics'
+import { EVT } from '../analytics/events'
 
 const store = useProfileStore()
 const quiz = useQuizStore()
@@ -69,6 +71,7 @@ watch(() => store.error, (v) => { if (v) toast.error(v) })
 async function onContinue() {
   if (!canContinue.value) return
   await store.save()
+  track(EVT.ONBOARDING_PROFILE_DONE, {})
   const next = await resolveNextOnboardingRoute()
   router.replace(next)
 }

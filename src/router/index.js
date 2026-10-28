@@ -48,7 +48,8 @@ import SupportView from '../modules/support/SupportView.vue'
 import SupportTicketsView from '../modules/support/SupportTicketsView.vue'
 import SupportTicketDetailView from '../modules/support/SupportTicketDetailView.vue'
 
-import { trackScreenView } from '../modules/analytics'
+import { trackScreenView, track } from '../modules/analytics'
+import { EVT } from '../modules/analytics/events'
 
 const ONBOARDING_LOCKED_PATHS = [
   '/onboarding/profile', '/onboarding/habits',
@@ -232,11 +233,23 @@ router.beforeEach((to) => {
 
 router.afterEach((to, from) => {
   const meta = to.meta?.title
-  if (typeof meta === 'function') return setDocumentTitle(meta(to))
-  setDocumentTitle(meta || '')
-  
+  if (typeof meta === 'function') setDocumentTitle(meta(to))
+  else setDocumentTitle(meta || '')
+
   // ▼ АНАЛИТИКА ЭКРАНА ▼
   trackScreenView(to, from)
+
+  // ▼ ВОРОНКА: onboarding_completed ▼
+  // Срабатывает ровно один раз — при первом попадании на /home.
+  // Флаг в localStorage не даёт продублировать событие при возвратах.
+  if (to.path === '/home') {
+    try {
+      if (!localStorage.getItem('analytics.onboardingCompleted')) {
+        localStorage.setItem('analytics.onboardingCompleted', String(Date.now()))
+        track(EVT.ONBOARDING_COMPLETED, {})
+      }
+    } catch { /* ignore */ }
+  }
 })
 
 export default router

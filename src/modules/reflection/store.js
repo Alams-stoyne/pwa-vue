@@ -16,8 +16,8 @@ const LS_SENT_DATE = 'reflection.sentDate'
 const LS_TITLES = 'reflection.titles'
 const LS_TITLES_AT = 'reflection.titlesAt'
 const TITLES_TTL = 6 * 60 * 60 * 1000
-const MIN_TEXT = 5
-const MAX_TEXT = 15
+const MIN_TEXT = 15
+const MAX_TEXT = 750
 
 function readLS(key, fallback) {
   try {

@@ -12,7 +12,7 @@ const LS_LAST_OPEN = 'analytics.lastOpenAt'
 const LS_LAST_SCREEN = 'analytics.lastScreen'
 
 const FLUSH_INTERVAL_MS = 15000
-const MAX_BATCH_SIZE = 50        // строго по ТЗ (до 50)
+const MAX_BATCH_SIZE = 50
 const MAX_QUEUE_SIZE = 1000
 const QUEUE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000
 
@@ -29,6 +29,59 @@ let _retryAfterMs = 0
 
 let _getUserId = () => null
 let _getDeviceId = () => null
+
+// ── Фильтр «мусорных» ошибок ──────────────────────────────────
+// Отсеиваем:
+//   1. «Script error.» — браузер скрыл детали (CORS, iframe, расширение)
+//   2. Ошибки скриптов расширений браузера (MetaMask, Trust Wallet, AdBlock)
+//   3. Известные сообщения расширений
+//   4. Для window.onerror: пустой filename / lineno <= 0 — значит место
+//      ошибки не определено (iframe, расширение, кросс-доменный скрипт).
+//      Для unhandledrejection эти проверки НЕ применяются: у промисов
+//      по спецификации нет filename/lineno.
+const EXTENSION_PATTERNS = [
+  /metamask/i,
+  /ethereum/i,
+  /trust ?wallet/i,
+  /phantom/i,
+  /coinbase ?wallet/i,
+  /tronlink/i,
+  /binance ?chain/i,
+  /failed to connect to .* wallet/i,
+  /cannot redefine property/i,
+]
+
+function isNoiseError(message, filename = '', lineno = 0, { checkLocation = true } = {}) {
+  const m = String(message || '').trim()
+  const f = String(filename || '')
+
+  // 1. «Script error.» — браузер скрыл детали (CORS/iframe/расширение).
+  //    Ловим с точкой и без, с возможными пробелами.
+  if (/^script error\.?$/i.test(m)) return true
+
+  // 2. Скрипты расширений браузера
+  if (f && (
+    f.startsWith('chrome-extension://') ||
+    f.startsWith('moz-extension://') ||
+    f.startsWith('safari-extension://') ||
+    f.startsWith('safari-web-extension://')
+  )) return true
+
+  // 3. Известные сообщения расширений
+  if (EXTENSION_PATTERNS.some((re) => re.test(m))) return true
+
+  // 4. Проверки местоположения — ТОЛЬКО для window.onerror.
+  //    У unhandledrejection filename/lineno отсутствуют по спецификации,
+  //    и если применить эти проверки — отфильтруются все реальные
+  //    ошибки промисов.
+  if (checkLocation) {
+    if (!f) return true                                // ← пустой filename
+    if (!Number.isFinite(lineno) || lineno <= 0) return true  // ← lineno=0
+  }
+
+  return false
+}
+// ─────────────────────────────────────────────────────────────
 
 function readLS(key, fallback) {
   try {
@@ -53,6 +106,16 @@ function generateId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 10)
 }
 
+function detectPlatform() {
+  if (typeof navigator === 'undefined') return 'unknown'
+  const ua = navigator.userAgent || ''
+  if (/iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) {
+    return 'ios'
+  }
+  if (/Android/i.test(ua)) return 'android'
+  return 'desktop'
+}
+
 function restoreQueue() {
   const stored = readJSON(LS_QUEUE, [])
   if (!Array.isArray(stored)) return
@@ -68,13 +131,12 @@ function persistQueue() {
   writeJSON(LS_QUEUE, slice)
 }
 
-// Ограничиваем размер PROPS до 2000 символов
 function sanitizeProps(props) {
   if (!props || typeof props !== 'object') return {}
   const out = {}
   let totalSize = 0
   for (const [k, v] of Object.entries(props)) {
-    if (totalSize > 1900) break // запас
+    if (totalSize > 1900) break
     if (v == null) continue
     let val = v
     if (typeof v === 'string') val = v.slice(0, 200)
@@ -104,18 +166,44 @@ export function init() {
 
   restoreQueue()
 
+  // ── app_error: window.onerror ─────────────────────────────
   window.addEventListener('error', (e) => {
+    const message = String(e?.message || '')
+    const filename = String(e?.filename || '')
+    const lineno = Number(e?.lineno) || 0
+
+    if (isNoiseError(message, filename, lineno, { checkLocation: true })) {
+      console.debug('[analytics] filtered noise error:', { message, filename, lineno })
+      return
+    }
+
     track(EVT.APP_ERROR, {
-      message: String(e?.message || '').slice(0, 300),
-      filename: String(e?.filename || '').slice(0, 200),
-      lineno: e?.lineno,
+      message: message.slice(0, 300),
+      filename: filename.slice(0, 200),
+      lineno,
+      lastScreen: readLS(LS_LAST_SCREEN, '') || '',
+      platform: detectPlatform(),
+      kind: 'window.error',
     })
   })
+
+  // ── app_error: unhandledrejection ─────────────────────────
+  // У промисов нет filename/lineno — поэтому checkLocation: false.
+  // Иначе отфильтруются ВСЕ реальные ошибки промисов.
   window.addEventListener('unhandledrejection', (e) => {
     const r = e?.reason
+    const message = String(r?.message || r || '')
+
+    if (isNoiseError(message, '', 0, { checkLocation: false })) {
+      console.debug('[analytics] filtered noise rejection:', { message })
+      return
+    }
+
     track(EVT.APP_ERROR, {
-      message: String(r?.message || r || '').slice(0, 300),
+      message: message.slice(0, 300),
       kind: 'unhandledrejection',
+      lastScreen: readLS(LS_LAST_SCREEN, '') || '',
+      platform: detectPlatform(),
     })
   })
 
@@ -141,7 +229,6 @@ export function track(name, props = {}) {
   if (!_enabled) return
   if (!name) return
 
-  // Валидация имени (только a-z0-9_)
   const safeName = String(name).replace(/[^a-z0-9_]/g, '').slice(0, 64)
   if (!safeName) return
 
@@ -239,24 +326,17 @@ export async function flush(useBeacon = false) {
         timeout: 10000,
       })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      
+
       const data = await res.json()
-      
-      // ▼ ОБРАБОТКА ОТВЕТОВ СЕРВЕРА ▼
-      if (data?.RESULT === 'SKIPPED') {
-        // Пользователь не дал согласие — сервер отбросил данные. Не ретраим.
-        return
-      }
+
+      if (data?.RESULT === 'SKIPPED') return
       if (data?.RESULT === 'RATE_LIMITED') {
         _retryAfterMs = Date.now() + (Number(data.RETRY_AFTER_MS) || 5000)
         throw new Error('rate_limited')
       }
-      if (data?.RESULT === 'ERROR') {
-        throw new Error('server_error')
-      }
+      if (data?.RESULT === 'ERROR') throw new Error('server_error')
     }
   } catch (e) {
-    // Возвращаем батч в очередь (кроме SKIPPED)
     if (e.message !== 'skipped') {
       _queue.unshift(...batch)
       if (_queue.length > MAX_QUEUE_SIZE) _queue = _queue.slice(-MAX_QUEUE_SIZE)

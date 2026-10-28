@@ -3,6 +3,8 @@ import { fetchThemes } from './api'
 import { themesList, themesComputed } from './themes'
 import { isOffline } from '../core/utils/network'
 import { pushState } from '../auth/stateSync'
+import { track } from '../analytics'
+import { EVT } from '../analytics/events'
 
 const LS_KEY = 'theme.selected'
 const LS_CACHE = 'theme.themesCache'
@@ -117,12 +119,20 @@ export const useThemeStore = defineStore('theme', {
 
     commitDraft() {
       if (!this.draft) return false
+      const wasSelected = !!this.selected
       this.selected = this.draft
-      localStorage.setItem(LS_KEY, this.selected)
+      const newId = this.selected
+      localStorage.setItem(LS_KEY, newId)
       this.draft = null
 
       const uid = localStorage.getItem('auth.uid') || ''
       if (uid) pushState(uid)
+
+      track(EVT.THEME_SELECTED, {
+        themeId: newId,
+        mode: 'manual',
+        first: !wasSelected,
+      })
 
       return true
     },
@@ -130,9 +140,17 @@ export const useThemeStore = defineStore('theme', {
     setTheme(id) {
       const list = themesList.value.length ? themesList.value : []
       if (list.length && !list.some((t) => t.id === id)) return false
+      const wasSelected = !!this.selected
       this.selected = id
       this.draft = null
       localStorage.setItem(LS_KEY, id)
+
+      track(EVT.THEME_SELECTED, {
+        themeId: id,
+        mode: 'recommended',
+        first: !wasSelected,
+      })
+
       return true
     },
 

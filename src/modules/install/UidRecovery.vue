@@ -13,7 +13,7 @@
 
       <p class="ur-hint">
         Ссылка выглядит так:
-        <code>https://v12.x5hd.ru/?uid=<b>ВАШ_КОД</b></code>
+        <code>/?uid=<b>ВАШ_КОД</b></code>
       </p>
 
       <label class="ur-field">
@@ -53,8 +53,10 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { setUidManually } from './useAccess'
+import { track } from '../analytics'
+import { EVT } from '../analytics/events'
 
 const input = ref('')
 const error = ref('')
@@ -84,6 +86,10 @@ function submit() {
 function openSourceLink() {
   location.href = 'https://v12.x5hd.ru/'
 }
+
+onMounted(() => {
+  track(EVT.UID_RECOVERY_SHOWN, {})
+})
 </script>
 
 <style scoped>

@@ -17,7 +17,7 @@
       </svg>
 
       <header class="head">
-        <h1>согласие<br> на обработку<br> персональных<br> данных</h1>
+        <h1>согласие<br> на обработку<br> персональных<br> данных</h1>
       </header>
 
       <button
@@ -57,7 +57,7 @@
       <transition name="fade">
         <div v-if="modalOpen" class="modal-backdrop" @click.self="modalOpen = false">
           <div class="modal" role="dialog" aria-modal="true">
-            <div class="modal-backdrop-title color-text-stroke">Если вы не хотите давать согласие</div>
+            <div class="modal-backdrop-title color-text-stroke">Если вы не хотите давать согласие</div>
             <div class="modal-backdrop-text">
               <p>Вы можете не давать согласие на обработку персональных данных </p>
               <p>В этом случае вы не сможете указать компанию и магазин, а также загружать фотографии в разделе шагомер</p> 
@@ -83,6 +83,8 @@ import { useRouter } from 'vue-router'
 import { useConsentStore } from './store'
 import { resolveNextOnboardingRoute } from '../onboarding/navigation'
 import { useAppBackground } from '../core/composables/useAppBackground'
+import { track } from '../analytics'
+import { EVT } from '../analytics/events'
 
 const store = useConsentStore()
 const router = useRouter()
@@ -114,6 +116,7 @@ async function deny() {
 onMounted(() => {
   setBackground({ url: '/backgrounds/bg_start.jpg' })
   store.loadStatus()
+  track(EVT.CONSENT_VIEWED, {})
 })
 
 onBeforeUnmount(() => {

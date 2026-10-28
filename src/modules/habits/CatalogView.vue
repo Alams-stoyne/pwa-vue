@@ -109,6 +109,8 @@ import { useHabitsStore } from './store'
 import { useToast } from '../core/composables/useToast'
 import { useAppBackground } from '../core/composables/useAppBackground'
 import { resolveNextOnboardingRoute } from '../onboarding/navigation'
+import { track } from '../analytics'
+import { EVT } from '../analytics/events'
 
 const habits = useHabitsStore()
 const router = useRouter()
@@ -151,6 +153,8 @@ async function proceed() {
       return
     }
   }
+
+  track(EVT.ONBOARDING_HABITS_DONE, { habitId: chosenId.value })
 
   const next = await resolveNextOnboardingRoute()
   router.replace(next)
