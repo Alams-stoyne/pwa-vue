@@ -17,14 +17,14 @@
         <div class="gate-icon" aria-hidden="true">📱</div>
         <h1>Этот профиль уже используется</h1>
         <p class="muted">
-          Этот код доступа уже активирован на другом устройстве.
-          Если вы сменили телефон — восстановите доступ через администратора.
+          Этот код доступа уже активирован на другом устройстве. 
+          Если вы сменили устройство или вам просто не удается зайти в приложение - восстановите доступ через администратора.
         </p>
         <button type="button" class="btn btn-primary btn-center mt-12" @click="goToSupport('UID_TAKEN')">
-          Восстановить доступ
+          восстановить
         </button>
         <button type="button" class="btn btn-secondary btn-center mt-8" @click="goAccessError">
-          Понятно
+          понятно
         </button>
       </template>
 
@@ -175,17 +175,14 @@ async function run() {
   if (!ok) {
     if (auth.error === 'UID_LOCKED') router.replace('/access-error')
     
-    // Если ошибки нет, но и успеха нет — значит, регистрация уже идет в фоне
     if (!auth.error) {
       console.warn('[RegisteringView] Registration is already in progress...')
-      // Ждем немного и проверяем снова (рекурсивно, но с задержкой)
       setTimeout(() => {
         if (auth.isAuthed && auth.isRegistered) {
           reloadLocalState().then(() => {
             hydrateFromServer().then(() => { success.value = true })
           })
         } else if (!auth.registering && !auth.error) {
-          // Если регистрация завершилась без ошибки и без успеха — странная ситуация
           auth.error = 'Неизвестная ошибка. Попробуйте еще раз.'
         }
       }, 2000)
@@ -224,39 +221,22 @@ function goToSupport(errorType) {
   let errorText = ''
 
   if (errorType === 'UID_LOCKED') {
-    errorText = `Проблема: Это устройство уже активировано под другим UID.
-ID-устройства: ${deviceId}
-Новый UID: ${newUid}
-Текущий UID: ${currentUid}
-===
-Уважаемый пользователь просим вас ниже описать причину попытки авторизации по другой ссылке с измененным UID:`
+    errorText = `Уважаемый пользователь просим вас ниже описать причину попытки авторизации по другой ссылке с измененным UID:`
   } else if (errorType === 'UID_TAKEN') {
-    errorText = `Проблема: UID уже активирован на другом устройстве.
-ID-устройства: ${deviceId}
-Текущий UID: ${currentUid}
-===
-Уважаемый пользователь просим вас ниже описать причину попытки авторизации на другом устройстве:`
+    errorText = `Уважаемый пользователь просим вас ниже описать причину попытки авторизации на другом устройстве:`
   } else if (errorType === 'DEVICE_ROTATED') {
-    errorText = `Проблема: Устройство переустановлено.
-ID-устройства: ${deviceId}
-Текущий UID: ${currentUid}
-===
-Уважаемый пользователь просим вас ниже описать причину смены устройства:`
+    errorText = `Уважаемый пользователь просим вас ниже описать причину смены устройства:`
   } else if (errorType === 'UID_NOT_FOUND') {
-    errorText = `Проблема: Код доступа (UID) не найден на сервере.
-ID-устройства: ${deviceId}
-Текущий UID: ${newUid}
-===
-Уважаемый пользователь просим вас ниже описать, откуда вы взяли ссылку/UID:`
+    errorText = `Уважаемый пользователь просим вас ниже описать, откуда вы взяли ссылку/UID:`
   }
 
   // ▼ ИСПРАВЛЕНО: uid передаём только если он реальный.
-  //   Иначе SupportUidResetView получит 'неизвестно' и покажет форму
-  //   для невалидного UID — сервер отклонит с 400 ERROR.
+  //   errorText выводится в subtitle SupportUidResetView — НЕ в textarea,
+  //   поэтому отдельный параметр ?text= больше не передаём.
   router.push({
     path: '/support/uid-reset',
     query: {
-      text: errorText,
+      errorText: errorText,
       auth_error: errorType,
       ...(rawUid ? { uid: rawUid } : {}),
       source: 'registering',

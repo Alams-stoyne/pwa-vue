@@ -50,6 +50,17 @@
         </template>
       </div>
     </div>
+    
+    <router-link to="/steps/history" class="history-link">
+      <div class="hl-main">
+        <div class="hl-title">шаги за прошлые дни</div>
+        <div v-if="missedDaysCount > 0" class="hl-badge">
+          {{ missedDaysCount }} {{ pluralDays(missedDaysCount) }} пропущено
+        </div>
+        <div v-else class="hl-sub">все дни загружены</div>
+      </div>
+      <div class="hl-arrow" aria-hidden="true">›</div>
+    </router-link>
 
     <!-- ▼ Плашка «результат отклонён» — над формой ▼ -->
     <div v-if="store.isRejectedToday" class="rejected-banner">
@@ -166,6 +177,7 @@ import { useToast } from '../core/composables/useToast'
 import AppIcon from '../../components/AppIcon.vue'
 import StepsLeaderboardWidget from './StepsLeaderboardWidget.vue'
 import { useAppBackground } from '../core/composables/useAppBackground'
+import { localDate } from '../core/utils/date'
 const { setBackground } = useAppBackground()
 
 const store = useStepsStore()
@@ -190,7 +202,7 @@ const canSubmit = computed(() => {
   const n = Number(steps.value)
   return (
     Number.isFinite(n) &&
-    n > 0 &&
+    n >= 0 &&
     n <= MAX_STEPS &&
     localConsent.value &&
     selectedFile.value !== null
@@ -209,6 +221,9 @@ const hasSummary = computed(() => store.hasSummary)
 const loadingSummary = computed(() => store.loadingSummary)
 const rank = computed(() => store.rank)
 
+// Готовые данные для кнопки на историю — используй в своём шаблоне.
+const missedDaysCount = computed(() => store.missedDaysCount)
+
 const formattedTotal = computed(() => formatNumber(store.totalSteps))
 const formattedRank = computed(() => formatNumber(store.rank))
 
@@ -219,6 +234,24 @@ function formatNumber(n) {
 
 function formatNum(n) {
   return Number(n || 0).toLocaleString('ru-RU')
+}
+
+function pluralDays(n) {
+  const v = Number(n) || 0
+  if (v % 10 === 1 && v % 100 !== 11) return 'день'
+  if ([2, 3, 4].includes(v % 10) && ![12, 13, 14].includes(v % 100)) return 'дня'
+  return 'дней'
+}
+
+/**
+ * Дата «вчера» — за какой день отправляем с главного экрана.
+ * Шлём STEP_DATE явно, чтобы не зависеть от fallback-логики бэка:
+ *   сейчас (2 недели): пустой STEP_DATE → LOCAL_DATE − 1
+ *   потом: пустой STEP_DATE → LOCAL_DATE
+ * Явная передача «вчера» делает поведение стабильным в обоих режимах.
+ */
+function getYesterdayDate() {
+  return localDate(new Date(Date.now() - 86400000))
 }
 
 // ─── Таймер до следующего дня ───
@@ -273,16 +306,15 @@ async function submit() {
     steps: Math.round(Number(steps.value)),
     images: [selectedFile.value],
     consent: localConsent.value,
+    stepDate: getYesterdayDate(),
   })
 
   if (result.ok) {
-    // Успех — TODAY_* из ответа переключил state на 'pending'.
-    // Форма скроется автоматически, покажется блок «на проверке».
     steps.value = null
     removeImage()
+    // Обновляем историю — бейдж «пропущено N дней» на кнопке.
+    store.loadHistory({ force: true }).catch(() => {})
   } else if (result.alreadySent) {
-    // Сервер говорит: сегодня уже отправляли. State обновлён,
-    // UI переключится автоматически. Информируем пользователя.
     toast.info(result.message || 'Сегодня вы уже отправляли шаги.')
   } else if (result.message) {
     toast.error(result.message)
@@ -291,6 +323,7 @@ async function submit() {
 
 function refreshStatus() {
   store.loadSummary({ force: true })
+  store.loadHistory({ force: true }).catch(() => {})
 }
 
 function onVisibilityChange() {
@@ -304,6 +337,7 @@ onMounted(() => {
   setBackground({ url: '/backgrounds/bg_frame.jpg' })
 
   store.loadSummary()
+  store.loadHistory().catch(() => {})
 
   updateTimer()
   timerInterval = setInterval(updateTimer, 1000)
@@ -621,5 +655,58 @@ onUnmounted(() => {
 .timer-text span {
   font-weight: 500;
   color: var(--txt-dark-green);
+}
+/* ─── Кнопка на историю ─── */
+.history-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 16px 18px;
+  border-radius: 14px;
+  background: #fff;
+  border: 1.5px solid var(--border);
+  text-decoration: none;
+  color: inherit;
+  transition: border-color var(--t-fast), box-shadow var(--t-fast), transform var(--t-fast);
+}
+.history-link:hover {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-1);
+  transform: translateY(-1px);
+}
+.hl-main {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.hl-title {
+  font-family: var(--font-family);
+  font-weight: 700;
+  font-size: 16px;
+  line-height: 120%;
+  text-transform: lowercase;
+  color: var(--txt-black-dark-green);
+}
+.hl-badge {
+  font-family: var(--font-family);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 120%;
+  color: #B91D0C;
+  text-transform: lowercase;
+}
+.hl-sub {
+  font-family: var(--font-family);
+  font-size: 13px;
+  line-height: 120%;
+  color: var(--muted);
+  text-transform: lowercase;
+}
+.hl-arrow {
+  font-size: 26px;
+  line-height: 1;
+  color: var(--muted);
+  flex-shrink: 0;
 }
 </style>

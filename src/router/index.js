@@ -43,6 +43,7 @@ import StatsRewardsView from '../modules/stats/rewards/RewardsView.vue'
 
 import DayTaskView from '../modules/dayTask/DayTaskView.vue'
 import StepsRulesView from '../modules/steps/StepsRulesView.vue'
+import StepsHistoryView from '../modules/steps/StepsHistoryView.vue'
 
 import SupportView from '../modules/support/SupportView.vue'
 import SupportUidResetView from '../modules/support/SupportUidResetView.vue'
@@ -154,6 +155,18 @@ const routes = [
   { path: '/dayTask', component: DayTaskView, meta: { auth: true, title: (r) => r.query.tab === 'steps' ? 'Шагомер' : 'Рефлексия', viewBackTitle: true, back: true, hideNav: (r) => r.query.tab === 'steps' ? true : false, backTo: { path: '/home' } } },
   { path: '/reflection', redirect: (to) => ({ path: '/dayTask', query: { ...to.query, tab: 'reflection' } }) },
   { path: '/steps', redirect: (to) => ({ path: '/dayTask', query: { ...to.query, tab: 'steps' } }) },
+  {
+    path: '/steps/history',
+    component: StepsHistoryView,
+    meta: {
+      auth: true,
+      title: 'История шагов',
+      viewBackTitle: true,
+      back: true,
+      hideNav: true,
+      backTo: { path: '/dayTask', query: { tab: 'steps' } },
+    }
+  },
   { path: '/steps/rules', component: StepsRulesView, meta: { auth: true, title: 'Правила шагомера', back: true, hideNav: true, backTo: { path: '/dayTask', query: { tab: 'steps' } } } },
   { path: '/archive', redirect: '/training/storage' },
   { path: '/:pathMatch(.*)*', component: HomeView, meta: { auth: true, title: 'Главная', back: false } },

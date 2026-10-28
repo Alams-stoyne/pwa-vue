@@ -7,6 +7,7 @@ import { useMascotStore } from '../mascot/store'
 import {
   sendSteps,
   fetchStepsSummary,
+  fetchStepsHistory,
   fetchStepsLeaderboard,
   fetchSchoolStats,
 } from './api'
@@ -18,24 +19,9 @@ const LS_SCHOOL_CACHE_AT = 'steps.school.cacheAt'
 const LB_TTL_MS = 30 * 60 * 1000
 const SCHOOL_TTL_MS = 30 * 60 * 1000
 const SUMMARY_MIN_INTERVAL_MS = 2 * 60 * 1000
+const HISTORY_TTL_MS = 2 * 60 * 1000
 const NEGATIVE_TTL_MS = 5 * 60 * 1000
 
-/**
- * Сжатие изображения через canvas.
- *
- * Использует URL.createObjectURL вместо FileReader.
- * Причина: на Android (Samsung S20+ / Android 13 / Chrome) FileReader
- * регулярно падает с NotReadableError ("The requested file could not
- * be read, typically due to permission problems...") — особенно для
- * HEIC и файлов из Samsung Gallery / Google Photos.
- *
- * URL.createObjectURL + Image работают надёжнее: браузер сам забирает
- * данные из источника, пока тот ещё доступен.
- *
- * Если файл битый или формат не поддерживается (HEIC на некоторых
- * сборках Chrome) — сработает img.onerror, и мы покажем пользователю
- * понятный текст.
- */
 function compressImage(file, { maxDim = 1600, quality = 0.8 } = {}) {
   return new Promise((resolve, reject) => {
     let url
@@ -118,11 +104,6 @@ function plannedTo(summary) {
   return summary?.PLANNED_TO || summary?.PERIOD?.PLANNED_TO || null
 }
 
-/**
- * Флаг «админ задал реальный период».
- * PERIOD_CONFIGURED есть в summary.PERIOD (новый контракт).
- * Legacy-ответы (без поля) считаем «настроен» — старое поведение.
- */
 function isConfigured(summary) {
   const v = summary?.PERIOD?.PERIOD_CONFIGURED
   if (typeof v === 'boolean') return v
@@ -159,6 +140,13 @@ export const useStepsStore = defineStore('steps', {
 
     schoolStats: null,
     schoolStatsAt: 0,
+
+    // ── История шагов по дням ──────────────────────────────
+    days: [],
+    historyPeriod: null,      // { FROM, TO, DEADLINE, MAX_STEPS_PER_DAY }
+    loadingHistory: false,
+    historyError: null,
+    historyLoadedAt: 0,
   }),
 
   getters: {
@@ -189,11 +177,9 @@ export const useStepsStore = defineStore('steps', {
 
     progressPercent: (s) => {
       if (!isConfigured(s.summary)) return 0
-
       const total = daysInclusive(plannedFrom(s.summary), plannedTo(s.summary))
         || daysInclusive(s.summary?.PERIOD?.FROM, s.summary?.PERIOD?.TO)
       if (total <= 0) return 0
-
       let confirmed = Number(s.summary?.CONFIRMED_DAYS_COUNT)
       if (!Number.isFinite(confirmed) || confirmed < 0) {
         const dates = Array.isArray(s.summary?.CONFIRMED_DATES) ? s.summary.CONFIRMED_DATES : []
@@ -204,7 +190,6 @@ export const useStepsStore = defineStore('steps', {
 
     plannedPeriod: (s) => {
       if (!isConfigured(s.summary)) return null
-
       const from = plannedFrom(s.summary)
       const to = plannedTo(s.summary)
       if (!from || !to) return null
@@ -216,7 +201,6 @@ export const useStepsStore = defineStore('steps', {
 
     daysLeft: (s) => {
       if (!isConfigured(s.summary)) return null
-
       const to = plannedTo(s.summary)
       if (!to) return null
       const toTs = new Date(to).getTime()
@@ -231,11 +215,9 @@ export const useStepsStore = defineStore('steps', {
       let fromIso = p?.FROM || plannedFrom(s.summary)
       let toIso = p?.TO || plannedTo(s.summary)
       if (!fromIso || !toIso) return []
-
       const from = parseIsoLocal(fromIso)
       const to = parseIsoLocal(toIso)
       if (!from || !to || to < from) return []
-
       const out = []
       const cursor = new Date(to)
       while (cursor >= from) {
@@ -352,6 +334,18 @@ export const useStepsStore = defineStore('steps', {
       if (typeof reason === 'string' && reason.trim()) return reason.trim()
       return 'Попробуйте отправить еще раз'
     },
+
+    // ── История ─────────────────────────────────────────────
+    hasHistory: (s) => Array.isArray(s.days) && s.days.length > 0,
+
+    // Дни, которые можно догрузить: не отправлены или отклонены.
+    // expired/future/approved/pending — нельзя (или не нужно).
+    missedDays: (s) =>
+      (s.days || []).filter((d) => d.STATUS === 'not_sent' || d.STATUS === 'rejected'),
+
+    missedDaysCount() {
+      return this.missedDays.length
+    },
   },
 
   actions: {
@@ -374,6 +368,40 @@ export const useStepsStore = defineStore('steps', {
         console.error('[steps] loadSummary error:', e)
       } finally {
         this.loadingSummary = false
+      }
+    },
+
+    /**
+     * Загрузить историю шагов по дням марафона.
+     * Кэш в памяти на HISTORY_TTL_MS — не дёргаем сервер при каждом
+     * возврате на экран. После отправки вызываем с force: true.
+     */
+    async loadHistory({ force = false } = {}) {
+      const auth = useAuthStore()
+      if (!auth.idUser) return false
+      if (this.loadingHistory) return false
+      if (!force && this.historyLoadedAt && Date.now() - this.historyLoadedAt < HISTORY_TTL_MS) {
+        return true
+      }
+
+      this.loadingHistory = true
+      this.historyError = null
+      try {
+        const res = await fetchStepsHistory({ ID_USER: auth.idUser })
+        if (isSuccess(res) && Array.isArray(res.DAYS)) {
+          this.days = res.DAYS
+          this.historyPeriod = res.PERIOD || null
+          this.historyLoadedAt = Date.now()
+          return true
+        }
+        this.historyError = res?.MESSAGE || 'Не удалось загрузить историю'
+        return false
+      } catch (e) {
+        this.historyError = e?.message || 'Не удалось загрузить историю'
+        console.warn('[steps] loadHistory failed:', e)
+        return false
+      } finally {
+        this.loadingHistory = false
       }
     },
 
@@ -501,7 +529,18 @@ export const useStepsStore = defineStore('steps', {
       return true
     },
 
-    async send({ steps, images, consent }) {
+    /**
+     * Отправка шагов.
+     *
+     * @param {Object} opts
+     * @param {number} opts.steps
+     * @param {File[]} opts.images
+     * @param {boolean} opts.consent
+     * @param {string} [opts.stepDate] — YYYY-MM-DD. Если не передан —
+     *   сервер применит fallback. Сейчас StepsHomePanel передаёт «вчера»,
+     *   StepsHistoryView — выбранный день из истории.
+     */
+    async send({ steps, images, consent, stepDate = null }) {
       const auth = useAuthStore()
       if (!auth.idUser) {
         this.error = 'Пользователь не авторизован'
@@ -514,12 +553,9 @@ export const useStepsStore = defineStore('steps', {
         const base64Images = []
         for (const file of images) {
           if (!(file instanceof File)) continue
-
-          // Защита от гигантских файлов — ещё до чтения в память
           if (file.size > 10 * 1024 * 1024) {
             throw new Error('файл слишком большой (макс. 10МБ)')
           }
-
           try {
             const compressed = await compressImage(file)
             base64Images.push(compressed)
@@ -537,6 +573,7 @@ export const useStepsStore = defineStore('steps', {
 
         const res = await sendSteps({
           ID_USER: auth.idUser,
+          STEP_DATE: stepDate || undefined,
           STEPS: steps,
           IMAGES: base64Images,
           CONSENT: consent,
@@ -572,8 +609,8 @@ export const useStepsStore = defineStore('steps', {
           return { ok: true, alreadySent: false }
         }
 
-        if (res?.RESULT === 'ALREADY_SENT_TODAY') {
-          const msg = res.MESSAGE || 'Сегодня вы уже отправляли шаги.'
+        if (res?.RESULT === 'ALREADY_SENT' || res?.RESULT === 'ALREADY_SENT_TODAY') {
+          const msg = res.MESSAGE || 'За этот день шаги уже отправлены.'
           this.error = msg
           if (!applied) await this.loadSummary({ force: true })
           return { ok: false, alreadySent: true, message: msg }
@@ -583,7 +620,6 @@ export const useStepsStore = defineStore('steps', {
         this.error = errMsg
         return { ok: false, alreadySent: false, message: errMsg }
       } catch (e) {
-        // Детальное логирование — по нему видно, что именно упало
         console.error('[steps] send failed:', {
           name: e?.name,
           message: e?.message,
@@ -596,6 +632,16 @@ export const useStepsStore = defineStore('steps', {
           msg = 'нет соединения с интернетом'
         } else if (e?.name === 'TimeoutError' || e?.code === 'TIMEOUT') {
           msg = 'превышено время ожидания. проверьте соединение и попробуйте снова'
+        } else if (e?.result === 'DEADLINE_PASSED') {
+          msg = 'крайний срок загрузки шагов истёк'
+        } else if (e?.result === 'OUT_OF_PERIOD') {
+          msg = 'эта дата вне периода марафона'
+        } else if (e?.result === 'STEP_DATE_FUTURE') {
+          msg = 'нельзя отправить шаги за будущую дату'
+        } else if (e?.result === 'ALREADY_SENT') {
+          msg = 'за этот день шаги уже отправлены'
+        } else if (e?.result === 'STEPS_LIMIT_EXCEEDED') {
+          msg = 'превышен дневной лимит шагов'
         } else if (e?.message && e.message !== 'undefined') {
           msg = e.message
         } else {

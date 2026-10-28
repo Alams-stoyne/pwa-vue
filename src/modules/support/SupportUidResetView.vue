@@ -24,7 +24,7 @@
       <header class="head text-center">
         <h1 class="title color-text-stroke">написать администратору</h1>
         <p class="subtitle">
-          опишите проблему с доступом — администратор поможет
+          {{ errorText || 'опишите проблему — администратор поможет' }}
         </p>
       </header>
 
@@ -41,6 +41,7 @@
 
         <div class="checkbox-group">
           <label
+            v-if="showShortcutReason"
             class="checkbox-card"
             :class="{ selected: reasons.includes('shortcut') }"
           >
@@ -57,6 +58,7 @@
           </label>
 
           <label
+            v-if="showThirdPartyReason"
             class="checkbox-card"
             :class="{ selected: reasons.includes('third_party_browser') }"
           >
@@ -69,15 +71,14 @@
             <span class="checkbox-mark" aria-hidden="true">
               <AppIcon name="check" :size="14" />
             </span>
-            <span class="checkbox-text">Я установил ярлык из стороннего браузера</span>
+            <span class="checkbox-text">Я переустановил и запустил с нового ярлыка</span>
           </label>
         </div>
 
-        <div v-if="reasons.length > 0" class="warning-card">
-          <div class="warning-title">⚠ Внимание</div>
+        <div v-if="showWarning" class="warning-card">
+          <div class="warning-title">⚠ внимание</div>
           <p class="warning-text">
-            При выборе одного из пунктов предыдущая авторизация
-            в нашем приложении на других устройствах будет деактивирована.
+            При отправке данного обращения, предыдущая авторизация на других устройствах будет деактивирована.
           </p>
         </div>
 
@@ -99,16 +100,13 @@
     <div v-else class="success-card">
       <div class="success-icon" aria-hidden="true">✓</div>
       <h1>Обращение принято</h1>
+      Заявка №{{ ticketId }} принята.
 
-      <p v-if="hadResetIntent" class="muted">
-        Заявка №{{ ticketId }} принята.
-        Сброс привязки выполнит администратор — обычно до
-        {{ estimatedMinutes }} минут. Мы уведомим вас,
-        когда это произойдёт.
+      <p v-if="hadResetIntent" class="muted">       
+        Заявки обрабатываются в период с 10:00 до 18:00 по МСК. Если ваше обращение зарегистрированно в рамках 10:00 - 17:00, просьба вернуться к повторной авторизации через 90 минут после обращения; в противном случае просим вернуться вас к повторной регистрации на следующий день после 12:00 по МСК.
       </p>
       <p v-else class="muted">
-        Заявка №{{ ticketId }} принята.
-        Администратор скоро свяжется с вами.
+        Заявки обрабатываются в период с 10:00 до 18:00 по МСК.
       </p>
 
       <button
@@ -127,7 +125,8 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppIcon from '../../components/AppIcon.vue'
 import { useSupportStore } from './store'
-import { readUid } from '../install/useAccess'
+import { useAccess } from '../install/useAccess'
+import { useInstall } from '../install/useInstall'
 import { useAppBackground } from '../core/composables/useAppBackground'
 
 const MAX_TEXT = 1000
@@ -137,10 +136,20 @@ const router = useRouter()
 const store = useSupportStore()
 const { setBackground } = useAppBackground()
 
+// isInstalled = запущено в standalone (через ярлык / PWA)
+const { isInstalled } = useInstall()
+const { hasUid: hasUidAccess } = useAccess()
+
 const text = ref('')
 const reasons = ref([])
 const sent = ref(false)
 const errorMessage = ref('')
+
+// ▼ Текст-пояснение над формой. Приходит из RegisteringView через
+//   ?errorText=... — например, «Уважаемый пользователь просим вас
+//   ниже описать причину...». НЕ попадает в textarea (пользователь
+//   должен сам написать текст).
+const errorText = ref('')
 
 const ticketId = ref(null)
 const hadResetIntent = ref(false)
@@ -149,6 +158,25 @@ const estimatedMinutes = ref(60)
 const uid = ref('')
 const hasUid = computed(() => !!uid.value)
 const canSubmit = computed(() => text.value.trim().length > 0)
+
+// ── Видимость чекбоксов по способу запуска ─────────────────────
+const showShortcutReason = computed(() => !isInstalled.value)
+const showThirdPartyReason = computed(() => isInstalled.value)
+
+// Фильтруем выбранные причины по видимым чекбоксам — на случай, если
+// пользователь выбрал, а потом способ запуска изменился.
+const effectiveReasons = computed(() =>
+  reasons.value.filter((r) => {
+    if (r === 'shortcut') return showShortcutReason.value
+    if (r === 'third_party_browser') return showThirdPartyReason.value
+    return true
+  })
+)
+
+// Предупреждение — ТОЛЬКО для «из стороннего браузера».
+const showWarning = computed(
+  () => showThirdPartyReason.value && reasons.value.includes('third_party_browser')
+)
 
 function toggleReason(key) {
   const idx = reasons.value.indexOf(key)
@@ -188,20 +216,23 @@ async function submit() {
   if (!canSubmit.value || store.sending) return
   errorMessage.value = ''
 
+  const visibleReasons = effectiveReasons.value.slice()
+
   const result = await store.createResetUidTicket({
     text: text.value,
     images: [],
     uid: uid.value,
-    reasons: reasons.value,
+    reasons: visibleReasons,
     meta: {
       SOURCE: String(route.query.source || 'registering'),
       ORIGINAL_AUTH_ERROR: String(route.query.auth_error || '') || null,
+      IS_STANDALONE: isInstalled.value,
     },
   })
 
   if (result.ok) {
     ticketId.value = result.ticketId
-    hadResetIntent.value = reasons.value.length > 0
+    hadResetIntent.value = visibleReasons.length > 0
     estimatedMinutes.value = result.estimatedMinutes || 60
     sent.value = true
     text.value = ''
@@ -220,17 +251,21 @@ onMounted(() => {
   setBackground({ url: '/backgrounds/bg_frame.jpg' })
   store.reset()
 
-  // UID может быть в query (пришёл из RegisteringView) или в localStorage (обычно)
-  const rawUid = String(route.query.uid || readUid() || '').trim()
+  // UID может быть в query (пришёл из RegisteringView) или в localStorage
+  const rawUid = String(route.query.uid || (hasUidAccess.value ? '' : '') || '').trim() ||
+                 (() => {
+                   try { return String(localStorage.getItem('auth.uid') || '') } catch { return '' }
+                 })()
 
-  // 'неизвестно' — плейсхолдер из RegisteringView (старые версии).
-  // Это не валидный UID (не hex40), сервер отклонит 400 ERROR.
-  // Трактуем как пустое — покажем карточку «Нужен код доступа».
   uid.value = (rawUid && rawUid !== 'неизвестно') ? rawUid : ''
 
-  if (route.query.text) {
-    text.value = String(route.query.text)
-  }
+  // ▼ errorText — в subtitle над формой, НЕ в textarea.
+  //   Приходит из RegisteringView через ?errorText=...
+  errorText.value = String(route.query.errorText || '').trim()
+
+  // ▼ textarea всегда пустая — пользователь пишет сам.
+  //   Раньше здесь был `if (route.query.text) { text.value = ... }`,
+  //   но по договорённости текст-инструкция идёт в subtitle, а не в поле ввода.
 })
 </script>
 
@@ -239,6 +274,8 @@ onMounted(() => {
   position: relative;
   display: grid;
   gap: 24px;
+  align-items: start;
+  align-content: start;
 }
 
 .head {

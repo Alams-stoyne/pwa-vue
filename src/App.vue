@@ -2,13 +2,16 @@
   <AppBackground />
   <BackButton v-if="showBack" />
 
-  <AccessDenied v-if="uidMismatch" />
+  <!-- ▼ Гейты доступа. Публичные support-роуты (/support, /support/uid-reset)
+       пропускаем — они специально для пользователей без установки / без UID.
+       Иначе пользователь с /install не может дойти до формы поддержки. ▼ -->
+  <AccessDenied v-if="uidMismatch && !isPublicSupportRoute" />
 
-  <UidRecovery v-else-if="needsUidRecovery" />
+  <UidRecovery v-else-if="needsUidRecovery && !isPublicSupportRoute" />
 
-  <AccessDenied v-else-if="!hasUid" />
+  <AccessDenied v-else-if="!hasUid && !isPublicSupportRoute" />
 
-  <InstallGate v-else-if="!isInstalled" />
+  <InstallGate v-else-if="!isInstalled && !isPublicSupportRoute" />
 
   <!-- ▼ Блокировка администратором ▼ -->
   <BlockedView
@@ -74,7 +77,17 @@ const needsUidRecovery = computed(() =>
   isInstalled.value && !hasUid.value && !uidMismatch.value
 )
 
+// Все support-роуты (для блокировки администратором)
 const isSupportRoute = computed(() => route.path.startsWith('/support'))
+
+// Только публичные support-роуты — они должны рендериться даже без
+// установки / без UID / без авторизации. Это намеренные точки «попросить
+// помощи», их нельзя блокировать гейтами AccessDenied/InstallGate/UidRecovery.
+//   /support           — форма обращения (для авторизованных и гостей)
+//   /support/uid-reset — запрос на сброс привязки UID ↔ DEVICE_ID
+const isPublicSupportRoute = computed(() =>
+  route.path === '/support' || route.path === '/support/uid-reset'
+)
 
 const showConsentBanner = computed(() => {
   if (auth.blocked) return false
