@@ -6,7 +6,8 @@ import {
   fetchSupportTicket,
   createGuestTicket,
   fetchGuestTicket,
-  sendGuestMessage
+  sendGuestMessage,
+  createResetUidTicket as createResetUidTicketAPI,
 } from './api'
 import { useAuthStore } from '../auth/store'
 import { isSuccess } from '../core/utils/response'
@@ -137,6 +138,81 @@ export const useSupportStore = defineStore('support', {
       } catch (e) {
         this.error = e.message || 'ошибка отправки'
         return false
+      } finally {
+        this.sending = false
+      }
+    },
+
+    // ── Запрос на сброс привязки UID ──────────────────────────
+    // Возвращает объект с полями:
+    //   { ok: true,  ticketId, resetStatus, estimatedMinutes }
+    //   { ok: false, error, message, retryAfterSec }
+    // error — код из бэка: RESET_NOT_APPLICABLE | UID_BLOCKED
+    //   | WAIT_BEFORE_RESET | RATE_LIMITED | ERROR | NETWORK
+    async createResetUidTicket({ text, images = [], uid, reasons = [], meta = {} }) {
+      if (this.sending) return { ok: false, error: 'ALREADY_SENDING' }
+      this.sending = true
+      this.error = null
+      try {
+        const base64Images = []
+        if (Array.isArray(images)) {
+          for (const file of images) {
+            if (file instanceof File) {
+              if (file.size > 3 * 1024 * 1024) throw new Error('фото больше 3 МБ')
+              const base64 = await fileToBase64(file)
+              base64Images.push(base64)
+            } else if (typeof file === 'string') {
+              base64Images.push(file)
+            }
+          }
+        }
+
+        const deviceId = readDeviceId()
+        if (!deviceId) throw new Error('не найден ID устройства')
+
+        const effectiveUid = uid || readUid() || ''
+        if (!effectiveUid) throw new Error('не найден UID')
+
+        const collectedMeta = {
+          ...collectMeta(null, effectiveUid),
+          ...meta,
+        }
+
+        const res = await createResetUidTicketAPI({
+          DEVICE_ID: deviceId,
+          UID: effectiveUid,
+          RESET_REASONS: Array.isArray(reasons) ? reasons : [],
+          TEXT: String(text || '').trim(),
+          IMAGES: base64Images,
+          META: collectedMeta,
+        })
+
+        if (res?.RESULT === 'OK' && res.TICKET_ID) {
+          this.lastTicketId = res.TICKET_ID
+          this.guestTicketId = res.TICKET_ID
+          try {
+            localStorage.setItem('support.guestTicketId', String(res.TICKET_ID))
+          } catch {}
+          return {
+            ok: true,
+            ticketId: res.TICKET_ID,
+            resetStatus: res.RESET_STATUS || 'pending_admin_review',
+            estimatedMinutes: Number(res.ESTIMATED_WAIT_MINUTES) || 60,
+          }
+        }
+
+        // Ошибка из бэка — возвращаем структурированно
+        const code = res?.RESULT || res?.REASON || 'ERROR'
+        this.error = code
+        return {
+          ok: false,
+          error: code,
+          message: res?.MESSAGE || '',
+          retryAfterSec: Number(res?.RETRY_AFTER_SEC) || null,
+        }
+      } catch (e) {
+        this.error = e.message || 'ошибка отправки'
+        return { ok: false, error: 'NETWORK', message: e.message }
       } finally {
         this.sending = false
       }

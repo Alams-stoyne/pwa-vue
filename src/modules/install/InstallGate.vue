@@ -51,7 +51,6 @@
         </div>  
       </div>
 
-      <!-- <div v-if="!hasPrompt" class="hint_item"> -->
       <div class="hint_item">
         <div class="hint_icon">
           <svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -90,7 +89,9 @@
     </div>
 
     <div class="bottom-action">
-      <button v-if="hasPrompt" @click="promptInstall" class="btn btn-primary btn-center">разместить</button>
+      <button type="button" class="btn btn-primary btn-center" @click="goToSupport">
+        написать администратору
+      </button>
     </div>
 
   </div>
@@ -100,10 +101,8 @@
 import { onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useInstall } from './useInstall'
-import { track } from '../analytics'
-import { EVT } from '../analytics/events'
 
-const { hasPrompt, promptInstall, isInstalled } = useInstall()
+const { isInstalled, hasPrompt, trackGateViewed } = useInstall()
 const router = useRouter()
 
 function detectIsIOS() {
@@ -114,15 +113,19 @@ function detectIsIOS() {
   )
 }
 
+function goToSupport() {
+  router.push({ path: '/support/uid-reset', query: { source: 'install' } })
+}
+
 onMounted(() => {
-  track(EVT.INSTALL_GATE_VIEWED, {
+  // trackGateViewed() сам подмешает platform + userAgent + viewport
+  // и запишет флаг x5pwa:install_gate_viewed:<deviceId> для эвристики via:'detected'.
+  trackGateViewed({
     isIOS: detectIsIOS(),
     hasPrompt: hasPrompt.value,
   })
 })
 
-// Как только приложение установилось — уходим с /install.
-// Роутер сам разберётся, куда дальше (access, registering, home).
 watch(isInstalled, (v) => {
   if (v) {
     router.replace('/').catch(() => {})

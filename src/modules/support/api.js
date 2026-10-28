@@ -116,3 +116,35 @@ export async function sendGuestMessage({ DEVICE_ID, TICKET_ID, TEXT, IMAGES }) {
   try { return JSON.parse(text) }
   catch { throw new Error('Некорректный ответ сервера') }
 }
+
+// --- Запрос на сброс привязки UID ↔ DEVICE_ID ---
+//
+// Контракт (согласован с бэком):
+//   POST /support/ticket/create_reset_uid
+//   Request:  { DEVICE_ID, UID, RESET_REASONS[], TEXT, IMAGES[], META }
+//   Success:  { RESULT: 'OK', TICKET_ID, RESET_STATUS, ESTIMATED_WAIT_MINUTES }
+//   Errors:
+//     400 ERROR                — нет DEVICE_ID/UID, UID не hex40
+//     400 RESET_NOT_APPLICABLE — пары UID↔DEVICE_ID нет в БД
+//     400 UID_BLOCKED          — UID заблокирован
+//     429 WAIT_BEFORE_RESET    — UID активен; RETRY_AFTER_SEC в теле
+//     429 RATE_LIMITED         — > 1 reset-запроса в час с DEVICE_ID
+//
+// ВАЖНО: здесь мы НЕ бросаем на !res.ok — тело читается всегда,
+// чтобы поймать RESULT/REASON/RETRY_AFTER_SEC для отображения
+// пользователю. Сетевые/таймаутные ошибки пробрасываются из
+// fetchWithTimeout.
+export async function createResetUidTicket({ DEVICE_ID, UID, RESET_REASONS, TEXT, IMAGES, META }) {
+  if (isOffline()) throw new OfflineError()
+
+  const res = await fetchWithTimeout(`${API}/support/ticket/create_reset_uid`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ DEVICE_ID, UID, RESET_REASONS, TEXT, IMAGES, META }),
+  })
+
+  const text = await res.text()
+  try { return JSON.parse(text) }
+  catch { throw new Error('Некорректный ответ сервера') }
+}

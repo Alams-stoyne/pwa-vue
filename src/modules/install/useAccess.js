@@ -1,5 +1,5 @@
 import { ref, computed } from 'vue'
-import { useInstall } from './useInstall'
+import { useInstall, consumeDeviceIdJustCreated } from './useInstall'
 import {
   getOrCreateDeviceId,
   getDeviceIdCreatedAt,
@@ -11,7 +11,6 @@ const LS_UID = 'auth.uid'
 const LS_UID_BOUND = 'auth.uid_bound'
 const COOKIE_UID = 'auth_uid'
 
-// ─── Cookie ────────────────────────────────────────────────────
 function readCookie(name) {
   if (typeof document === 'undefined') return ''
   try {
@@ -29,7 +28,6 @@ function writeCookie(name, value, days = 365) {
   } catch {}
 }
 
-// ─── Сохранение uid во все доступные хранилища ─────────────────
 function persistUid(uid) {
   if (!uid) return
   try { localStorage.setItem(LS_UID, uid) } catch {}
@@ -37,7 +35,6 @@ function persistUid(uid) {
   writeCookie(COOKIE_UID, uid)
 }
 
-// ─── Чтение uid из URL ─────────────────────────────────────────
 function readUidFromUrl() {
   if (typeof window === 'undefined') return ''
   try {
@@ -45,7 +42,6 @@ function readUidFromUrl() {
   } catch { return '' }
 }
 
-// ─── Чтение привязанного uid из любого хранилища ───────────────
 function readBoundFromStorage() {
   try {
     const ls = localStorage.getItem(LS_UID_BOUND)
@@ -56,12 +52,10 @@ function readBoundFromStorage() {
   return ''
 }
 
-// ─── Оценка состояния ──────────────────────────────────────────
 function evaluate() {
   const fromUrl = readUidFromUrl()
   const bound = readBoundFromStorage()
 
-  // URL с uid и есть привязанный, но другой → конфликт
   if (fromUrl && bound && fromUrl !== bound) {
     return {
       granted: false,
@@ -71,7 +65,6 @@ function evaluate() {
     }
   }
 
-  // URL с uid → сохраняем и привязываем
   if (fromUrl) {
     persistUid(fromUrl)
     return {
@@ -82,7 +75,6 @@ function evaluate() {
     }
   }
 
-  // URL без uid, но uid есть в хранилище (standalone-запуск)
   if (bound) {
     return {
       granted: true,
@@ -92,14 +84,11 @@ function evaluate() {
     }
   }
 
-  // Нигде нет
   return { granted: false, reason: 'no-uid', uid: '', boundUid: '' }
 }
 
-// Реактивное состояние
 const _state = ref(evaluate())
 
-// ─── Публичные функции ─────────────────────────────────────────
 export function readUid() {
   return _state.value.uid || ''
 }
@@ -112,7 +101,20 @@ export function readDeviceId() {
   let hadBefore = false
   try { hadBefore = !!localStorage.getItem('app.device_id') } catch {}
   const id = getOrCreateDeviceId()
-  if (!hadBefore) {
+
+  // treatAsFirst = true, когда:
+  //   • hadBefore = false — ID создан прямо сейчас (оригинальное поведение)
+  //   • consumeDeviceIdJustCreated() = true — init() создал ID в этой сессии
+  //     (свежая установка). Флаг сбрасывается после первого readDeviceId(),
+  //     чтобы последующие вызовы в этой же сессии не триггерили rotation.
+  //
+  // Для ВОЗВРАЩАЮЩЕГОСЯ пользователя: hadBefore = true, флаг init = false →
+  // markDeviceRotated() НЕ вызывается. Это правильно: rotation — сигнал
+  // «устройство выглядит свежим», а не «пользователь открыл приложение».
+  const justCreated = consumeDeviceIdJustCreated()
+  const treatAsFirst = !hadBefore || justCreated
+
+  if (treatAsFirst) {
     const created = getDeviceIdCreatedAt()
     if (created > 0) {
       markDeviceRotated()
@@ -166,7 +168,6 @@ export function refreshFromUrl() {
 export function useAccess() {
   const { isInstalled } = useInstall()
 
-  // ▼ Автоматически подхватываем UID из URL, если в памяти пусто ▼
   if (!_state.value.uid) refreshFromUrl()
 
   return {

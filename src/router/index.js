@@ -45,6 +45,7 @@ import DayTaskView from '../modules/dayTask/DayTaskView.vue'
 import StepsRulesView from '../modules/steps/StepsRulesView.vue'
 
 import SupportView from '../modules/support/SupportView.vue'
+import SupportUidResetView from '../modules/support/SupportUidResetView.vue'
 import SupportTicketsView from '../modules/support/SupportTicketsView.vue'
 import SupportTicketDetailView from '../modules/support/SupportTicketDetailView.vue'
 
@@ -132,6 +133,21 @@ const routes = [
       }
     }
   },
+  {
+    path: '/support/uid-reset',
+    component: SupportUidResetView,
+    meta: {
+      public: true,
+      title: 'Сброс привязки',
+      viewBackTitle: true,
+      back: true,
+      hideNav: true,
+      backTo: () => {
+        const { isInstalled } = useInstall()
+        return isInstalled.value ? { path: '/' } : { path: '/install' }
+      }
+    }
+  },
   { path: '/support/tickets', component: SupportTicketsView, meta: { auth: true, title: 'Мои обращения', viewBackTitle: true, back: true, hideNav: true, backTo: { path: '/support' } } },
   { path: '/support/tickets/:id', component: SupportTicketDetailView, props: true, meta: { auth: true, title: 'Обращение', viewBackTitle: true, back: true, hideNav: true, backTo: { path: '/support/tickets' } } },
 
@@ -157,6 +173,7 @@ router.beforeEach((to) => {
   if (!isInstalled.value) {
     if (to.path === '/install') return true
     if (to.path === '/support') return true
+    if (to.path === '/support/uid-reset') return true
     return { path: '/install', query: to.query }
   }
 
@@ -165,7 +182,7 @@ router.beforeEach((to) => {
   }
 
   const { isGranted, hasUid, uidMismatch } = useAccess()
-  const isPublicSupport = to.path === '/support'
+  const isPublicSupport = to.path === '/support' || to.path === '/support/uid-reset'
 
   if (uidMismatch.value) {
     if (to.path !== '/access-error' && !isPublicSupport) return { path: '/access-error' }

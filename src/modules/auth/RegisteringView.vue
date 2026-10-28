@@ -215,8 +215,11 @@ function goAccessError() {
 
 function goToSupport(errorType) {
   const deviceId = readDeviceId() || 'неизвестно'
-  const newUid = readUid() || 'неизвестно'
+  const rawUid = readUid()
   const currentUid = auth.boundUid || 'неизвестно'
+
+  // 'неизвестно' — только для текста письма (человеку понятнее, чем пустая строка)
+  const newUid = rawUid || 'неизвестно'
 
   let errorText = ''
 
@@ -247,9 +250,17 @@ ID-устройства: ${deviceId}
 Уважаемый пользователь просим вас ниже описать, откуда вы взяли ссылку/UID:`
   }
 
+  // ▼ ИСПРАВЛЕНО: uid передаём только если он реальный.
+  //   Иначе SupportUidResetView получит 'неизвестно' и покажет форму
+  //   для невалидного UID — сервер отклонит с 400 ERROR.
   router.push({
-    path: '/support',
-    query: { text: errorText, auth_error: errorType, uid: newUid },
+    path: '/support/uid-reset',
+    query: {
+      text: errorText,
+      auth_error: errorType,
+      ...(rawUid ? { uid: rawUid } : {}),
+      source: 'registering',
+    },
   })
 }
 
