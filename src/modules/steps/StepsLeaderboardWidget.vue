@@ -62,7 +62,7 @@
     </div> -->
 
     <!-- Список топ-5 -->
-    <div v-else-if="!top5.length" class="lb-list">
+    <div v-else-if="top5.length" class="lb-list">
       <div
         v-for="(user, index) in top5"
         :key="index"

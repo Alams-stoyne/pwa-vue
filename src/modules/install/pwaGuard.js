@@ -44,7 +44,18 @@ export async function installPwaGuard() {
     },
 
     onNeedRefresh() {
-      updateSW?.(true)
+      // updateSW(true) возвращает Promise: skipWaiting + reload + registration.update().
+      // На iOS Safari registration.update() может reject'нуться (гонка: SW ещё в installing,
+      // .waiting ещё нет). Раньше это давало unhandledrejection в консоли пользователя.
+      // Ловим — SW всё равно активируется через skipWaiting/autoUpdate.
+      try {
+        const p = updateSW?.(true)
+        if (p && typeof p.catch === 'function') {
+          p.catch((e) => console.warn('[pwa] updateSW failed:', e))
+        }
+      } catch (e) {
+        console.warn('[pwa] updateSW threw:', e)
+      }
     },
   })
 

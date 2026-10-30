@@ -39,6 +39,9 @@
           <span class="field-counter muted">{{ text.length }} / {{ MAX_TEXT }}</span>
         </label>
 
+        <!-- Прикрепление файлов (до MAX_IMAGES) -->
+        <ImageUploader v-model="images" :max="MAX_IMAGES" />
+
         <div class="checkbox-group">
           <label
             v-if="showShortcutReason"
@@ -54,7 +57,7 @@
             <span class="checkbox-mark" aria-hidden="true">
               <AppIcon name="check" :size="14" />
             </span>
-            <span class="checkbox-text">У меня проблема с установкой ярлыка</span>
+            <span class="checkbox-text">у меня проблема с установкой ярлыка</span>
           </label>
 
           <label
@@ -71,7 +74,7 @@
             <span class="checkbox-mark" aria-hidden="true">
               <AppIcon name="check" :size="14" />
             </span>
-            <span class="checkbox-text">Я переустановил и запустил с нового ярлыка</span>
+            <span class="checkbox-text">я переустановил и запустил с нового ярлыка</span>
           </label>
         </div>
 
@@ -82,6 +85,26 @@
           </p>
         </div>
 
+        <!-- Согласие на обработку ПД — если глобально не дано -->
+        <div
+          class="consent-card"
+          :class="{ selected: consent }"
+          role="checkbox"
+          :aria-checked="consent"
+          tabindex="0"
+          @click="toggleConsent"
+          @keydown.space.prevent="toggleConsent"
+          @keydown.enter.prevent="toggleConsent"
+          v-if="!consentGlob.isGranted"
+        >
+          <span class="consent-check" aria-hidden="true">
+            <AppIcon name="check" :size="16" />
+          </span>
+          <span class="consent-text">
+            согласен на обработку персональных данных
+          </span>
+        </div>
+
         <p v-if="errorMessage" class="error">{{ errorMessage }}</p>
 
         <div class="bottom-action">
@@ -90,7 +113,7 @@
             class="btn btn-primary btn-center"
             :disabled="!canSubmit || store.sending"
           >
-            {{ store.sending ? 'Отправка…' : 'Отправить' }}
+            {{ store.sending ? 'отправка…' : 'отправить' }}
           </button>
         </div>
       </form>
@@ -99,22 +122,19 @@
     <!-- Успех -->
     <div v-else class="success-card">
       <div class="success-icon" aria-hidden="true">✓</div>
-      <h1>Обращение принято</h1>
-      Заявка №{{ ticketId }} принята.
-
-      <p v-if="hadResetIntent" class="muted">       
-        Заявки обрабатываются в период с 10:00 до 18:00 по МСК. Если ваше обращение зарегистрированно в рамках 10:00 - 17:00, просьба вернуться к повторной авторизации через 90 минут после обращения; в противном случае просим вернуться вас к повторной регистрации на следующий день после 12:00 по МСК.
+      <h1>обращение принято</h1>
+      <p v-if="hadResetIntent" class="muted">
+        Заявка №{{ ticketId }} принята. Заявки обрабатываются в период с 10:00 до 18:00 по МСК. Если ваше обращение зарегистрированно в рамках 10:00 - 17:00, просьба вернуться к повторной авторизации через 90 минут после обращения; в противном случае просим вернуться вас к повторной регистрации на следующий день после 12:00 по МСК.
       </p>
       <p v-else class="muted">
-        Заявки обрабатываются в период с 10:00 до 18:00 по МСК.
+        Заявка №{{ ticketId }} принята. Заявки обрабатываются в период с 10:00 до 18:00 по МСК.
       </p>
-
       <button
         type="button"
         class="btn btn-primary btn-center"
         @click="goBack"
       >
-        Понятно
+        понятно
       </button>
     </div>
   </div>
@@ -124,12 +144,15 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppIcon from '../../components/AppIcon.vue'
+import ImageUploader from '../../components/ImageUploader.vue'
 import { useSupportStore } from './store'
 import { useAccess } from '../install/useAccess'
 import { useInstall } from '../install/useInstall'
+import { useConsentStore } from '../consent/store'
 import { useAppBackground } from '../core/composables/useAppBackground'
 
 const MAX_TEXT = 1000
+const MAX_IMAGES = 5
 
 const route = useRoute()
 const router = useRouter()
@@ -140,15 +163,18 @@ const { setBackground } = useAppBackground()
 const { isInstalled } = useInstall()
 const { hasUid: hasUidAccess } = useAccess()
 
+// Глобальное согласие ПД — как в SupportView
+const consentGlob = useConsentStore()
+
 const text = ref('')
+const images = ref([])
+const consent = ref(consentGlob.isGranted)
 const reasons = ref([])
 const sent = ref(false)
 const errorMessage = ref('')
 
 // ▼ Текст-пояснение над формой. Приходит из RegisteringView через
-//   ?errorText=... — например, «Уважаемый пользователь просим вас
-//   ниже описать причину...». НЕ попадает в textarea (пользователь
-//   должен сам написать текст).
+//   ?errorText=... — НЕ в textarea, пользователь должен сам написать текст.
 const errorText = ref('')
 
 const ticketId = ref(null)
@@ -157,7 +183,11 @@ const estimatedMinutes = ref(60)
 
 const uid = ref('')
 const hasUid = computed(() => !!uid.value)
-const canSubmit = computed(() => text.value.trim().length > 0)
+
+// Кнопка «Отправить» — только при наличии текста и согласии ПД
+const canSubmit = computed(
+  () => text.value.trim().length > 0 && consent.value
+)
 
 // ── Видимость чекбоксов по способу запуска ─────────────────────
 const showShortcutReason = computed(() => !isInstalled.value)
@@ -177,6 +207,10 @@ const effectiveReasons = computed(() =>
 const showWarning = computed(
   () => showThirdPartyReason.value && reasons.value.includes('third_party_browser')
 )
+
+function toggleConsent() {
+  consent.value = !consent.value
+}
 
 function toggleReason(key) {
   const idx = reasons.value.indexOf(key)
@@ -203,11 +237,18 @@ function mapError(code, fallback, retryAfterSec) {
   if (code === 'RATE_LIMITED') {
     return 'Слишком много запросов. Попробуйте снова через час.'
   }
+  if (code === 'NETWORK') {
+    // code: 'NETWORK' ставится в store.js для ЛЮБОЙ ошибки в catch —
+    // включая локальные (например, «фото больше 3 МБ»). Если fallback.message
+    // осмысленный (не OFFLINE/TIMEOUT/HTTP xxx) — возвращаем его как есть.
+    const msg = String(fallback || '').trim()
+    if (msg && msg !== 'OFFLINE' && msg !== 'TIMEOUT' && !/^HTTP\s+\d+/i.test(msg)) {
+      return msg
+    }
+    return 'Нет соединения с интернетом. Проверьте сеть и попробуйте снова.'
+  }
   if (code === 'ERROR') {
     return fallback || 'Не удалось отправить. Проверьте данные и попробуйте снова.'
-  }
-  if (code === 'NETWORK') {
-    return 'Нет соединения с интернетом. Проверьте сеть и попробуйте снова.'
   }
   return fallback || 'Ошибка отправки'
 }
@@ -220,13 +261,14 @@ async function submit() {
 
   const result = await store.createResetUidTicket({
     text: text.value,
-    images: [],
+    images: images.value,
     uid: uid.value,
     reasons: visibleReasons,
     meta: {
       SOURCE: String(route.query.source || 'registering'),
       ORIGINAL_AUTH_ERROR: String(route.query.auth_error || '') || null,
       IS_STANDALONE: isInstalled.value,
+      CONSENT_GRANTED: consent.value,
     },
   })
 
@@ -236,6 +278,8 @@ async function submit() {
     estimatedMinutes.value = result.estimatedMinutes || 60
     sent.value = true
     text.value = ''
+    images.value = []
+    consent.value = false
     reasons.value = []
     return
   }
@@ -260,12 +304,7 @@ onMounted(() => {
   uid.value = (rawUid && rawUid !== 'неизвестно') ? rawUid : ''
 
   // ▼ errorText — в subtitle над формой, НЕ в textarea.
-  //   Приходит из RegisteringView через ?errorText=...
   errorText.value = String(route.query.errorText || '').trim()
-
-  // ▼ textarea всегда пустая — пользователь пишет сам.
-  //   Раньше здесь был `if (route.query.text) { text.value = ... }`,
-  //   но по договорённости текст-инструкция идёт в subtitle, а не в поле ввода.
 })
 </script>
 
@@ -413,6 +452,62 @@ onMounted(() => {
   text-wrap: balance;
 }
 
+/* ── Согласие на ПД (как в SupportView) ── */
+.consent-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 16px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg, #fff);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  outline: none;
+  transition: transform var(--t-fast), border-color var(--t-fast), box-shadow var(--t-fast), background var(--t-fast);
+}
+.consent-card:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-1);
+}
+.consent-card:focus-visible {
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.consent-card.selected {
+  border-color: #015f01;
+  box-shadow: 0 0 0 1px var(--accent-soft);
+}
+
+.consent-check {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #d1efea;
+  color: #fff;
+  display: grid;
+  place-items: center;
+  transition: background var(--t-base), color var(--t-base);
+}
+.consent-card.selected .consent-check {
+  background: #015f01;
+  color: #D3FF4F;
+}
+
+.consent-text {
+  font-family: var(--font-family);
+  font-size: 14.5px;
+  line-height: 1.35;
+  color: #21271f;
+  font-weight: 500;
+  transition: color var(--t-fast);
+}
+.consent-card.selected .consent-text {
+  color: #015f01;
+  font-weight: 600;
+}
+
 /* ── Blocked (нет UID) ── */
 .blocked-card {
   display: grid;
@@ -484,5 +579,9 @@ onMounted(() => {
   border-radius: 10px;
   border: 1px solid #FCD9D6;
   line-height: 1.4;
+}
+
+@media (max-width: 420px) {
+  .consent-text { font-size: 14px; }
 }
 </style>

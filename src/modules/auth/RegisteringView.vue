@@ -15,7 +15,7 @@
 
       <template v-else-if="auth.error === 'UID_TAKEN'">
         <div class="gate-icon" aria-hidden="true">📱</div>
-        <h1>Этот профиль уже используется</h1>
+        <h1>этот профиль уже используется</h1>
         <p class="muted">
           Этот код доступа уже активирован на другом устройстве. 
           Если вы сменили устройство или вам просто не удается зайти в приложение - восстановите доступ через администратора.
@@ -30,13 +30,13 @@
 
       <template v-else-if="auth.error === 'DEVICE_ROTATED'">
         <div class="gate-icon" aria-hidden="true">🔄</div>
-        <h1>Устройство переустановлено</h1>
+        <h1>устройство переустановлено</h1>
         <p class="muted">
           Этот код доступа уже привязан к другому устройству.
           Если вы сменили телефон — восстановите доступ через администратора.
         </p>
         <button type="button" class="btn btn-primary btn-center mt-12" @click="goToSupport('DEVICE_ROTATED')">
-          Восстановить доступ
+          восстановить
         </button>
         <button type="button" class="btn btn-secondary btn-center mt-8" @click="goAccessError">
           Понятно
@@ -45,10 +45,10 @@
 
       <template v-else-if="auth.error === 'UID_NOT_FOUND'">
         <div class="gate-icon" aria-hidden="true">❓</div>
-        <h1>Код не распознан</h1>
+        <h1>код не распознан</h1>
         <p class="muted">Код доступа не найден на сервере. Откройте персональную ссылку из корпоративного канала Х5.</p>
         <button type="button" class="btn btn-primary btn-center mt-12" @click="goToSupport('UID_NOT_FOUND')">
-          Восстановить доступ
+          восстановить
         </button>
         <button type="button" class="btn btn-secondary btn-center mt-8" @click="goAccessError">
           Понятно
@@ -57,7 +57,7 @@
 
       <template v-else-if="auth.error === 'RATE_LIMITED'">
         <div class="gate-icon" aria-hidden="true">⏳</div>
-        <h1>Слишком много попыток</h1>
+        <h1>слишком много попыток</h1>
         <p class="muted">{{ auth.error }}</p>
         <button type="button" class="btn btn-primary btn-center mt-12" :disabled="auth.registering" @click="retry">
           {{ auth.registering ? 'Пробуем снова…' : 'Повторить' }}

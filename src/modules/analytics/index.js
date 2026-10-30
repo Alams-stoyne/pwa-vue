@@ -56,7 +56,6 @@ function isNoiseError(message, filename = '', lineno = 0, { checkLocation = true
   const f = String(filename || '')
 
   // 1. «Script error.» — браузер скрыл детали (CORS/iframe/расширение).
-  //    Ловим с точкой и без, с возможными пробелами.
   if (/^script error\.?$/i.test(m)) return true
 
   // 2. Скрипты расширений браузера
@@ -75,8 +74,8 @@ function isNoiseError(message, filename = '', lineno = 0, { checkLocation = true
   //    и если применить эти проверки — отфильтруются все реальные
   //    ошибки промисов.
   if (checkLocation) {
-    if (!f) return true                                // ← пустой filename
-    if (!Number.isFinite(lineno) || lineno <= 0) return true  // ← lineno=0
+    if (!f) return true
+    if (!Number.isFinite(lineno) || lineno <= 0) return true
   }
 
   return false
@@ -190,6 +189,11 @@ export function init() {
   // ── app_error: unhandledrejection ─────────────────────────
   // У промисов нет filename/lineno — поэтому checkLocation: false.
   // Иначе отфильтруются ВСЕ реальные ошибки промисов.
+  //
+  // ВАЖНО: добавляем stack и reasonName. Минифицированные имена (D, e, t)
+  // сами по себе бесполезны — но стек содержит имена функций до минификации
+  // (updateSW, getSubscription и т.п.) и hash-файл. По ним локализуем баг
+  // без sourcemap.
   window.addEventListener('unhandledrejection', (e) => {
     const r = e?.reason
     const message = String(r?.message || r || '')
@@ -199,11 +203,16 @@ export function init() {
       return
     }
 
+    const stack = String(r?.stack || '').slice(0, 800)
+    const reasonName = String(r?.name || '').slice(0, 80)
+
     track(EVT.APP_ERROR, {
       message: message.slice(0, 300),
       kind: 'unhandledrejection',
       lastScreen: readLS(LS_LAST_SCREEN, '') || '',
       platform: detectPlatform(),
+      stack,
+      reasonName,
     })
   })
 

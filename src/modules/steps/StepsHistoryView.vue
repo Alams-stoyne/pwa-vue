@@ -165,7 +165,7 @@ const canUpload = computed(() => {
   const n = Number(uploadSteps.value)
   return (
     Number.isFinite(n) &&
-    n >= 0 &&
+    n >= 1 &&
     n <= MAX_STEPS &&
     selectedFile.value !== null &&
     canSubmitWithConsent.value

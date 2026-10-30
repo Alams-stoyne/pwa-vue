@@ -101,7 +101,7 @@ const canSubmit = computed(() => {
   const n = Number(steps.value)
   return (
     Number.isFinite(n) &&
-    n >= 0 &&
+    n >= 1 &&
     n <= MAX_STEPS &&
     localConsent.value
   )

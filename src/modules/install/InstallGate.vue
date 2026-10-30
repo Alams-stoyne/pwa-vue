@@ -3,7 +3,6 @@
 
     <header class="head_install text-center">
       <div class="title color-text-stroke">присоединяйтесь к неделе здоровья</div>
-      <!-- <div class="subtitle">Это займёт несколько секунд</div> -->
       <div class="text">
         <p>Когда задач становится больше, важно сохранять эффективность и находить способы справляться с нагрузкой без потери энергии. Именно этому посвящена Неделя здоровья и безопасности в Х5.</p>
         <p>с 26 по 30 октября вас ждут полезные активности о том, как поддерживать себя, эффективнее организовывать работу и сохранять баланс в течение дня</p>
@@ -46,8 +45,8 @@
           </svg>
         </div>
         <div class="hint_info">
-          <div class="hint_info_title"> <b>Android • Chrome</b></div>
-          <div class="hint_info_text">нажмите кнопку установки и подтвердите действие</div>
+          <div class="hint_info_title"><b>Android • Chrome</b></div>
+          <div class="hint_info_text">Меню <svg width="4" height="14" viewBox="0 0 4 14" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 2C4 3.10457 3.10457 4 2 4C0.89543 4 0 3.10457 0 2C0 0.89543 0.89543 0 2 0C3.10457 0 4 0.89543 4 2Z" fill="black"/><path d="M4 7C4 8.10457 3.10457 9 2 9C0.89543 9 0 8.10457 0 7C0 5.89543 0.89543 5 2 5C3.10457 5 4 5.89543 4 7Z" fill="black"/><path d="M4 12C4 13.1046 3.10457 14 2 14C0.89543 14 0 13.1046 0 12C0 10.8954 0.89543 10 2 10C3.10457 10 4 10.8954 4 12Z" fill="black"/></svg> → «Установить и создать ярлык»</div>
         </div>  
       </div>
 
@@ -64,7 +63,7 @@
         </div>
         <div class="hint_info">
           <div class="hint_info_title"><b>Desktop • Chrome / Edge</b></div>
-          <div class="hint_info_text">нажмите кнопку установки и подтвердите действие</div>
+          <div class="hint_info_text">Иконка <svg width="17" height="17" viewBox="0 0 17 17" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8.79883 7.60156H16.3994V16.4004H0V0H8.79883V7.60156ZM1.19824 15.2021H7.60156V8.79883H1.19824V15.2021ZM8.79883 15.2021H15.2021V8.79883H8.79883V15.2021ZM1.19824 7.60156H7.60156V1.19824H1.19824V7.60156Z" fill-rule="evenodd" clip-rule="evenodd" fill="#21271F"/> <path d="M10.2021 4.02945V3.25143H12.1369V1.3064H12.9457V3.25143H14.9009V4.02945H12.9457V5.99496H12.1369V4.02945H10.2021Z" fill="#21271F"/></svg> в адресной строке</div>
         </div>  
       </div>
 
