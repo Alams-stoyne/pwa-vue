@@ -48,8 +48,17 @@ function isActive({ match }) {
 
 onMounted(() => {
   theme.load()
-  lectures.initNetworkWatcher()
-  if (theme.hasTheme && !lectures.loadedTheme) lectures.loadAll()
+  // initNetworkWatcher → init() → loadAll + фоновые sync'и. Внутри init
+  // всё обёрнуто в .catch()/try-catch, но onMounted без .catch на случай
+  // непредвиденного reject от самого init().
+  lectures.initNetworkWatcher()?.catch((e) => {
+    console.warn('[nav] lectures.init failed:', e)
+  })
+  if (theme.hasTheme && !lectures.loadedTheme) {
+    lectures.loadAll().catch((e) => {
+      console.warn('[nav] lectures.loadAll failed:', e)
+    })
+  }
 })
 </script>
 
@@ -73,6 +82,4 @@ onMounted(() => {
   justify-items: center;
   z-index: 50;
 }
-
-
 </style>

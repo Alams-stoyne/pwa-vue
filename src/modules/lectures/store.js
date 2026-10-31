@@ -105,13 +105,22 @@ export const useLecturesStore = defineStore('lectures', {
         console.warn('[lectures] cleanup failed:', e)
       }
 
+      // loadAll сам ловит ошибки внутри (try/catch), не бросит наружу.
       await this.loadAll()
-      this.syncFromServer()
-      setTimeout(() => this.syncMissingPhotos(), 4000)
+      this.syncFromServer().catch(() => {})
+      setTimeout(() => {
+        this.syncMissingPhotos().catch(() => {})
+      }, 4000)
     },
 
+    /**
+     * Возвращает Promise — чтобы вызывающий мог .catch() при
+     * необходимости. Внутри init уже ловит свои ошибки, но
+     * onMounted(lectures.initNetworkWatcher()) без .catch всё равно
+     * не должен давать unhandledrejection.
+     */
     initNetworkWatcher() {
-      this.init()
+      return this.init()
     },
 
     async onThemeChanged() {
@@ -128,7 +137,6 @@ export const useLecturesStore = defineStore('lectures', {
       watch(
         () => period.range.value,
         (newRange, oldRange) => {
-          // Период появился / изменился — перезагружаем с фильтром
           if (!newRange) return
           const same = oldRange
             && oldRange.from === newRange.from
@@ -144,10 +152,12 @@ export const useLecturesStore = defineStore('lectures', {
       _netWatched = true
       window.addEventListener('online', () => {
         this.online = true
-        this.flushReadQueue()
-        this.loadAll({ force: true })
-        this.syncFromServer({ force: true })
-        this.syncMissingPhotos()
+        // Все фоновые вызовы — с .catch(), чтобы unhandledrejection
+        // от IDB / сети не долетал до analytics.
+        this.flushReadQueue().catch(() => {})
+        this.loadAll({ force: true }).catch(() => {})
+        this.syncFromServer({ force: true }).catch(() => {})
+        this.syncMissingPhotos().catch(() => {})
       })
       window.addEventListener('offline', () => { this.online = false })
     },
@@ -155,115 +165,133 @@ export const useLecturesStore = defineStore('lectures', {
     _startTimer() {
       if (_timer) return
       _timer = setInterval(() => {
-        this.loadAll()
-        this.syncFromServer()
-        this.syncMissingPhotos()
+        this.loadAll().catch(() => {})
+        this.syncFromServer().catch(() => {})
+        this.syncMissingPhotos().catch(() => {})
       }, HOUR)
     },
 
     async loadAll({ force = false } = {}) {
-      const theme = useThemeStore()
-      const themeId = theme.selected
-      if (!themeId) return
+      // Общий try/catch: IDB может быть закрыт браузером (iOS PWA),
+      // cleanup/persistLecture могут бросить «connection is closing».
+      // Не роняем приложение — db.js сам пересоздаст соединение
+      // при следующем вызове.
+      try {
+        const theme = useThemeStore()
+        const themeId = theme.selected
+        if (!themeId) return
 
-      const period = usePeriod()
-      const today = localDate()
+        const period = usePeriod()
+        const today = localDate()
 
-      // Fail-open: если период ещё не загружен — грузим без фильтра.
-      // Фильтрацию применим, когда период появится (через watch).
-      const inPeriod = (dateIso) => {
-        if (!period.range.value) return true
-        return period.isInPeriod(dateIso)
-      }
+        // Fail-open: если период ещё не загружен — грузим без фильтра.
+        const inPeriod = (dateIso) => {
+          if (!period.range.value) return true
+          return period.isInPeriod(dateIso)
+        }
 
-      if (!inPeriod(today)) {
-        this.generalList = []
-        this.themeList = []
-        this.chargingList = []
+        if (!inPeriod(today)) {
+          this.generalList = []
+          this.themeList = []
+          this.chargingList = []
+          this.loadedTheme = themeId
+          this.loadedDate = today
+          this.loading = false
+          this.refreshing = false
+          this.error = null
+          return
+        }
+
+        const hourPassed = Date.now() - this.lastSyncAt >= HOUR
+        const sameTheme = this.loadedTheme === themeId
+        const sameDate = this.loadedDate === today
+        const hasData =
+          this.generalList.length + this.themeList.length + this.chargingList.length > 0
+
+        if (!force && !hourPassed && sameTheme && sameDate && hasData) {
+          this.error = null
+          return
+        }
+
+        const isItemInPeriod = (l) => !l.publishedDate || inPeriod(l.publishedDate)
+
+        const [gC, tC, chC] = await Promise.all([
+          idbLecturesByBucket('lecture-general',    { onlyDate: today }),
+          idbLecturesByBucket(`lecture-${themeId}`, { onlyDate: today }),
+          idbLecturesByBucket('lecture-charging',   { onlyDate: today }),
+        ])
+        this.generalList = gC.filter(isItemInPeriod)
+        this.themeList = tC.filter(isItemInPeriod)
+        this.chargingList = chC.filter(isItemInPeriod)
         this.loadedTheme = themeId
         this.loadedDate = today
-        this.loading = false
-        this.refreshing = false
-        this.error = null
-        return
-      }
 
-      const hourPassed = Date.now() - this.lastSyncAt >= HOUR
-      const sameTheme = this.loadedTheme === themeId
-      const sameDate = this.loadedDate === today
-      const hasData =
-        this.generalList.length + this.themeList.length + this.chargingList.length > 0
+        const total = this.generalList.length + this.themeList.length + this.chargingList.length
 
-      if (!force && !hourPassed && sameTheme && sameDate && hasData) {
-        this.error = null
-        return
-      }
-
-      const isItemInPeriod = (l) => !l.publishedDate || inPeriod(l.publishedDate)
-
-      const [gC, tC, chC] = await Promise.all([
-        idbLecturesByBucket('lecture-general',    { onlyDate: today }),
-        idbLecturesByBucket(`lecture-${themeId}`, { onlyDate: today }),
-        idbLecturesByBucket('lecture-charging',   { onlyDate: today }),
-      ])
-      this.generalList = gC.filter(isItemInPeriod)
-      this.themeList = tC.filter(isItemInPeriod)
-      this.chargingList = chC.filter(isItemInPeriod)
-      this.loadedTheme = themeId
-      this.loadedDate = today
-
-      const total = this.generalList.length + this.themeList.length + this.chargingList.length
-
-      if (isOffline()) {
-        this.online = false
-        this.loading = false
-        this.refreshing = false
-        this.error = total ? null : 'OFFLINE_EMPTY'
-        return
-      }
-
-      this.online = true
-      this.loading = total === 0
-      this.refreshing = total > 0
-      this.error = null
-
-      const jobs = [
-        { bucket: 'lecture-general',    fetcher: () => fetchGeneralLectures(today) },
-        { bucket: `lecture-${themeId}`, fetcher: () => fetchThemeLectures(themeId, today) },
-        { bucket: 'lecture-charging',   fetcher: () => fetchChargingLectures(today) },
-      ]
-
-      let anySuccess = false
-      await Promise.all(jobs.map(async ({ bucket, fetcher }) => {
-        try {
-          const items = await fetcher()
-          await cleanupLectures(bucket, today, items)
-          for (const it of items) await persistLecture(bucket, it, today)
-          anySuccess = true
-        } catch (err) {
-          if (err?.message?.includes('404')) {
-            await deleteLecturesByBucketDate(bucket, today)
-            anySuccess = true
-          }
+        if (isOffline()) {
+          this.online = false
+          this.loading = false
+          this.refreshing = false
+          this.error = total ? null : 'OFFLINE_EMPTY'
+          return
         }
-      }))
 
-      if (anySuccess) {
-        this.lastSyncAt = Date.now()
-        try { localStorage.setItem(LS_LAST_TIME, String(this.lastSyncAt)) } catch {}
+        this.online = true
+        this.loading = total === 0
+        this.refreshing = total > 0
+        this.error = null
+
+        const jobs = [
+          { bucket: 'lecture-general',    fetcher: () => fetchGeneralLectures(today) },
+          { bucket: `lecture-${themeId}`, fetcher: () => fetchThemeLectures(themeId, today) },
+          { bucket: 'lecture-charging',   fetcher: () => fetchChargingLectures(today) },
+        ]
+
+        let anySuccess = false
+        await Promise.all(jobs.map(async ({ bucket, fetcher }) => {
+          try {
+            const items = await fetcher()
+            await cleanupLectures(bucket, today, items)
+            for (const it of items) await persistLecture(bucket, it, today)
+            anySuccess = true
+          } catch (err) {
+            if (err?.message?.includes('404')) {
+              try {
+                await deleteLecturesByBucketDate(bucket, today)
+              } catch (cleanupErr) {
+                console.warn('[lectures] cleanup on 404 failed:', cleanupErr)
+              }
+              anySuccess = true
+            } else {
+              console.warn(`[lectures] loadAll job (${bucket}) failed:`, err)
+            }
+          }
+        }))
+
+        if (anySuccess) {
+          this.lastSyncAt = Date.now()
+          try { localStorage.setItem(LS_LAST_TIME, String(this.lastSyncAt)) } catch {}
+        }
+
+        const [g, t, ch] = await Promise.all([
+          idbLecturesByBucket('lecture-general',    { onlyDate: today }),
+          idbLecturesByBucket(`lecture-${themeId}`, { onlyDate: today }),
+          idbLecturesByBucket('lecture-charging',   { onlyDate: today }),
+        ])
+        this.generalList = g.filter(isItemInPeriod)
+        this.themeList = t.filter(isItemInPeriod)
+        this.chargingList = ch.filter(isItemInPeriod)
+
+        this.loading = false
+        this.refreshing = false
+      } catch (e) {
+        // IDB закрылся (iOS PWA) или другая ошибка — не роняем.
+        // db.js пересоздаст соединение при следующем вызове.
+        console.warn('[lectures] loadAll failed:', e)
+        this.loading = false
+        this.refreshing = false
+        this.error = e?.message || 'Ошибка загрузки'
       }
-
-      const [g, t, ch] = await Promise.all([
-        idbLecturesByBucket('lecture-general',    { onlyDate: today }),
-        idbLecturesByBucket(`lecture-${themeId}`, { onlyDate: today }),
-        idbLecturesByBucket('lecture-charging',   { onlyDate: today }),
-      ])
-      this.generalList = g.filter(isItemInPeriod)
-      this.themeList = t.filter(isItemInPeriod)
-      this.chargingList = ch.filter(isItemInPeriod)
-
-      this.loading = false
-      this.refreshing = false
     },
 
     async refresh() {
@@ -318,8 +346,14 @@ export const useLecturesStore = defineStore('lectures', {
               dayOk = true
             } catch (err) {
               if (err?.message?.includes('404')) {
-                await deleteLecturesByBucketDate(bucket, date)
+                try {
+                  await deleteLecturesByBucketDate(bucket, date)
+                } catch (cleanupErr) {
+                  console.warn('[lectures] syncArchive cleanup failed:', cleanupErr)
+                }
                 dayOk = true
+              } else {
+                console.warn(`[lectures] syncArchive job (${bucket}, ${date}) failed:`, err)
               }
             }
           }))
@@ -329,7 +363,11 @@ export const useLecturesStore = defineStore('lectures', {
         this.lastArchiveSyncAt = Date.now()
         try { localStorage.setItem(LS_ARCHIVE_TIME, String(this.lastArchiveSyncAt)) } catch {}
 
-        await this.loadArchive()
+        try {
+          await this.loadArchive()
+        } catch (e) {
+          console.warn('[lectures] loadArchive after sync failed:', e)
+        }
 
         return { added, days: daysOk, skipped: false, error: null }
       } catch (e) {
@@ -340,12 +378,18 @@ export const useLecturesStore = defineStore('lectures', {
     },
 
     async loadArchive() {
-      const period = usePeriod()
-      const all = await idbAllLectures()
-      this.archiveList = period.range.value
-        ? all.filter((l) => !l.publishedDate || period.isInPeriod(l.publishedDate))
-        : all
-      return this.archiveList
+      try {
+        const period = usePeriod()
+        const all = await idbAllLectures()
+        this.archiveList = period.range.value
+          ? all.filter((l) => !l.publishedDate || period.isInPeriod(l.publishedDate))
+          : all
+        return this.archiveList
+      } catch (e) {
+        console.warn('[lectures] loadArchive failed:', e)
+        this.archiveList = this.archiveList || []
+        return this.archiveList
+      }
     },
 
     async syncMissingPhotos() {
@@ -431,7 +475,6 @@ export const useLecturesStore = defineStore('lectures', {
       if (publishedDate !== localDate()) return { done: false, reason: 'NOT_TODAY' }
 
       const period = usePeriod()
-      // Fail-open: если период не загружен — не блокируем.
       if (period.range.value && !period.isInPeriod(publishedDate)) {
         return { done: false, reason: 'OUT_OF_PERIOD' }
       }

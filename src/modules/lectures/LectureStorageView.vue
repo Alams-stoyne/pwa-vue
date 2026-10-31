@@ -270,25 +270,35 @@ async function syncAllThemes() {
   }
 }
 
+// ▼ ИСПРАВЛЕНО: onMounted в try/catch + .catch() на syncMissingPhotos.
+//   iOS PWA может закрыть IDB — без обёртки был unhandledrejection.
 onMounted(async () => {
   setBackground({ url: '/backgrounds/bg_frame.jpg' })
   theme.load()
-  await reload()
-  loading.value = false
 
-  if (route.query.filter) filter.value = route.query.filter
-
-  if (store.online) {
-    await store.syncFromServer({ force: true })
+  try {
     await reload()
+    loading.value = false
 
-    const diff = Date.now() - store.lastArchiveSyncAt
-    if (diff > 60 * 60 * 1000) {
-      await store.syncArchive({ days: 7, allThemes: true })
+    if (route.query.filter) filter.value = route.query.filter
+
+    if (store.online) {
+      await store.syncFromServer({ force: true })
       await reload()
-    }
 
-    store.syncMissingPhotos()
+      const diff = Date.now() - store.lastArchiveSyncAt
+      if (diff > 60 * 60 * 1000) {
+        await store.syncArchive({ days: 7, allThemes: true })
+        await reload()
+      }
+
+      store.syncMissingPhotos().catch(() => {})
+    }
+  } catch (e) {
+    // IDB закрылся (iOS PWA) — страница покажет то, что уже было в items.
+    // db.js пересоздаст соединение при следующем вызове.
+    console.warn('[storage] onMounted failed:', e)
+    loading.value = false
   }
 })
 

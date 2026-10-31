@@ -14,7 +14,6 @@
       <div class="grid-stat">
         <div class="apples-row">
           <span class="apples-label">у вас:</span>
-          <!-- ▼ Клик → экран «За что получили яблоки» ▼ -->
           <router-link
             to="/stats/rewards"
             class="btn-badge"
@@ -66,7 +65,6 @@
       </div>
     </section>
 
-    <!-- ▼ Общая — обёрнута для pull-to-refresh ▼ -->
     <div v-show="tab === 'global'" class="global-wrap">
       <div
         class="pull-indicator"
@@ -98,7 +96,7 @@
           <div class="apples-row">
             <span class="apples-label">общее количество яблок:</span>
 
-            <!-- ▼ КЛИКАБЕЛЬНЫЙ БЕЙДЖ: обновление global с CDN ▼ -->
+            <!-- ▼ ЕДИНСТВЕННЫЙ клик в global: обновление всего блока ▼ -->
             <div
               class="btn-badge"
               :class="{ 'is-loading': isLoadingGlobal }"
@@ -111,7 +109,12 @@
               @keydown.enter.prevent="refreshGlobal"
               @keydown.space.prevent="refreshGlobal"
             >
-              {{ formatNum(globalProgress.TOTAL_APPLES) }}
+              <AnimatedNumber
+                :value="globalProgress.TOTAL_APPLES"
+                :restart-key="stepsRestartKey"
+                mode="count"
+                :duration="2000"
+              />
               <span v-if="isLoadingGlobal" class="badge-spinner" aria-hidden="true">↻</span>
               <span class="apple"><AppIcon name="apple" :size="24" /></span>
             </div>
@@ -120,7 +123,14 @@
           <div class="card stat-card">
             <div class="info">
               <div class="sc-icon"><AppIcon name="user" :size="24" /></div>
-              <div class="sc-value">+{{ formatNum(globalProgress.TOTAL_USERS) }}</div>
+              <div class="sc-value">
+                +<AnimatedNumber
+                  :value="globalProgress.TOTAL_USERS"
+                  :restart-key="stepsRestartKey"
+                  mode="count"
+                  :duration="900"
+                />
+              </div>
             </div>
             <div class="sc-label">участников присоединилось</div>
           </div>
@@ -129,7 +139,14 @@
             <div class="card stat-card">
               <div class="info">
                 <div class="sc-icon"><AppIcon name="book" :size="24" /></div>
-                <div class="sc-value">{{ formatNum(globalProgress.LECTURES_READ) }}</div>
+                <div class="sc-value">
+                  <AnimatedNumber
+                    :value="globalProgress.LECTURES_READ"
+                    :restart-key="stepsRestartKey"
+                    mode="count"
+                    :duration="900"
+                  />
+                </div>
               </div>
               <div class="sc-label">просмотрено лекций</div>
             </div>
@@ -137,7 +154,14 @@
             <div class="card stat-card">
               <div class="info">
                 <div class="sc-icon"><AppIcon name="tasks" :size="24" /></div>
-                <div class="sc-value">{{ formatNum(globalProgress.TASKS_DONE) }}</div>
+                <div class="sc-value">
+                  <AnimatedNumber
+                    :value="globalProgress.TASKS_DONE"
+                    :restart-key="stepsRestartKey"
+                    mode="count"
+                    :duration="900"
+                  />
+                </div>
               </div>
               <div class="sc-label">выполнено практик</div>
             </div>
@@ -145,15 +169,31 @@
             <div class="card stat-card">
               <div class="info">
                 <div class="sc-icon"><AppIcon name="juice" :size="24" /></div>
-                <div class="sc-value">{{ formatNum(globalProgress.HABITS_DAYS) }}</div>
+                <div class="sc-value">
+                  <AnimatedNumber
+                    :value="globalProgress.HABITS_DAYS"
+                    :restart-key="stepsRestartKey"
+                    mode="count"
+                    :duration="900"
+                  />
+                </div>
               </div>
               <div class="sc-label">общее кол-во дней привычки</div>
             </div>
 
+            <!-- ▼ STEPS: count-анимация. Перезапуск с 0 при каждом
+                 refreshGlobal (клик на бейдж яблок). ▼ -->
             <div class="card stat-card">
               <div class="info">
                 <div class="sc-icon"><AppIcon name="steps" :size="24" /></div>
-                <div class="sc-value">{{ formatNum(globalProgress.STEPS_CONFIRMED) }}</div>
+                <div class="sc-value">
+                  <AnimatedNumber
+                    :value="globalProgress.STEPS_CONFIRMED_TOTAL"
+                    :restart-key="stepsRestartKey"
+                    mode="count"
+                    :duration="900"
+                  />
+                </div>
               </div>
               <div class="sc-label">подтверждено шагов за период марафона</div>
             </div>
@@ -205,6 +245,7 @@ import { useStatsStore } from './store'
 import { useLimits } from '../core/limits'
 import { usePullToRefresh } from '../core/composables/usePullToRefresh'
 import AppIcon from '../../components/AppIcon.vue'
+import AnimatedNumber from '../../components/AnimatedNumber.vue'
 import { useAppBackground } from '../core/composables/useAppBackground'
 
 const { setBackground } = useAppBackground()
@@ -224,8 +265,20 @@ const personal = computed(() => {
   }
 })
 
-const globalProgress = computed(() => store.global?.GLOBAL_PROGRESS || {
-  TOTAL_APPLES: 0, TOTAL_USERS: 0, LECTURES_READ: 0, TASKS_DONE: 0, HABITS_DAYS: 0, STEPS_CONFIRMED: 0
+const globalProgress = computed(() => {
+  const g = store.global?.GLOBAL_PROGRESS || {}
+  return {
+    TOTAL_APPLES: g.TOTAL_APPLES || 0,
+    TOTAL_USERS: g.TOTAL_USERS || 0,
+    LECTURES_READ: g.LECTURES_READ || 0,
+    TASKS_DONE: g.TASKS_DONE || 0,
+    HABITS_DAYS: g.HABITS_DAYS || 0,
+    STEPS_CONFIRMED: g.STEPS_CONFIRMED || 0,
+    STEPS_CONFIRMED_TOTAL:
+      (g.STEPS_CONFIRMED_TOTAL != null)
+        ? g.STEPS_CONFIRMED_TOTAL
+        : (g.STEPS_CONFIRMED || 0),
+  }
 })
 
 const companiesList = computed(() => store.companiesList)
@@ -257,6 +310,8 @@ const {
       store.fetchPersonal({ force: true }),
       store.fetchGlobal({ force: true }),
     ])
+    // Pull-to-refresh тоже рестартит анимацию шагов с 0
+    stepsRestartKey.value++
   },
   {
     threshold: 70,
@@ -265,17 +320,33 @@ const {
   },
 )
 
-// ── Клик по яблокам в global → обновить global с CDN ───────
+// ── Общее состояние загрузки global ────────────────────────
 const isLoadingGlobal = computed(
   () => store.loadingGlobal || isRefreshing.value,
 )
 
+// ── Рестарт анимации шагов (0 → value) ─────────────────────
+const stepsRestartKey = ref(0)
+
+// ── Обновление global (единственный клик) ──────────────────
+// Клик на бейдж яблок → fetchGlobal({ force: true }).
+// При успехе — stepsRestartKey++ → STEPS_CONFIRMED_TOTAL
+// пересчитывается с 0. Остальные поля переходят «старое → новое»
+// через mode='bump'.
 async function refreshGlobal() {
   if (isLoadingGlobal.value) return
-  // force: true — обходит guard по TTL и всегда идёт в сеть.
-  // fetchGlobalStats в api.js использует cache: 'no-store' —
-  // обходит HTTP-кеш браузера.
+
+  // Запоминаем момент успешного обновления ДО запроса.
+  // store.fetchGlobal обновляет times.lastGlobal только при успехе.
+  const before = store.times?.lastGlobal || 0
+
   await store.fetchGlobal({ force: true })
+
+  // Если lastGlobal сдвинулся — запрос прошёл, данные перезаписаны.
+  // Рестартим анимацию шагов с 0.
+  if ((store.times?.lastGlobal || 0) > before) {
+    stepsRestartKey.value++
+  }
 }
 
 onMounted(() => {
@@ -305,7 +376,6 @@ onBeforeUnmount(() => {
   gap: 32px;
 }
 
-/* ▼ Обёртка для pull-to-refresh ▼ */
 .global-wrap {
   position: relative;
   overflow: hidden;
@@ -313,7 +383,6 @@ onBeforeUnmount(() => {
   border-radius: 14px;
 }
 
-/* ▼ Индикатор pull-to-refresh ▼ */
 .pull-indicator {
   position: absolute;
   top: 0;
@@ -358,7 +427,6 @@ onBeforeUnmount(() => {
   to { transform: rotate(360deg); }
 }
 
-/* ▼ Плавный возврат, но без transition при активном pull ▼ */
 .pane.global {
   position: relative;
   display: grid;
@@ -415,7 +483,6 @@ onBeforeUnmount(() => {
   color: var(--txt-black-dark-green);
 }
 
-/* ▼ Кликабельный badge в global ▼ */
 .btn-badge--clickable {
   cursor: pointer;
   user-select: none;
@@ -513,32 +580,13 @@ onBeforeUnmount(() => {
   text-transform: lowercase;
   text-wrap: balance;
   color: var(--txt-black-dark-green);
+  display: inline-flex;
+  align-items: center;
 }
 .sc-label {
   font-size: 12.5px;
   color: var(--txt-black-dark-green);
   line-height: 1.3;
-}
-
-.rules-btn {
-  width: 100%;
-  text-align: center;
-  text-transform: lowercase;
-  font-weight: 600;
-  border-color: #015F01;
-  color: #015F01;
-  padding: 16px;
-  border-radius: 100px;
-}
-
-.alert-banner {
-  background: #D3FF4F;
-  color: #015F01;
-  padding: 12px 16px;
-  border-radius: 12px;
-  font-size: 13px;
-  font-weight: 500;
-  line-height: 1.4;
 }
 
 .company-progress-bar-wrap {
@@ -618,16 +666,10 @@ onBeforeUnmount(() => {
   border-radius: 100px;
 }
 
-.mt-16 { margin-top: 16px; }
-.mt-24 { margin-top: 24px; }
-.mt-32 { margin-top: 32px; }
-
 .grid-stat .card {
   border-radius: 14px;
   padding: 16px 10px;
   background: var(--white);
-}
-.grid-stat .card {
   margin: 0;
 }
 .btn-badge svg{

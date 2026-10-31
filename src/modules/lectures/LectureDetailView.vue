@@ -277,9 +277,14 @@ async function load() {
   lecture.value = l
 
   if (l.coverKey) {
-    const blob = await idbGet('photos', l.coverKey)
-    if (blob) coverUrl.value = URL.createObjectURL(blob)
-    else if (l.cover) coverUrl.value = l.cover
+    try {
+      const blob = await idbGet('photos', l.coverKey)
+      if (blob) coverUrl.value = URL.createObjectURL(blob)
+      else if (l.cover) coverUrl.value = l.cover
+    } catch (e) {
+      console.warn('[lecture-detail] cover load failed:', e)
+      if (l.cover) coverUrl.value = l.cover
+    }
   } else if (l.cover) {
     coverUrl.value = l.cover
   }
@@ -292,8 +297,12 @@ async function load() {
     const photoKey = p.key || p.idbKey || p.name
     const photoUrl = p.url || p.src || p.link
     if (photoKey) {
-      const blob = await idbGet('photos', photoKey)
-      if (blob) { urls.push(URL.createObjectURL(blob)); continue }
+      try {
+        const blob = await idbGet('photos', photoKey)
+        if (blob) { urls.push(URL.createObjectURL(blob)); continue }
+      } catch (e) {
+        console.warn('[lecture-detail] photo load failed:', e)
+      }
     }
     if (photoUrl) { urls.push(photoUrl); continue }
     if (!store.online) urls.push(null)
@@ -336,7 +345,14 @@ async function onRead() {
   toast.success('Отмечено как прочитанное')
 }
 
-onMounted(load)
+// ▼ ИСПРАВЛЕНО: load() без .catch() давал unhandledrejection при
+// падении IDB (iOS PWA: «connection is closing»).
+onMounted(() => {
+  load().catch((e) => {
+    console.warn('[lecture-detail] load failed:', e)
+  })
+})
+
 onBeforeUnmount(() => {
   if (coverUrl.value?.startsWith('blob:')) URL.revokeObjectURL(coverUrl.value)
   photoObjectUrls.value.forEach((u) => {
